@@ -19,9 +19,11 @@ The app starts as Administrator.
 
 ## Send to a friend
 
-Run `pack.bat`, then send **Steam Stopper Setup.zip** from the Desktop.
-They unzip it and run `Install.bat`.
+Run `pack.bat`. On the Desktop:
 
-Updates come from [github.com/finyt56/steam-stopper](https://github.com/finyt56/steam-stopper) releases.
+- **SteamStopper.msi** — installer, shortcuts, auto-update
+- **SteamStopper-portable.zip** — unzip and run `SteamStopper.exe` (no install, no auto-update)
+
+Updates for the MSI install come from [github.com/V3rkku1/steam-stopper](https://github.com/V3rkku1/steam-stopper) releases. Attach `dist\SteamStopper.zip` to the GitHub release.
 
 Settings are stored in `%APPDATA%\SteamStopper\settings.json`.

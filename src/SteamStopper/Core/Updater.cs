@@ -57,14 +57,23 @@ public static class Updater
                 return ($"Steam Stopper {Version} is up to date.", null);
 
             string? zipUrl = null;
+            string? fallback = null;
             foreach (var asset in doc.RootElement.GetProperty("assets").EnumerateArray())
             {
                 var name = asset.GetProperty("name").GetString() ?? "";
                 if (!name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) continue;
-                zipUrl = asset.GetProperty("browser_download_url").GetString();
-                if (name.Contains("SteamStopper", StringComparison.OrdinalIgnoreCase) || name.Contains("update", StringComparison.OrdinalIgnoreCase))
+                if (name.Contains("portable", StringComparison.OrdinalIgnoreCase) ||
+                    name.Contains("Setup", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var url = asset.GetProperty("browser_download_url").GetString();
+                if (name.Equals("SteamStopper.zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    zipUrl = url;
                     break;
+                }
+                fallback ??= url;
             }
+            zipUrl ??= fallback;
             if (string.IsNullOrWhiteSpace(zipUrl))
                 return ($"Update {remote} exists but has no zip attached.", null);
 

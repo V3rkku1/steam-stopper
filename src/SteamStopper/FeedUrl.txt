@@ -1,2 +1,2 @@
 # Public GitHub repo that holds Releases for auto-update.
-https://github.com/finyt56/steam-stopper
+https://github.com/V3rkku1/steam-stopper

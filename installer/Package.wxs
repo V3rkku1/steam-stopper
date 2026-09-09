@@ -1,0 +1,80 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Steam Stopper"
+           Manufacturer="Steam Stopper"
+           Version="$(var.Version)"
+           UpgradeCode="b8e91c24-7a4f-4d6e-9c31-2f5a8b0d1746"
+           Scope="perMachine"
+           Compressed="yes">
+    <SummaryInformation Description="Steam Stopper installer" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Steam Stopper is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="..\src\SteamStopper\Assets\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/V3rkku1/steam-stopper" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/V3rkku1/steam-stopper" />
+
+    <Feature Id="Main" Title="Steam Stopper" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="DesktopShortcut" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="SteamStopper" />
+    </StandardDirectory>
+    <StandardDirectory Id="DesktopFolder" />
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="!(bindpath.Publish)\**">
+        <Exclude Files="!(bindpath.Publish)\**\*.pdb" />
+      </Files>
+    </ComponentGroup>
+
+    <Component Id="DesktopShortcut" Directory="DesktopFolder" Guid="e3c91a07-4b2d-4f18-9a55-6d2c8e1b0f44">
+      <Shortcut Name="Steam Stopper"
+                Target="[INSTALLFOLDER]SteamStopper.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon"
+                Advertise="no" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\SteamStopper"
+                     Name="DesktopShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+    <Component Id="StartMenuShortcut" Directory="ProgramMenuFolder" Guid="a14d6c80-2e9f-4b71-8c22-9f0e3a7d5b18">
+      <Shortcut Name="Steam Stopper"
+                Target="[INSTALLFOLDER]SteamStopper.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon"
+                Advertise="no" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\SteamStopper"
+                     Name="StartMenuShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <CustomAction Id="RunEnsureDotNet"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="[System64Folder]cmd.exe /c &quot;[INSTALLFOLDER]EnsureDotNet.bat&quot;"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+    <CustomAction Id="LaunchApp"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="[INSTALLFOLDER]SteamStopper.exe"
+                  Execute="immediate"
+                  Impersonate="yes"
+                  Return="asyncNoWait" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RunEnsureDotNet" After="InstallFiles" Condition="NOT Installed" />
+      <Custom Action="LaunchApp" After="InstallFinalize" Condition="NOT Installed" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>
