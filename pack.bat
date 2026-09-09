@@ -54,12 +54,10 @@ copy /Y "dist\Steam Stopper Setup.zip" "%USERPROFILE%\Desktop\Steam Stopper Setu
 copy /Y "dist\SteamStopper-portable.zip" "%USERPROFILE%\Desktop\SteamStopper-portable.zip" >nul
 
 echo.
-echo Desktop:
-echo   SteamStopper.msi              MSI installer
-echo   SteamStopper-portable.zip     Portable folder
-echo   Steam Stopper Setup.zip       Old unzip + Install.bat
-echo.
-echo GitHub update asset: dist\SteamStopper.zip
+echo Packages:
+echo   dist\SteamStopper.msi
+echo   dist\SteamStopper-portable.zip
+echo   dist\SteamStopper.zip
 echo Tag: v%VER%
 echo.
 pause

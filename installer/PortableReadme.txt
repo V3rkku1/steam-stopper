@@ -1,9 +1,12 @@
 Steam Stopper — portable
 
-Double-click SteamStopper.exe. Windows will ask for Administrator
-because firewall and DNS changes need it.
+Run SteamStopper.exe.
 
-This folder is the app. No install. Settings are still stored in:
+Windows will ask for Administrator because firewall and DNS
+changes need it.
+
+No install. Settings are stored in:
   %APPDATA%\SteamStopper\settings.json
 
-This copy does not auto-update. For that, use SteamStopper.msi.
+This portable build does not auto-update.
+Use SteamStopper.msi from GitHub Releases for updates.
