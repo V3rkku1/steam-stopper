@@ -2,39 +2,10 @@
 title Steam Stopper
 cd /d "%~dp0"
 set "PATH=C:\Program Files\dotnet;%PATH%"
+set "EXE=src\SteamStopper\bin\Release\net8.0-windows\SteamStopper.exe"
 
-if exist "src\SteamStopper\bin\Release\appsui\SteamStopper.exe" (
-  start "" "src\SteamStopper\bin\Release\appsui\SteamStopper.exe"
-  exit /b 0
-)
-
-if exist "src\SteamStopper\bin\Release\tools\SteamStopper.exe" (
-  start "" "src\SteamStopper\bin\Release\tools\SteamStopper.exe"
-  exit /b 0
-)
-
-if exist "src\SteamStopper\bin\Release\ok\SteamStopper.exe" (
-  start "" "src\SteamStopper\bin\Release\ok\SteamStopper.exe"
-  exit /b 0
-)
-
-if exist "src\SteamStopper\bin\Release\fixed\SteamStopper.exe" (
-  start "" "src\SteamStopper\bin\Release\fixed\SteamStopper.exe"
-  exit /b 0
-)
-
-if exist "src\SteamStopper\bin\Release\dns\SteamStopper.exe" (
-  start "" "src\SteamStopper\bin\Release\dns\SteamStopper.exe"
-  exit /b 0
-)
-
-if exist "src\SteamStopper\bin\Release\latest\SteamStopper.exe" (
-  start "" "src\SteamStopper\bin\Release\latest\SteamStopper.exe"
-  exit /b 0
-)
-
-if exist "src\SteamStopper\bin\Release\net8.0-windows\SteamStopper.exe" (
-  start "" "src\SteamStopper\bin\Release\net8.0-windows\SteamStopper.exe"
+if exist "%EXE%" (
+  start "" "%EXE%"
   exit /b 0
 )
 
@@ -44,4 +15,4 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-start "" "src\SteamStopper\bin\Release\net8.0-windows\SteamStopper.exe"
+start "" "%EXE%"

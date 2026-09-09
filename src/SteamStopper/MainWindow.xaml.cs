@@ -453,17 +453,6 @@ public partial class MainWindow : Window
         });
     }
 
-    private void OfflineOn_Click(object sender, RoutedEventArgs e) => SetOffline(true);
-    private void OfflineOff_Click(object sender, RoutedEventArgs e) => SetOffline(false);
-
-    private void SetOffline(bool enabled)
-    {
-        if (_steamRoot is null) return;
-        StatusText.Text = SteamClient.SetOfflinePreference(_steamRoot, enabled)
-            ? "Updated WantsOfflineMode. Restart Steam to apply."
-            : "Could not update loginusers.vdf.";
-    }
-
     private void Arm_Click(object sender, RoutedEventArgs e)
     {
         if (_armed)
@@ -644,8 +633,6 @@ public partial class MainWindow : Window
             : "Steam is not running";
     }
 
-    private void RefreshProc_Click(object sender, RoutedEventArgs e) => RefreshProcesses();
-
     private async void RescanLibrary()
     {
         if (_steamRoot is null) return;
@@ -677,25 +664,6 @@ public partial class MainWindow : Window
         SteamClient.OpenFolder(Path.Combine(game.Library, "steamapps", "common", game.InstallDir));
     }
 
-    private async void Measure_Click(object sender, RoutedEventArgs e)
-    {
-        if (_steamRoot is null) return;
-        var root = _steamRoot;
-        var total = await Task.Run(() => CacheTargets.Sum(t => SteamClient.FolderSize(Path.Combine(new[] { root }.Concat(t.Parts).ToArray()))));
-        StatusText.Text = $"Measured {Format.Bytes(total)} of cache and logs.";
-    }
-
-    private void ClearCache(string name)
-    {
-        var path = CachePath(name);
-        if (path is null) return;
-        if (MessageBox.Show($"Delete the contents of:\n{path}?", "Clear files", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
-            return;
-        var removed = SteamClient.ClearPath(path);
-        StatusText.Text = $"Cleared {removed} item(s) from {name}.";
-        Measure_Click(this, new RoutedEventArgs());
-    }
-
     private void ClearAll_Click(object sender, RoutedEventArgs e)
     {
         if (_steamRoot is null) return;
@@ -703,7 +671,6 @@ public partial class MainWindow : Window
             return;
         var removed = CacheTargets.Sum(t => SteamClient.ClearPath(CachePath(t.Name)!));
         StatusText.Text = $"Cleared {removed} item(s).";
-        Measure_Click(this, new RoutedEventArgs());
     }
 
     private async void Backup_Click(object sender, RoutedEventArgs e)
@@ -723,16 +690,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Folder_Click(object sender, RoutedEventArgs e)
-    {
-        if (_steamRoot is null) { MessageBox.Show("Could not find a Steam install."); return; }
-        var tag = (sender as FrameworkElement)?.Tag as string ?? "";
-        SteamClient.OpenFolder(string.IsNullOrEmpty(tag) ? _steamRoot : Path.Combine(_steamRoot, tag));
-    }
-
-    private void Backups_Click(object sender, RoutedEventArgs e)
-        => SteamClient.OpenFolder(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "SteamStopperBackups"));
-
     private void Power_Click(object sender, RoutedEventArgs e)
     {
         var action = (sender as FrameworkElement)?.Tag as string ?? "";
@@ -740,9 +697,6 @@ public partial class MainWindow : Window
         if (MessageBox.Show($"{label} now?", "Steam Stopper", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         StatusText.Text = Power.Run(action, _steamRoot);
     }
-
-    private void AbortShutdown_Click(object sender, RoutedEventArgs e)
-        => StatusText.Text = Power.CancelShutdown() ? "Pending shutdown cancelled." : "No pending shutdown to cancel.";
 
     private void Elevate_Click(object sender, RoutedEventArgs e)
     {

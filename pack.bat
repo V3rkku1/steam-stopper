@@ -5,8 +5,10 @@ cd /d "%~dp0"
 set "PATH=C:\Program Files\dotnet;%PATH%"
 set "VER=2.1.0"
 
+if exist dist\app rmdir /s /q dist\app
+
 echo Publishing Steam Stopper %VER%...
-dotnet publish "src\SteamStopper\SteamStopper.csproj" -c Release -p:Version=%VER% -p:AssemblyVersion=%VER% -p:FileVersion=%VER% -o "dist\app"
+dotnet publish "src\SteamStopper\SteamStopper.csproj" -c Release -p:Version=%VER% -p:AssemblyVersion=%VER% -p:FileVersion=%VER% -p:SelfContained=false -o "dist\app"
 if errorlevel 1 (
   echo Publish failed.
   pause
@@ -23,16 +25,8 @@ powershell -NoProfile -Command "Compress-Archive -Path 'dist\app\*' -Destination
 copy /Y "dist\Steam Stopper Setup.zip" "%USERPROFILE%\Desktop\Steam Stopper Setup.zip" >nul
 
 echo.
-echo Send your friend this file from the Desktop:
-echo   Steam Stopper Setup.zip
-echo They unzip it and double-click Install.bat
-echo.
-echo For auto-update:
-echo   1. Create a public GitHub repository
-echo   2. Put its URL in src\SteamStopper\FeedUrl.txt
-echo   3. Run pack.bat again
-echo   4. On GitHub: Releases - New release - tag v%VER%
-echo      Attach dist\SteamStopper.zip
-echo After that, your friend gets new versions when they open the app.
+echo Desktop: Steam Stopper Setup.zip
+echo Release asset: dist\SteamStopper.zip
+echo Tag: v%VER%
 echo.
 pause

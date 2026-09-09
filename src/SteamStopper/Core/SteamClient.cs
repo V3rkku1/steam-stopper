@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Security.Principal;
-using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
 namespace SteamStopper.Core;
@@ -203,19 +202,6 @@ public static class SteamClient
             Thread.Sleep(200);
         Thread.Sleep(500);
         Launch(steamRoot, offline);
-    }
-
-    public static bool SetOfflinePreference(string steamRoot, bool enabled)
-    {
-        var config = Path.Combine(steamRoot, "config", "loginusers.vdf");
-        if (!File.Exists(config)) return false;
-        var text = File.ReadAllText(config);
-        var replacement = $"\"WantsOfflineMode\"\t\t\"{(enabled ? "1" : "0")}\"";
-        var updated = Regex.Replace(text, "\"WantsOfflineMode\"\\s*\"\\d+\"", replacement);
-        if (updated == text)
-            updated = new Regex("(\"MostRecent\"\\s*\"\\d+\")").Replace(text, replacement + "\n\t\t$1", 1);
-        File.WriteAllText(config, updated);
-        return true;
     }
 
     public static IEnumerable<string> ClientExePaths(string steamRoot)

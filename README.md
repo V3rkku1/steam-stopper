@@ -1,10 +1,10 @@
 # Steam Stopper
 
-Native **C# / WPF** Windows app for your own Steam client: internet kill switch, download watcher
-with auto-shutdown, and maintenance tools.
+Windows WPF app for your own Steam client: firewall kill switch, download watcher,
+DNS jumper, junk cleaner, and a small app installer.
 
-This is not a Steam emulator or DRM bypass. It only reads Steam’s own files and drives
-Windows Firewall, processes, and power management.
+This is not a Steam emulator or DRM bypass. It only reads Steam’s own files and
+drives Windows Firewall, processes, DNS, and power management.
 
 ## Run
 
@@ -14,18 +14,14 @@ Double-click `run.bat`, or:
 dotnet run --project src/SteamStopper -c Release
 ```
 
-The built exe lives at `src/SteamStopper/bin/Release/net8.0-windows/SteamStopper.exe`.
+Requires the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
+The app starts as Administrator.
 
-Requires the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (already used to build this copy).
+## Send to a friend
 
-Firewall changes need **Administrator**. Use **Relaunch as Administrator** in the sidebar.
+Run `pack.bat`, then send **Steam Stopper Setup.zip** from the Desktop.
+They unzip it and run `Install.bat`.
 
-## Features
-
-- Block / restore Steam internet via `SteamStopper-*` Windows Firewall rules
-- Watch live downloads from `appmanifest_*.acf` and shut down, sleep, lock, or exit Steam when they finish
-- Kill / launch Steam, including offline mode
-- Library browser with search and disk size
-- Cache cleanup and config + userdata backup
+Updates come from [github.com/finyt56/steam-stopper](https://github.com/finyt56/steam-stopper) releases.
 
 Settings are stored in `%APPDATA%\SteamStopper\settings.json`.

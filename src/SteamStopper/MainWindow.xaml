@@ -20,8 +20,8 @@
         </StackPanel>
         <Border Grid.Column="1" VerticalAlignment="Center" Background="#1C1C1C" CornerRadius="12" Padding="3"
                 shell:WindowChrome.IsHitTestVisibleInChrome="True">
-          <StackPanel Orientation="Horizontal" x:Name="NavBar">
-            <RadioButton x:Name="NavDashboard" Content="Control" Style="{StaticResource Segment}" GroupName="Nav" IsChecked="True" Click="Nav_Click" Tag="control"/>
+          <StackPanel Orientation="Horizontal">
+            <RadioButton Content="Control" Style="{StaticResource Segment}" GroupName="Nav" IsChecked="True" Click="Nav_Click" Tag="control"/>
             <RadioButton x:Name="NavDownloads" Content="Downloads" Style="{StaticResource Segment}" GroupName="Nav" Click="Nav_Click" Tag="downloads"/>
             <RadioButton Content="Library" Style="{StaticResource Segment}" GroupName="Nav" Click="Nav_Click" Tag="library"/>
             <RadioButton x:Name="NavDns" Content="DNS" Style="{StaticResource Segment}" GroupName="Nav" Click="Nav_Click" Tag="dns"/>

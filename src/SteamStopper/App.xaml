@@ -11,8 +11,6 @@
     <SolidColorBrush x:Key="Bg" Color="#0B0B0B"/>
     <SolidColorBrush x:Key="Sidebar" Color="#161616"/>
     <SolidColorBrush x:Key="Card" Color="#171717"/>
-    <SolidColorBrush x:Key="Elevated" Color="#242424"/>
-    <SolidColorBrush x:Key="Line" Color="#2E2E2E"/>
     <SolidColorBrush x:Key="Accent" Color="#F3F3F3"/>
     <SolidColorBrush x:Key="Text" Color="#F5F5F5"/>
     <SolidColorBrush x:Key="Muted" Color="#8F8F8F"/>
@@ -289,13 +287,6 @@
       <Setter Property="CornerRadius" Value="16"/>
       <Setter Property="Padding" Value="20"/>
     </Style>
-    <Style x:Key="Chip" TargetType="Border">
-      <Setter Property="Background" Value="#242424"/>
-      <Setter Property="CornerRadius" Value="10"/>
-      <Setter Property="Padding" Value="10,5"/>
-      <Setter Property="Margin" Value="8,0,0,0"/>
-    </Style>
-    <Style x:Key="Tile" TargetType="Border" BasedOn="{StaticResource CardBorder}"/>
     <Style x:Key="SectionLabel" TargetType="TextBlock">
       <Setter Property="Foreground" Value="{StaticResource Muted}"/>
       <Setter Property="FontSize" Value="11"/>

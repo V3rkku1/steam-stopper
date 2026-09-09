@@ -31,8 +31,6 @@ public static class Firewall
             .ToList();
     }
 
-    public static bool IsBlocked() => RuleNames().Count > 0;
-
     public static int Block(string steamRoot, bool includeGames)
     {
         Unblock();
