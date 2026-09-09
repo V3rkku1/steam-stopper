@@ -1,0 +1,460 @@
+﻿<Window x:Class="SteamStopper.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Steam Stopper" Height="720" Width="1180" MinHeight="600" MinWidth="1020"
+        WindowStyle="None" ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource Bg}"
+        BorderBrush="#222" BorderThickness="1">
+  <DockPanel>
+    <Border DockPanel.Dock="Top" Background="#111" BorderBrush="#222" BorderThickness="0,0,0,1">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" MinWidth="140"/>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="*" MinWidth="180"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel VerticalAlignment="Center" Margin="16,10,12,10">
+          <TextBlock x:Name="PageTitle" Text="Steam Stopper" FontSize="13" FontWeight="SemiBold"/>
+          <TextBlock x:Name="PagePath" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+        <Border Grid.Column="1" VerticalAlignment="Center" Background="#1C1C1C" CornerRadius="12" Padding="3"
+                shell:WindowChrome.IsHitTestVisibleInChrome="True">
+          <StackPanel Orientation="Horizontal" x:Name="NavBar">
+            <RadioButton x:Name="NavDashboard" Content="Control" Style="{StaticResource Segment}" GroupName="Nav" IsChecked="True" Click="Nav_Click" Tag="control"/>
+            <RadioButton x:Name="NavDownloads" Content="Downloads" Style="{StaticResource Segment}" GroupName="Nav" Click="Nav_Click" Tag="downloads"/>
+            <RadioButton Content="Library" Style="{StaticResource Segment}" GroupName="Nav" Click="Nav_Click" Tag="library"/>
+            <RadioButton x:Name="NavDns" Content="DNS" Style="{StaticResource Segment}" GroupName="Nav" Click="Nav_Click" Tag="dns"/>
+            <RadioButton Content="Clean" Style="{StaticResource Segment}" GroupName="Nav" Click="Nav_Click" Tag="clean"/>
+            <RadioButton Content="Apps" Style="{StaticResource Segment}" GroupName="Nav" Click="Nav_Click" Tag="apps"/>
+          </StackPanel>
+        </Border>
+        <DockPanel Grid.Column="2" LastChildFill="False">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Stretch"
+                      shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <Button Style="{StaticResource CaptionButton}" Click="Min_Click" ToolTip="Minimize">
+              <Path Width="12" Height="12" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                    StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                    Data="M 1,6 L 11,6"/>
+            </Button>
+            <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Click="Max_Click" ToolTip="Maximize">
+              <Grid Width="12" Height="12">
+                <Path x:Name="MaxIcon" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                      StrokeThickness="1.4" Fill="Transparent" Data="M 1.5,1.5 L 10.5,1.5 L 10.5,10.5 L 1.5,10.5 Z"/>
+                <Path x:Name="RestoreIcon" Visibility="Collapsed"
+                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                      StrokeThickness="1.4" Fill="Transparent"
+                      Data="M 4,1.5 L 10.5,1.5 L 10.5,8 M 1.5,4 L 8,4 L 8,10.5 L 1.5,10.5 Z"/>
+              </Grid>
+            </Button>
+            <Button Style="{StaticResource CaptionClose}" Click="Close_Click" ToolTip="Close">
+              <Path Width="12" Height="12" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                    StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                    Data="M 2,2 L 10,10 M 10,2 L 2,10"/>
+            </Button>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0"
+                      shell:WindowChrome.IsHitTestVisibleInChrome="True">
+            <TextBlock x:Name="AdminChip" Text="standard user" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <Button x:Name="ElevateButton" Content="Admin" Style="{StaticResource GhostButton}" Margin="0" Padding="12,6" MinHeight="32" Click="Elevate_Click"/>
+          </StackPanel>
+        </DockPanel>
+      </Grid>
+    </Border>
+
+    <DockPanel DockPanel.Dock="Bottom" Margin="28,0,28,16">
+      <TextBlock x:Name="StatusText" Text="Ready." Foreground="{StaticResource Faint}" FontSize="12" VerticalAlignment="Center"/>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <TextBlock x:Name="FirewallChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,16,0"/>
+        <TextBlock x:Name="DnsChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,16,0"/>
+        <TextBlock x:Name="DownloadChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,16,0"/>
+        <TextBlock x:Name="AutoChip" Text="" FontSize="12" Foreground="{StaticResource Muted}"/>
+      </StackPanel>
+    </DockPanel>
+
+    <Grid Margin="28,20,28,14">
+      <Grid x:Name="PageControl">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="16"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Style="{StaticResource CardBorder}" Padding="24,20">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center" Margin="0,0,24,0">
+              <TextBlock Text="STEAM NETWORK" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+              <TextBlock x:Name="BlockHeadline" Text="—" FontSize="32" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
+              <TextBlock x:Name="RuleCount" Text="Checking Steam’s firewall rules…" Foreground="{StaticResource Muted}" Margin="0,6,0,14" TextWrapping="Wrap"/>
+              <WrapPanel>
+                <DockPanel Margin="0,0,28,8">
+                  <ToggleButton x:Name="KillAfterBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Checked="Persist_Changed" Unchecked="Persist_Changed"/>
+                  <TextBlock Text="Quit Steam when blocking" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                </DockPanel>
+                <DockPanel Margin="0,0,28,8">
+                  <ToggleButton x:Name="RestartAfterBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Checked="Persist_Changed" Unchecked="Persist_Changed"/>
+                  <TextBlock Text="Restart Steam when restoring" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                </DockPanel>
+                <DockPanel Margin="0,0,0,8">
+                  <ToggleButton x:Name="GameExeBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Checked="Persist_Changed" Unchecked="Persist_Changed"/>
+                  <TextBlock Text="Include game executables" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                </DockPanel>
+              </WrapPanel>
+            </StackPanel>
+            <ToggleButton Grid.Column="1" x:Name="BlockSwitch" Style="{StaticResource SwitchHero}" VerticalAlignment="Center" Click="BlockSwitch_Click"/>
+          </Grid>
+        </Border>
+
+        <Grid Grid.Row="2">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1.7*"/>
+            <ColumnDefinition Width="16"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+
+          <Border Style="{StaticResource CardBorder}">
+            <DockPanel>
+              <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                <StackPanel>
+                  <TextBlock Text="STEAM CLIENT" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                  <TextBlock x:Name="TileClient" Text="Stopped" FontSize="28" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
+                  <TextBlock x:Name="ClientHint" Text="Steam is not running" Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                  <Button Content="Quit" Style="{StaticResource GhostButton}" Click="Kill_Click"/>
+                  <Button Content="Open Steam" Style="{StaticResource GhostButton}" Margin="0" Click="Launch_Click"/>
+                </StackPanel>
+              </DockPanel>
+              <Button DockPanel.Dock="Bottom" Content="Start Steam in offline mode" Style="{StaticResource LinkButton}" Margin="0,12,0,0" HorizontalAlignment="Left" Click="LaunchOffline_Click"/>
+              <DataGrid x:Name="ProcGrid">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Process" Binding="{Binding Name}" Width="*"/>
+                  <DataGridTextColumn Header="Memory" Binding="{Binding Memory}" Width="90"/>
+                </DataGrid.Columns>
+              </DataGrid>
+            </DockPanel>
+          </Border>
+
+          <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+            <DockPanel>
+              <TextBlock DockPanel.Dock="Top" Text="AFTER DOWNLOADS" Style="{StaticResource SectionLabel}"/>
+              <Button DockPanel.Dock="Bottom" Content="Open Downloads" Style="{StaticResource WideButton}" Click="OpenDownloads_Click"/>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="DashAuto" Text="Not armed." FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                <TextBlock Text="When a download in Steam or a browser stays under your speed limit, Steam Stopper can shut down, sleep, or notify you. Set that on Downloads." Foreground="{StaticResource Muted}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+        </Grid>
+      </Grid>
+
+      <DockPanel x:Name="PageDownloads" Visibility="Collapsed">
+        <Border x:Name="CountdownCard" DockPanel.Dock="Top" Margin="0,0,0,14" Background="#33280A"
+                CornerRadius="14" Padding="16,12" Visibility="Collapsed">
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Cancel" Style="{StaticResource DangerButton}" Margin="0" Click="CancelCountdown_Click"/>
+            <TextBlock x:Name="CountdownLabel" FontWeight="SemiBold" Foreground="{StaticResource Amber}" VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap"/>
+          </DockPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource CardBorder}" Padding="16,14" Margin="0,14,0,0">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="1.4*"/>
+              <ColumnDefinition Width="20"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center">
+              <TextBlock Text="WHEN SPEED DROPS" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+              <TextBlock x:Name="ActionPreview" Text="Choose an app and a speed floor. After a real download, staying under that speed starts the countdown." TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="13"/>
+            </StackPanel>
+            <DockPanel Grid.Column="2">
+              <Button x:Name="ArmButton" DockPanel.Dock="Right" Content="Arm" Width="132" Style="{StaticResource WideSafe}" Margin="12,0,0,0" Click="Arm_Click"/>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="ArmHint" Text="Not watching" FontWeight="SemiBold"/>
+                <TextBlock Text="Arm after a real download is going, then it watches for the speed drop." Foreground="{StaticResource Faint}" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"/>
+              </StackPanel>
+            </DockPanel>
+          </Grid>
+        </Border>
+
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1.55*"/>
+            <ColumnDefinition Width="16"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+
+          <Border Style="{StaticResource CardBorder}" Padding="12,16,8,8">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Margin="8,0,12,10">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Right" x:Name="DlState" Text="idle" Foreground="{StaticResource Muted}"/>
+                  <TextBlock x:Name="DlHeadline" Text="No downloads" FontSize="18" FontWeight="SemiBold"/>
+                </DockPanel>
+                <ProgressBar x:Name="DlBar" Margin="0,12,0,12" Maximum="1" Height="8"/>
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition/><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/>
+                  </Grid.ColumnDefinitions>
+                  <StackPanel>
+                    <TextBlock Text="Speed" Foreground="{StaticResource Muted}" FontSize="11"/>
+                    <TextBlock x:Name="TileSpeed" Text="0 MB/s" FontSize="15" FontWeight="SemiBold" Margin="0,3,0,0"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="Left" Foreground="{StaticResource Muted}" FontSize="11"/>
+                    <TextBlock x:Name="TileRemaining" Text="--" FontSize="15" FontWeight="SemiBold" Margin="0,3,0,0"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2">
+                    <TextBlock Text="ETA" Foreground="{StaticResource Muted}" FontSize="11"/>
+                    <TextBlock x:Name="TileEta" Text="--" FontSize="15" FontWeight="SemiBold" Margin="0,3,0,0"/>
+                  </StackPanel>
+                  <StackPanel Grid.Column="3">
+                    <TextBlock Text="Jobs" Foreground="{StaticResource Muted}" FontSize="11"/>
+                    <TextBlock x:Name="TileJobs" Text="0" FontSize="15" FontWeight="SemiBold" Margin="0,3,0,0"/>
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+              <Grid>
+                <DataGrid x:Name="JobsGrid">
+                  <DataGrid.Columns>
+                    <DataGridTextColumn Header="Game" Binding="{Binding Name}" Width="*"/>
+                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110"/>
+                    <DataGridTextColumn Header="Progress" Binding="{Binding ProgressText}" Width="90"/>
+                    <DataGridTextColumn Header="Left" Binding="{Binding RemainingText}" Width="90"/>
+                    <DataGridTextColumn Header="Size" Binding="{Binding SizeText}" Width="140"/>
+                  </DataGrid.Columns>
+                </DataGrid>
+                <TextBlock x:Name="JobsEmpty" Text="Nothing in the Steam download queue." Foreground="{StaticResource Faint}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+              </Grid>
+            </DockPanel>
+          </Border>
+
+          <Border Grid.Column="2" Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="SHUTDOWN" Style="{StaticResource SectionLabel}"/>
+              <TextBlock Text="Watch" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,0,0,6"/>
+              <ComboBox x:Name="WatchBox" Margin="0,0,0,12"/>
+              <TextBlock Text="Start countdown when under" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,0,0,6"/>
+              <ComboBox x:Name="FloorBox" Margin="0,0,0,12"/>
+              <TextBlock Text="Then do this" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,0,0,6"/>
+              <ComboBox x:Name="ActionBox" Margin="0,0,0,12"/>
+              <TextBlock Text="Warning countdown" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,0,0,6"/>
+              <ComboBox x:Name="CountdownBox" Margin="0,0,0,12"/>
+              <TextBlock Text="Must stay under for" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,0,0,6"/>
+              <ComboBox x:Name="GraceBox" Margin="0,0,0,10"/>
+              <DockPanel Style="{StaticResource Row}">
+                <ToggleButton x:Name="QueuedBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Checked="WatchSettings_Changed" Unchecked="WatchSettings_Changed"/>
+                <TextBlock Text="Count queued Steam items" Foreground="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
+              </DockPanel>
+              <DockPanel Style="{StaticResource Row}">
+                <ToggleButton x:Name="SeenBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Checked="WatchSettings_Changed" Unchecked="WatchSettings_Changed"/>
+                <TextBlock Text="Wait until speed goes above the limit first" Foreground="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0"/>
+              </DockPanel>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </DockPanel>
+
+      <Grid x:Name="PageLibrary" Visibility="Collapsed">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="14"/>
+          <RowDefinition Height="*"/>
+          <RowDefinition Height="14"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Content="Rescan" Style="{StaticResource GhostButton}" Click="Rescan_Click"/>
+          <Grid Margin="0,0,12,0">
+            <TextBox x:Name="SearchBox" TextChanged="Search_Changed"/>
+            <TextBlock x:Name="SearchHint" Text="Search games" IsHitTestVisible="False" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="12,0"/>
+          </Grid>
+        </DockPanel>
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="10,14">
+          <DockPanel>
+            <TextBlock x:Name="LibSummary" DockPanel.Dock="Top" Text="Scanning…" Foreground="{StaticResource Muted}" Margin="10,0,10,10"/>
+            <DataGrid x:Name="GamesGrid" MouseDoubleClick="Games_DoubleClick">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Game" Binding="{Binding Name}" Width="*"/>
+                <DataGridTextColumn Header="App ID" Binding="{Binding AppId}" Width="100"/>
+                <DataGridTextColumn Header="Size" Binding="{Binding SizeText}" Width="110"/>
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </Border>
+        <DockPanel Grid.Row="4">
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock x:Name="TileLibrary" Text="--" VerticalAlignment="Center" Margin="0,0,20,0"/>
+            <TextBlock x:Name="TileNetwork" Text="--" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,20,0"/>
+            <TextBlock x:Name="TileDownloads" Text="--" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Backup" Style="{StaticResource GhostButton}" Click="Backup_Click"/>
+            <Button Content="Clear caches" Style="{StaticResource GhostButton}" Click="ClearAll_Click"/>
+            <Button Content="Sleep" Style="{StaticResource GhostButton}" Click="Power_Click" Tag="sleep"/>
+            <Button Content="Shut down" Style="{StaticResource DangerButton}" Margin="0" Click="Power_Click" Tag="shutdown"/>
+          </StackPanel>
+        </DockPanel>
+      </Grid>
+
+      <Grid x:Name="PageDns" Visibility="Collapsed">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="1.15*"/>
+          <ColumnDefinition Width="16"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Style="{StaticResource CardBorder}" Padding="20,18">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Top">
+              <TextBlock Text="DNS JUMPER" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+              <TextBlock x:Name="DnsHeadline" Text="—" FontSize="28" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
+              <TextBlock x:Name="DnsHint" Text="Pick an adapter and a DNS, then apply or jump to the fastest." Foreground="{StaticResource Muted}" Margin="0,6,0,16" TextWrapping="Wrap"/>
+              <TextBlock Text="Adapter" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,0,0,6"/>
+              <ComboBox x:Name="DnsAdapterBox" Margin="0,0,0,14" SelectionChanged="DnsAdapter_Changed"/>
+              <TextBlock Text="Custom DNS" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,0,0,6"/>
+              <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition/>
+                  <ColumnDefinition Width="10"/>
+                  <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="DnsPrimaryBox" ToolTip="Primary DNS"/>
+                <TextBox Grid.Column="2" x:Name="DnsSecondaryBox" ToolTip="Secondary DNS"/>
+              </Grid>
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Bottom">
+              <Button x:Name="DnsApplyButton" Content="Apply selected" Style="{StaticResource WideSafe}" Margin="0,0,0,8" Click="DnsApply_Click"/>
+              <Button Content="Jump to fastest" Style="{StaticResource WideButton}" Margin="0,0,0,8" Click="DnsFastest_Click" HorizontalAlignment="Stretch"/>
+              <Button Content="Restore automatic DNS" Style="{StaticResource WideButton}" Margin="0,0,0,8" Click="DnsRestore_Click" HorizontalAlignment="Stretch"/>
+              <Button Content="Flush DNS cache" Style="{StaticResource GhostButton}" Margin="0" HorizontalAlignment="Stretch" Click="DnsFlush_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="DnsBusy" Text="" Foreground="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+          </DockPanel>
+        </Border>
+
+        <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="12,16,8,8">
+          <DockPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="8,0,12,10">
+              <Button DockPanel.Dock="Right" Content="Ping" Style="{StaticResource GhostButton}" Margin="0" Padding="12,6" MinHeight="32" Click="DnsPing_Click"/>
+              <StackPanel>
+                <TextBlock Text="PROVIDERS" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
+                <TextBlock Text="Double-click a row to apply it." Foreground="{StaticResource Faint}" FontSize="11"/>
+              </StackPanel>
+            </DockPanel>
+            <DataGrid x:Name="DnsGrid" MouseDoubleClick="DnsGrid_DoubleClick" SelectionChanged="DnsGrid_SelectionChanged">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="DNS" Binding="{Binding Name}" Width="*"/>
+                <DataGridTextColumn Header="Servers" Binding="{Binding Servers}" Width="170"/>
+                <DataGridTextColumn Header="Ping" Binding="{Binding PingText}" Width="70"/>
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </Border>
+      </Grid>
+
+      <Grid x:Name="PageClean" Visibility="Collapsed">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="1.15*"/>
+          <ColumnDefinition Width="16"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Border Style="{StaticResource CardBorder}" Padding="20,18">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Top">
+              <TextBlock Text="CLEANER" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+              <TextBlock x:Name="CleanHeadline" Text="—" FontSize="28" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
+              <TextBlock x:Name="CleanHint" Text="Clears temp files, Recycle Bin, caches, and Steam leftover folders. Locked files are skipped." Foreground="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Bottom">
+              <Button Content="Clean selected" Style="{StaticResource WideSafe}" Margin="0,0,0,8" Click="CleanRun_Click"/>
+              <Button Content="Scan again" Style="{StaticResource WideButton}" Margin="0,0,0,8" Click="CleanScan_Click"/>
+              <Button Content="Select all" Style="{StaticResource GhostButton}" Margin="0,0,0,8" HorizontalAlignment="Stretch" Click="CleanSelectAll_Click"/>
+              <Button Content="Select none" Style="{StaticResource GhostButton}" Margin="0" HorizontalAlignment="Stretch" Click="CleanSelectNone_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="CleanBusy" Text="" Foreground="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+          </DockPanel>
+        </Border>
+        <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="12,16,8,8">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Top" Text="TARGETS" Style="{StaticResource SectionLabel}" Margin="8,0,12,10"/>
+            <DataGrid x:Name="CleanGrid" IsReadOnly="False">
+              <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="" Binding="{Binding Selected, UpdateSourceTrigger=PropertyChanged}" Width="36"/>
+                <DataGridTextColumn Header="Item" Binding="{Binding Name}" Width="*" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Size" Binding="{Binding SizeText}" Width="90" IsReadOnly="True"/>
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </Border>
+      </Grid>
+
+      <DockPanel x:Name="PageApps" Visibility="Collapsed">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+          <Button DockPanel.Dock="Right" Content="Refresh" Style="{StaticResource GhostButton}" Margin="8,0,0,0" Click="AppRefresh_Click"/>
+          <StackPanel>
+            <DockPanel>
+              <TextBlock x:Name="AppCount" DockPanel.Dock="Right" Text="" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+              <TextBlock Text="APPS" Style="{StaticResource SectionLabel}" Margin="0,0,0,0"/>
+            </DockPanel>
+            <TextBlock x:Name="AppBusy" Text="Install Discord, Steam, AnyDesk, Content Manager, and other tools." Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
+          </StackPanel>
+        </DockPanel>
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+          <Border DockPanel.Dock="Right" Background="#1C1C1C" CornerRadius="12" Padding="3" Margin="12,0,0,0">
+            <StackPanel Orientation="Horizontal" x:Name="AppCatBar"/>
+          </Border>
+          <Grid>
+            <TextBox x:Name="AppSearchBox" TextChanged="AppSearch_Changed"/>
+            <TextBlock x:Name="AppSearchHint" Text="Search apps" IsHitTestVisible="False" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="12,0"/>
+          </Grid>
+        </DockPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl x:Name="AppsList">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Style="{StaticResource AppCard}">
+                  <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                      <Border Width="36" Height="36" CornerRadius="10" Background="{Binding Color, Converter={StaticResource HexBrush}}" Margin="0,0,10,0">
+                        <TextBlock Text="{Binding Initial}" Foreground="White" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                      </Border>
+                      <TextBlock DockPanel.Dock="Top" Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding Category}" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,2,0,0"/>
+                    </DockPanel>
+                    <DockPanel DockPanel.Dock="Bottom">
+                      <Button DockPanel.Dock="Right" Style="{StaticResource AppAction}" Click="AppCardAction_Click" Content="{Binding ActionLabel}"/>
+                      <TextBlock Text="{Binding State}" VerticalAlignment="Center" FontSize="12">
+                        <TextBlock.Style>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{StaticResource Faint}"/>
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding Installed}" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Green}"/>
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBlock.Style>
+                      </TextBlock>
+                    </DockPanel>
+                    <TextBlock Text="{Binding Blurb}" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                  </DockPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </DockPanel>
+    </Grid>
+  </DockPanel>
+</Window>

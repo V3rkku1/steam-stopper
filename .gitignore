@@ -1,0 +1,11 @@
+bin/
+obj/
+publish/
+dist/
+.vs/
+.tools/
+__pycache__/
+*.pyc
+*.user
+src/SteamStopper/bin/
+src/SteamStopper/obj/
