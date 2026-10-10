@@ -122,6 +122,7 @@ public sealed class AppSettings
     public string DnsProvider { get; set; } = "Cloudflare";
     public string WatchTarget { get; set; } = "steam";
     public int SpeedFloorKbps { get; set; } = 200;
+    public string OrganizeFolder { get; set; } = "";
 
     private static string PathName =>
         System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SteamStopper", "settings.json");

@@ -14,6 +14,12 @@ public partial class App : Application
             Shutdown();
             return;
         }
+        // One failed action (missing steam.exe, locked file, netsh error) should not close the app.
+        DispatcherUnhandledException += (_, args) =>
+        {
+            args.Handled = true;
+            MessageBox.Show(args.Exception.Message, "Steam Stopper", MessageBoxButton.OK, MessageBoxImage.Warning);
+        };
         base.OnStartup(e);
     }
 }

@@ -129,7 +129,8 @@ public sealed class DownloadWatcher
     {
         var now = Stopwatch.GetTimestamp();
         var jobs = ListJobs(SteamRoot, IncludeQueued);
-        var current = jobs.ToDictionary(j => j.AppId, j => j.Downloaded + j.Staged);
+        // Same appid can exist in two libraries (stale manifest); ToDictionary would throw.
+        var current = jobs.GroupBy(j => j.AppId).ToDictionary(g => g.Key, g => g.Sum(j => j.Downloaded + j.Staged));
         long delta = 0;
         foreach (var (appid, value) in current)
             delta += Math.Max(0, value - _lastBytes.GetValueOrDefault(appid, value));

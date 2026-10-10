@@ -11,12 +11,14 @@
     <Product>Steam Stopper</Product>
     <ApplicationTitle>Steam Stopper</ApplicationTitle>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>2.1.0</Version>
-    <FileVersion>2.1.0</FileVersion>
-    <AssemblyVersion>2.1.0</AssemblyVersion>
+    <Version>2.2.0</Version>
+    <FileVersion>2.2.0</FileVersion>
+    <AssemblyVersion>2.2.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Management" Version="8.0.0" />
     <Content Include="FeedUrl.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Resource Include="Assets\app.ico" />
+    <Resource Include="Assets\apps\*.png" />
   </ItemGroup>
 </Project>

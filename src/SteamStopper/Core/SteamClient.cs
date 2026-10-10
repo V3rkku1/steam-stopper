@@ -14,6 +14,7 @@ public sealed class GameEntry
     public string SizeText => Format.Bytes(SizeBytes);
     public string InstallDir { get; init; } = "";
     public string Library { get; init; } = "";
+    public double Share { get; set; }
 }
 
 public sealed class ProcessRow
@@ -35,6 +36,9 @@ public static class SteamClient
     [
         "steam.exe", "steamwebhelper.exe", "steamerrorreporter.exe", "GameOverlayUI.exe", "streaming_client.exe"
     ];
+
+    // Skip folders we cannot read instead of aborting the whole walk.
+    private static readonly EnumerationOptions Recursive = new() { RecurseSubdirectories = true, IgnoreInaccessible = true };
 
     public static bool IsAdmin()
     {
@@ -99,7 +103,7 @@ public static class SteamClient
                 ? Vdf.GetString(obj, "path")
                 : Convert.ToString(pair.Value);
             if (string.IsNullOrWhiteSpace(raw)) continue;
-            var lib = raw.Replace(@"\\", @"\");
+            var lib = raw;
             if (Directory.Exists(lib) && !paths.Contains(lib, StringComparer.OrdinalIgnoreCase))
                 paths.Add(lib);
         }
@@ -214,7 +218,7 @@ public static class SteamClient
         {
             var common = Path.Combine(library, "steamapps", "common");
             if (!Directory.Exists(common)) continue;
-            foreach (var exe in Directory.EnumerateFiles(common, "*.exe", SearchOption.AllDirectories))
+            foreach (var exe in Directory.EnumerateFiles(common, "*.exe", Recursive))
             {
                 yield return exe;
                 if (++count >= limit) yield break;
@@ -229,7 +233,7 @@ public static class SteamClient
         long total = 0;
         try
         {
-            foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
+            foreach (var file in Directory.EnumerateFiles(path, "*", Recursive))
             {
                 try { total += new FileInfo(file).Length; } catch { }
             }
@@ -267,15 +271,21 @@ public static class SteamClient
         var stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
         var staging = Path.Combine(destDir, "_staging-" + stamp);
         Directory.CreateDirectory(staging);
-        var config = Path.Combine(steamRoot, "config");
-        var userdata = Path.Combine(steamRoot, "userdata");
-        if (Directory.Exists(config)) CopyDir(config, Path.Combine(staging, "config"));
-        if (Directory.Exists(userdata)) CopyDir(userdata, Path.Combine(staging, "userdata"));
-        var zip = Path.Combine(destDir, $"steam-config-{stamp}.zip");
-        if (File.Exists(zip)) File.Delete(zip);
-        ZipFile.CreateFromDirectory(staging, zip);
-        Directory.Delete(staging, true);
-        return zip;
+        try
+        {
+            var config = Path.Combine(steamRoot, "config");
+            var userdata = Path.Combine(steamRoot, "userdata");
+            if (Directory.Exists(config)) CopyDir(config, Path.Combine(staging, "config"));
+            if (Directory.Exists(userdata)) CopyDir(userdata, Path.Combine(staging, "userdata"));
+            var zip = Path.Combine(destDir, $"steam-config-{stamp}.zip");
+            if (File.Exists(zip)) File.Delete(zip);
+            ZipFile.CreateFromDirectory(staging, zip);
+            return zip;
+        }
+        finally
+        {
+            try { Directory.Delete(staging, true); } catch { }
+        }
     }
 
     public static void OpenFolder(string path)

@@ -238,7 +238,8 @@ public static class DnsJumper
                 psi.ArgumentList.Add(arg);
             using var proc = Process.Start(psi);
             if (proc is null) return "Could not start netsh.";
-            var output = (proc.StandardOutput.ReadToEnd() + " " + proc.StandardError.ReadToEnd()).Trim();
+            var stderr = proc.StandardError.ReadToEndAsync();
+            var output = (proc.StandardOutput.ReadToEnd() + " " + stderr.Result).Trim();
             proc.WaitForExit(8000);
             if (proc.ExitCode != 0 && output.Length > 0) return output;
             if (output.Contains("not", StringComparison.OrdinalIgnoreCase) &&

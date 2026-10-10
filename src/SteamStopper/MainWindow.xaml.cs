@@ -22,6 +22,17 @@ public partial class MainWindow : Window
         ["5 minutes"] = 300
     };
 
+    private static readonly Dictionary<string, (string Title, string Subtitle)> PageTitles = new()
+    {
+        ["control"] = ("Control", "Cut Steam off the internet and manage the client"),
+        ["downloads"] = ("Downloads", "Watch downloads and act when they finish"),
+        ["library"] = ("Library", "Installed games, sizes and Steam maintenance"),
+        ["dns"] = ("DNS", "Switch DNS providers and find the fastest"),
+        ["clean"] = ("Clean", "Free space from temp files and caches"),
+        ["organize"] = ("Organize", "Sort a messy Downloads folder into tidy subfolders"),
+        ["apps"] = ("Apps", "Install and remove common tools")
+    };
+
     private static readonly (string Name, string[] Parts)[] CacheTargets =
     [
         ("Downloading", ["steamapps", "downloading"]),
@@ -43,12 +54,16 @@ public partial class MainWindow : Window
     private List<DnsProvider> _dnsRows = [];
     private List<CleanerTarget> _cleanRows = [];
     private List<AppOffer> _appRows = [];
+    private List<OrganizeItem> _orgPlan = [];
+    private bool _orgWorking;
     private string _appCategory = "All";
     private bool _dnsWorking;
     private bool _toolsWorking;
     private DownloadSnapshot? _lastSnapshot;
     private bool _armed;
     private int? _countdown;
+    private int _countdownRun;
+    private bool _polling;
     private bool _suppress;
     private string _finishReason = "Downloads finished";
 
@@ -64,14 +79,17 @@ public partial class MainWindow : Window
             ["library"] = PageLibrary,
             ["dns"] = PageDns,
             ["clean"] = PageClean,
+            ["organize"] = PageOrganize,
             ["apps"] = PageApps
         };
 
         if (_steamRoot is not null)
             _watcher = new DownloadWatcher(_steamRoot);
 
-        PagePath.Text = _steamRoot ?? "Steam install not found";
-        PageTitle.Text = "Steam Stopper  " + Updater.Version;
+        SteamPathText.Text = _steamRoot ?? "Not found";
+        SteamPathText.ToolTip = _steamRoot;
+        ShowPageHeader("control");
+        VersionText.Text = "Version " + Updater.Version;
         Loaded += (_, _) => _ = CheckForAppUpdates();
         FillComboBoxes();
         FillAppCategories();
@@ -167,10 +185,12 @@ public partial class MainWindow : Window
         if (sender is not RadioButton { Tag: string key }) return;
         foreach (var (name, page) in _pages)
             page.Visibility = name == key ? Visibility.Visible : Visibility.Collapsed;
+        ShowPageHeader(key);
         if (key == "control") RefreshProcesses();
         if (key == "dns") RefreshDnsUi();
         if (key == "clean") _ = ScanCleanerAsync();
         if (key == "apps") RefreshApps();
+        if (key == "organize") _ = ScanOrganizeAsync();
         if (key == "downloads")
         {
             try
@@ -184,6 +204,13 @@ public partial class MainWindow : Window
                 StatusText.Text = "Downloads view: " + ex.Message;
             }
         }
+    }
+
+    private void ShowPageHeader(string key)
+    {
+        if (!PageTitles.TryGetValue(key, out var page)) return;
+        PageTitle.Text = page.Title;
+        PagePath.Text = page.Subtitle;
     }
 
     private void OpenDownloads_Click(object sender, RoutedEventArgs e)
@@ -203,18 +230,25 @@ public partial class MainWindow : Window
         else Block_Click(sender, e);
     }
 
-    private void PollWatch()
+    private async void PollWatch()
     {
+        if (_polling) return;
+        _polling = true;
         try
         {
-            DownloadSnapshot? snapshot = null;
-            if (_watcher is not null)
+            // Off the UI thread: parsing every ACF plus process IO each second stuttered the window.
+            var key = WatchTargetKey();
+            var (snapshot, bps) = await Task.Run(() =>
             {
-                try { snapshot = _watcher.Poll(); }
-                catch { }
-            }
+                DownloadSnapshot? snap = null;
+                if (_watcher is not null)
+                {
+                    try { lock (_watcher) snap = _watcher.Poll(); }
+                    catch { }
+                }
+                return (snap, SampleWatchSpeed(snap, key));
+            });
 
-            var bps = SampleWatchSpeed(snapshot);
             var speedDone = _speedWatch.IsFinished(bps);
             var queueDone = WatchTargetKey() == "steam" && snapshot is { Finished: true };
             if (snapshot is not null)
@@ -232,12 +266,12 @@ public partial class MainWindow : Window
             }
         }
         catch { }
+        finally { _polling = false; }
     }
 
-    private double SampleWatchSpeed(DownloadSnapshot? snapshot)
+    private double SampleWatchSpeed(DownloadSnapshot? snapshot, string key)
     {
         var nic = _nic.ReceiveBps();
-        var key = WatchTargetKey();
         if (key == "pc")
             return nic;
 
@@ -269,7 +303,7 @@ public partial class MainWindow : Window
     {
         _lastSnapshot = snapshot;
         var active = snapshot.ActiveCount;
-        TileDownloads.Text = active > 0 ? active.ToString() : snapshot.Jobs.Count > 0 ? "queued" : Format.Speed(watchBps);
+        TileDownloads.Text = active > 0 ? $"{active} active" : snapshot.Jobs.Count > 0 ? $"{snapshot.Jobs.Count} queued" : "idle";
         DownloadChip.Text = $"watch: {Format.Speed(watchBps)}";
         DownloadChip.Foreground = Brush(watchBps >= _speedWatch.ThresholdBps ? "Accent" : "Muted");
         UpdateAutoSummary(snapshot, watchBps);
@@ -388,7 +422,12 @@ public partial class MainWindow : Window
 
     private async void Block_Click(object sender, RoutedEventArgs e)
     {
-        if (!NeedAdmin() || _steamRoot is null) return;
+        if (!NeedAdmin()) return;
+        if (_steamRoot is null)
+        {
+            StatusText.Text = "Steam install not found, nothing to block.";
+            return;
+        }
         var includeGames = GameExeBox.IsChecked == true;
         var kill = KillAfterBox.IsChecked == true;
         StatusText.Text = "Adding firewall rules…";
@@ -462,7 +501,7 @@ public partial class MainWindow : Window
         }
         PersistSettings();
         ApplyWatcherSettings();
-        _watcher?.Reset();
+        if (_watcher is not null) lock (_watcher) _watcher.Reset();
         _speedWatch.Reset();
         _armed = true;
         ArmButton.Content = "Disarm";
@@ -478,6 +517,7 @@ public partial class MainWindow : Window
     {
         _armed = false;
         _countdown = null;
+        _countdownRun++;
         CountdownCard.Visibility = Visibility.Collapsed;
         ArmButton.Content = "Arm";
         ArmButton.Style = (Style)FindResource("WideSafe");
@@ -491,6 +531,7 @@ public partial class MainWindow : Window
     private void BeginCountdown()
     {
         _countdown = SelectedSeconds(CountdownBox, 60);
+        var run = ++_countdownRun;
         CountdownCard.Visibility = Visibility.Visible;
         Activate();
         Topmost = true;
@@ -499,12 +540,13 @@ public partial class MainWindow : Window
             await Task.Delay(1200);
             Topmost = false;
         });
-        TickCountdown();
+        TickCountdown(run);
     }
 
-    private async void TickCountdown()
+    // A cancelled loop waking from Task.Delay must not keep ticking next to a newer countdown.
+    private async void TickCountdown(int run)
     {
-        while (_countdown is int left)
+        while (run == _countdownRun && _countdown is int left)
         {
             if (left <= 0)
             {
@@ -585,8 +627,9 @@ public partial class MainWindow : Window
     {
         var admin = SteamClient.IsAdmin();
         AdminChip.Text = admin ? "administrator" : "standard user";
-        AdminChip.Foreground = Brush(admin ? "Green" : "Amber");
-        ElevateButton.IsEnabled = !admin;
+        AdminChip.Foreground = Brush(admin ? "Muted" : "Amber");
+        AdminDot.Fill = Brush(admin ? "Green" : "Amber");
+        ElevateButton.Visibility = admin ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async void RefreshFirewallAsync()
@@ -635,12 +678,26 @@ public partial class MainWindow : Window
 
     private async void RescanLibrary()
     {
-        if (_steamRoot is null) return;
+        if (_steamRoot is null)
+        {
+            LibSummary.Text = "Steam install not found.";
+            return;
+        }
         var root = _steamRoot;
-        _games = await Task.Run(() => SteamClient.ListGames(root));
+        LibSummary.Text = "Scanning…";
+        try { _games = await Task.Run(() => SteamClient.ListGames(root)); }
+        catch (Exception ex)
+        {
+            LibSummary.Text = "Scan failed: " + ex.Message;
+            return;
+        }
         var total = _games.Sum(g => g.SizeBytes);
+        var largest = _games.Count == 0 ? 0 : _games.Max(g => g.SizeBytes);
+        foreach (var game in _games)
+            game.Share = largest > 0 ? game.SizeBytes / (double)largest : 0;
         LibSummary.Text = $"{_games.Count} games  ·  {Format.Bytes(total)}";
         TileLibrary.Text = Format.Bytes(total);
+        TileLibraryHint.Text = $"{_games.Count} games installed";
         RenderGames();
     }
 
@@ -664,12 +721,15 @@ public partial class MainWindow : Window
         SteamClient.OpenFolder(Path.Combine(game.Library, "steamapps", "common", game.InstallDir));
     }
 
-    private void ClearAll_Click(object sender, RoutedEventArgs e)
+    private async void ClearAll_Click(object sender, RoutedEventArgs e)
     {
         if (_steamRoot is null) return;
-        if (MessageBox.Show("Delete the contents of every cache and log folder listed?", "Clear all", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+        var names = string.Join(", ", CacheTargets.Select(t => t.Name));
+        if (MessageBox.Show($"Delete the contents of Steam's {names} folders? Unfinished downloads will start over.", "Clear caches", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;
-        var removed = CacheTargets.Sum(t => SteamClient.ClearPath(CachePath(t.Name)!));
+        StatusText.Text = "Clearing Steam caches…";
+        var paths = CacheTargets.Select(t => CachePath(t.Name)!).ToList();
+        var removed = await Task.Run(() => paths.Sum(SteamClient.ClearPath));
         StatusText.Text = $"Cleared {removed} item(s).";
     }
 
@@ -690,12 +750,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Power_Click(object sender, RoutedEventArgs e)
+    private async void Power_Click(object sender, RoutedEventArgs e)
     {
         var action = (sender as FrameworkElement)?.Tag as string ?? "";
         var label = Power.Actions.FirstOrDefault(a => a.Key == action).Label ?? action;
         if (MessageBox.Show($"{label} now?", "Steam Stopper", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
-        StatusText.Text = Power.Run(action, _steamRoot);
+        var root = _steamRoot;
+        StatusText.Text = await Task.Run(() => Power.Run(action, root));
     }
 
     private void Elevate_Click(object sender, RoutedEventArgs e)
@@ -926,14 +987,20 @@ public partial class MainWindow : Window
         try
         {
             if (_cleanRows.Count == 0)
+            {
                 _cleanRows = Cleaner.Catalog(_steamRoot);
+                foreach (var row in _cleanRows)
+                    row.PropertyChanged += (_, args) =>
+                    {
+                        if (args.PropertyName == nameof(CleanerTarget.Selected)) PaintCleanTotal();
+                    };
+            }
             CleanGrid.ItemsSource = _cleanRows;
             var sizes = await Task.Run(() => Cleaner.Measure(_cleanRows));
             foreach (var item in _cleanRows)
                 item.Bytes = sizes.GetValueOrDefault(item.Key);
-            var total = _cleanRows.Where(i => i.Selected).Sum(i => i.Bytes);
-            CleanHeadline.Text = Format.Bytes(total);
-            CleanHint.Text = $"{_cleanRows.Count} targets. {Format.Bytes(_cleanRows.Sum(i => i.Bytes))} found. Clean only deletes junk folders, not games or documents.";
+            PaintCleanTotal();
+            CleanHint.Text = $"Selected from {_cleanRows.Count} targets  ·  {Format.Bytes(_cleanRows.Sum(i => i.Bytes))} found in total";
             StatusText.Text = $"Found {Format.Bytes(_cleanRows.Sum(i => i.Bytes))} that can be cleaned.";
         }
         catch (Exception ex)
@@ -947,18 +1014,19 @@ public partial class MainWindow : Window
         }
     }
 
+    private void PaintCleanTotal()
+        => CleanHeadline.Text = Format.Bytes(_cleanRows.Where(i => i.Selected).Sum(i => i.Bytes));
+
     private void CleanScan_Click(object sender, RoutedEventArgs e) => _ = ScanCleanerAsync();
 
     private void CleanSelectAll_Click(object sender, RoutedEventArgs e)
     {
         foreach (var item in _cleanRows) item.Selected = true;
-        CleanHeadline.Text = Format.Bytes(_cleanRows.Sum(i => i.Bytes));
     }
 
     private void CleanSelectNone_Click(object sender, RoutedEventArgs e)
     {
         foreach (var item in _cleanRows) item.Selected = false;
-        CleanHeadline.Text = "0 B";
     }
 
     private async void CleanRun_Click(object sender, RoutedEventArgs e)
@@ -1094,6 +1162,12 @@ public partial class MainWindow : Window
             var result = await Task.Run(() => AppHub.Uninstall(app));
             StatusText.Text = result;
             AppBusy.Text = result;
+            var (gone, leftovers) = await Task.Run(() =>
+                AppHub.StillInstalled(app) ? (false, new List<LeftoverItem>()) : (true, AppHub.FindLeftovers(app)));
+            if (gone && leftovers.Count > 0)
+                ReviewLeftovers(leftovers, $"{app.Name} left {leftovers.Count} folder(s) behind");
+            else if (gone)
+                StatusText.Text = $"{result} No leftover folders found.";
         }
         catch (Exception ex)
         {
@@ -1104,6 +1178,137 @@ public partial class MainWindow : Window
             _toolsWorking = false;
             RefreshApps();
         }
+    }
+
+    private async void AppLeftovers_Click(object sender, RoutedEventArgs e)
+    {
+        if (_toolsWorking) return;
+        _toolsWorking = true;
+        AppBusy.Text = "Looking for leftover folders…";
+        try
+        {
+            var apps = _appRows.Count > 0 ? _appRows : AppHub.Snapshot();
+            var leftovers = await Task.Run(() => AppHub.FindAllLeftovers(apps));
+            AppBusy.Text = "";
+            if (leftovers.Count == 0)
+                StatusText.Text = "No leftovers found from uninstalled apps.";
+            else
+                ReviewLeftovers(leftovers, "Leftovers from uninstalled apps");
+        }
+        finally
+        {
+            _toolsWorking = false;
+        }
+    }
+
+    private void ReviewLeftovers(List<LeftoverItem> leftovers, string heading)
+    {
+        var dialog = new LeftoversWindow(leftovers, heading) { Owner = this };
+        if (dialog.ShowDialog() == true && dialog.Result is { } r)
+            StatusText.Text = r.Failed == 0
+                ? $"Deleted {r.Removed} leftover folder(s), {Format.Bytes(r.Bytes)} freed."
+                : $"Deleted {r.Removed} folder(s), {Format.Bytes(r.Bytes)} freed. {r.Failed} are in use; close the app or restart and try again.";
+        else
+            StatusText.Text = "Leftover folders kept.";
+    }
+
+    private string OrganizeFolder()
+        => string.IsNullOrWhiteSpace(_settings.OrganizeFolder) ? Organizer.DownloadsFolder() : _settings.OrganizeFolder;
+
+    private async Task ScanOrganizeAsync()
+    {
+        if (_orgWorking) return;
+        _orgWorking = true;
+        var folder = OrganizeFolder();
+        OrgPath.Text = folder;
+        OrgBusy.Text = "Scanning…";
+        try
+        {
+            _orgPlan = await Task.Run(() => Organizer.Plan(folder));
+            PaintOrganize();
+        }
+        catch (Exception ex)
+        {
+            OrgHint.Text = "Scan failed: " + ex.Message;
+        }
+        finally
+        {
+            _orgWorking = false;
+            OrgBusy.Text = "";
+        }
+    }
+
+    private void PaintOrganize()
+    {
+        var count = _orgPlan.Count;
+        var groups = _orgPlan.GroupBy(i => i.Category).Count();
+        OrgHeadline.Text = count == 1 ? "1 file" : $"{count} files";
+        OrgHint.Text = count == 0
+            ? "Nothing loose in this folder. It is already tidy."
+            : $"Ready to sort into {groups} folder(s)  ·  {Format.Bytes(_orgPlan.Sum(i => i.Bytes))}";
+        OrgSummary.Text = string.Join("  ·  ", _orgPlan.GroupBy(i => i.Category).Select(g => $"{g.Key} {g.Count()}"));
+        OrgGrid.ItemsSource = _orgPlan;
+        OrgEmpty.Visibility = count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        OrgRunButton.IsEnabled = count > 0;
+        OrgUndoButton.IsEnabled = Organizer.CanUndo;
+    }
+
+    private void OrgScan_Click(object sender, RoutedEventArgs e) => _ = ScanOrganizeAsync();
+
+    private void OrgOpen_Click(object sender, RoutedEventArgs e) => SteamClient.OpenFolder(OrganizeFolder());
+
+    private void OrgChange_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog { InitialDirectory = OrganizeFolder(), Title = "Choose the folder to organize" };
+        if (dialog.ShowDialog(this) != true) return;
+        // Picking the Downloads folder again goes back to following it automatically.
+        _settings.OrganizeFolder = string.Equals(dialog.FolderName, Organizer.DownloadsFolder(), StringComparison.OrdinalIgnoreCase)
+            ? "" : dialog.FolderName;
+        _settings.Save();
+        _ = ScanOrganizeAsync();
+    }
+
+    private async void OrgRun_Click(object sender, RoutedEventArgs e)
+    {
+        if (_orgWorking || _orgPlan.Count == 0) return;
+        var folder = OrganizeFolder();
+        if (MessageBox.Show($"Move {_orgPlan.Count} file(s) into subfolders of\n{folder}?\n\nNothing is deleted. You can undo this.",
+                "Organize", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+            return;
+        _orgWorking = true;
+        OrgBusy.Text = "Organizing…";
+        var plan = _orgPlan;
+        try
+        {
+            var (moved, skipped) = await Task.Run(() => Organizer.Run(folder, plan));
+            StatusText.Text = skipped == 0
+                ? $"Organized {moved} file(s)."
+                : $"Organized {moved} file(s). {skipped} were in use and stayed put.";
+        }
+        finally
+        {
+            _orgWorking = false;
+        }
+        await ScanOrganizeAsync();
+    }
+
+    private async void OrgUndo_Click(object sender, RoutedEventArgs e)
+    {
+        if (_orgWorking || !Organizer.CanUndo) return;
+        _orgWorking = true;
+        OrgBusy.Text = "Putting files back…";
+        try
+        {
+            var (restored, skipped) = await Task.Run(Organizer.Undo);
+            StatusText.Text = skipped == 0
+                ? $"Moved {restored} file(s) back."
+                : $"Moved {restored} file(s) back. {skipped} were moved, renamed or replaced since, so they were left alone.";
+        }
+        finally
+        {
+            _orgWorking = false;
+        }
+        await ScanOrganizeAsync();
     }
 
     private string? CachePath(string name)

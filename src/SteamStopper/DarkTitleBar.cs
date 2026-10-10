@@ -22,7 +22,7 @@ internal static class DarkTitleBar
     {
         WindowChrome.SetWindowChrome(window, new WindowChrome
         {
-            CaptionHeight = 58,
+            CaptionHeight = 56,
             ResizeBorderThickness = new Thickness(6),
             GlassFrameThickness = new Thickness(0),
             CornerRadius = new CornerRadius(0),
@@ -35,11 +35,11 @@ internal static class DarkTitleBar
         _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkModeOld, ref on, sizeof(int));
         int round = DwmwcpRound;
         _ = DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref round, sizeof(int));
-        int caption = 0x00111111;
+        int caption = 0x00141211;
         _ = DwmSetWindowAttribute(hwnd, DwmwaCaptionColor, ref caption, sizeof(int));
-        int border = 0x00222222;
+        int border = 0x002D2726;
         _ = DwmSetWindowAttribute(hwnd, DwmwaBorderColor, ref border, sizeof(int));
-        int text = 0x00F2F2F2;
+        int text = 0x00EDEDED;
         _ = DwmSetWindowAttribute(hwnd, DwmwaTextColor, ref text, sizeof(int));
     }
 }

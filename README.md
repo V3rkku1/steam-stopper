@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Windows desktop app for your Steam client</strong><br>
-  Firewall kill switch · download watcher · DNS jumper · cleaner · app installer
+  Firewall kill switch · download watcher · DNS jumper · cleaner · Downloads organizer · app installer
 </p>
 
 <p align="center">
@@ -56,7 +56,8 @@ No install and no auto-update. Includes the .NET runtime, so it runs on a clean 
 | **Library** | Browse installed games and sizes, back up config, clear Steam caches. |
 | **DNS** | Switch providers, ping for the fastest, restore automatic DNS. |
 | **Clean** | Remove temp files, caches, Recycle Bin, and leftover Steam junk. |
-| **Apps** | Install common tools (Discord, 7-Zip, AnyDesk, and more) from one place. |
+| **Organize** | Sort a messy Downloads folder into Installers, Archives, Documents, Images and more. One-click undo. |
+| **Apps** | Install or remove 56 common apps (Discord, Brave, OBS, 7-Zip, and more), then clear the folders they leave behind in AppData and Program Files. |
 
 Settings live in `%APPDATA%\SteamStopper\settings.json`.
 
