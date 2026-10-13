@@ -23,9 +23,15 @@
   <a href="https://github.com/V3rkku1/steam-stopper/releases/latest/download/SteamStopper-portable.zip"><strong>Download portable (.zip)</strong></a>
 </p>
 
-Steam Stopper is a local Windows utility for managing your Steam client: cut or restore internet access, watch downloads and act when they finish, switch DNS, clean junk, and install common tools.
+Steam Stopper is a local Windows utility for managing your Steam client: cut or restore internet access, watch downloads and act when they finish, combine two internet connections for faster downloads, choose which connection each app uses, switch DNS, clean junk, and install common tools.
 
-It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, and power settings on this PC.
+It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
+
+## What's new in 2.3
+
+- **Bond**: download Steam games over two internet connections at once, for example Ethernet plus your phone.
+- **Routes**: choose which connection each app uses, like Valorant on Ethernet and Discord on your phone.
+- New app icon.
 
 ## Get started
 
@@ -120,6 +126,20 @@ Output in `dist\`:
 | `SteamStopper.msi` | Installer |
 | `SteamStopper-portable.zip` | Portable app |
 | `SteamStopper.zip` | Auto-update package for installed copies |
+
+## Making a release
+
+Releases are built by GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)) on a Windows runner.
+
+1. Bump the version in `src/SteamStopper/SteamStopper.csproj` and `pack.bat`, and update [`.github/release-notes.md`](.github/release-notes.md).
+2. Commit, then push a tag with that version:
+
+   ```bat
+   git tag v2.3.0
+   git push origin v2.3.0
+   ```
+
+The workflow builds the MSI, the portable zip and the auto-update zip, and publishes them as a GitHub release. Installed copies pick it up on their next launch. You can also start it from the **Actions** tab with **Run workflow**.
 
 ## License
 

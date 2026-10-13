@@ -51,6 +51,9 @@ public sealed class BondLink : INotifyPropertyChanged
     public string TotalText => _bytesShown <= 0 ? "—" : Format.Bytes(_bytesShown);
     public double Bps => _bps;
 
+    // The dark ComboBox template shows items via ToString, not DisplayMemberPath.
+    public override string ToString() => Name;
+
     internal bool Failing => DateTime.UtcNow.Ticks < Interlocked.Read(ref FailUntilTicks);
 
     internal void Sample(double seconds)
