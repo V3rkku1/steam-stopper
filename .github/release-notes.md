@@ -1,8 +1,7 @@
 ## New
 
-- **Bond**: download Steam games over two internet connections at once, for example Ethernet plus your phone's USB tethering or hotspot. Each connection Steam opens goes out a different link, so the speeds add up. Your Windows proxy setting is restored when you stop, close the app, or after a crash.
-- **Routes**: choose which internet connection each app uses. Make Ethernet the main connection for games like Valorant, and move Discord (including voice), Chrome, Edge, Brave, Opera GX or Spotify to another link. Games are never touched, so anti-cheat has nothing to see.
-- New app icon.
+- **System tray**: pressing **X** now asks whether to minimize Steam Stopper to the system tray or quit. Tick *Remember my choice* to skip the question; the tray menu's *Ask what the X button does* brings it back.
+- **Tray menu**: right-click the tray icon to block or allow Steam's internet, turn bonding on or off, open the window, or quit. Left-click opens the window.
 
 ## Downloads
 

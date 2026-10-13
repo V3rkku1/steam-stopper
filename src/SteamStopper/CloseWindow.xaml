@@ -1,0 +1,28 @@
+<Window x:Class="SteamStopper.CloseWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="Close Steam Stopper" Width="440" SizeToContent="Height"
+        WindowStyle="None" ResizeMode="NoResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Bg}" BorderBrush="{StaticResource Line}" BorderThickness="1">
+  <StackPanel Margin="24,0,24,20">
+    <DockPanel Height="56">
+      <Button DockPanel.Dock="Right" Style="{StaticResource CaptionClose}" Height="40" VerticalAlignment="Top" Margin="0,0,-24,0"
+              Click="Cancel_Click" ToolTip="Cancel" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+        <Path Width="12" Height="12" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+              StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 2,2 L 10,10 M 10,2 L 2,10"/>
+      </Button>
+      <TextBlock Text="Close Steam Stopper?" FontSize="18" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}" VerticalAlignment="Center"/>
+    </DockPanel>
+    <TextBlock Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,18"
+               Text="Minimized, Steam Stopper keeps running in the system tray: the download watcher, bonding and app routes stay on. Right-click the tray icon for quick controls."/>
+    <DockPanel Style="{StaticResource Option}" Margin="0,0,0,18">
+      <ToggleButton x:Name="RememberBox" DockPanel.Dock="Right" Style="{StaticResource Switch}"/>
+      <TextBlock Style="{StaticResource OptionText}" Text="Remember my choice (change it from the tray menu)"/>
+    </DockPanel>
+    <UniformGrid Columns="2">
+      <Button Content="Quit" Style="{StaticResource WideButton}" Margin="0,0,4,0" Click="Quit_Click"/>
+      <Button Content="Minimize to tray" Style="{StaticResource WideSafe}" Margin="4,0,0,0" Click="Tray_Click" IsDefault="True"/>
+    </UniformGrid>
+  </StackPanel>
+</Window>

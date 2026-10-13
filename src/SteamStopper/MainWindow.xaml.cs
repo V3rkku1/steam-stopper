@@ -58,6 +58,10 @@ public partial class MainWindow : Window
     private List<BondLink> _bondRows = [];
     private bool _bondWorking;
     private List<RouteRule> _routeRules = [];
+    private TrayIcon? _tray;
+    private bool _quitting;
+    private bool _trayTipShown;
+    private bool _steamBlocked;
     private bool _routesWorking;
     private List<CleanerTarget> _cleanRows = [];
     private List<AppOffer> _appRows = [];
@@ -114,8 +118,26 @@ public partial class MainWindow : Window
         _pollTimer.Tick += (_, _) => PollWatch();
         _pollTimer.Tick += (_, _) => PaintBondSpeed();
         _pollTimer.Start();
+        _tray = new TrayIcon(
+            isBlocked: () => _steamBlocked,
+            isBonding: () => _bonder.Running,
+            asksOnClose: () => _settings.CloseAction == "ask",
+            open: ShowFromTray,
+            toggleBlock: () => _steamBlocked ? TrayRun(UnblockAsync) : TrayRun(BlockAsync),
+            toggleBond: () => TrayRun(ToggleBondAsync),
+            toggleAsk: () =>
+            {
+                _settings.CloseAction = _settings.CloseAction == "ask" ? "tray" : "ask";
+                _settings.Save();
+            },
+            quit: Quit);
+        // Don't hold up a Windows shutdown or sign-out with the close question.
+        Application.Current.SessionEnding += (_, _) => _quitting = true;
+        Closing += Window_Closing;
         Closed += (_, _) =>
         {
+            _tray?.Dispose();
+            _tray = null;
             PersistSettings();
             _pollTimer.Stop();
             _bonder.Stop();
@@ -137,7 +159,7 @@ public partial class MainWindow : Window
             StatusText.Text = message;
             if (string.IsNullOrWhiteSpace(script)) return;
             Process.Start(new ProcessStartInfo(script) { UseShellExecute = true });
-            Close();
+            Quit();
         }
         catch { }
     }
@@ -193,6 +215,62 @@ public partial class MainWindow : Window
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_quitting) return;
+        var action = _settings.CloseAction;
+        if (action is not ("tray" or "quit"))
+        {
+            var dialog = new CloseWindow { Owner = this };
+            if (dialog.ShowDialog() != true)
+            {
+                e.Cancel = true;
+                return;
+            }
+            action = dialog.Choice;
+            if (dialog.Remember)
+            {
+                _settings.CloseAction = action;
+                _settings.Save();
+            }
+        }
+        if (action == "tray")
+        {
+            e.Cancel = true;
+            HideToTray();
+            return;
+        }
+        _quitting = true;
+    }
+
+    private void HideToTray()
+    {
+        Hide();
+        if (_trayTipShown) return;
+        _trayTipShown = true;
+        _tray?.ShowTip("Steam Stopper is still running", "Right-click the tray icon to block Steam, toggle bonding or quit.");
+    }
+
+    private void ShowFromTray()
+    {
+        Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+    }
+
+    private void Quit()
+    {
+        _quitting = true;
+        Close();
+    }
+
+    // Tray actions report through the status bar; echo it as a notification while the window is hidden.
+    private async Task TrayRun(Func<Task> action)
+    {
+        await action();
+        if (!IsVisible) _tray?.ShowTip("Steam Stopper", StatusText.Text);
+    }
 
     private void Min_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
 
@@ -449,7 +527,9 @@ public partial class MainWindow : Window
             : $"{WatchLabel()} goes above {floor}, stays under it for {hold}, warn {wait}, then {action.ToLowerInvariant()}.";
     }
 
-    private async void Block_Click(object sender, RoutedEventArgs e)
+    private async void Block_Click(object sender, RoutedEventArgs e) => await BlockAsync();
+
+    private async Task BlockAsync()
     {
         if (!NeedAdmin()) return;
         if (_steamRoot is null)
@@ -469,11 +549,14 @@ public partial class MainWindow : Window
             return n;
         });
         StatusText.Text = $"Blocked {count} Steam binary path(s).";
+        _steamBlocked = true;
         RefreshFirewallAsync();
         RefreshProcesses();
     }
 
-    private async void Unblock_Click(object sender, RoutedEventArgs e)
+    private async void Unblock_Click(object sender, RoutedEventArgs e) => await UnblockAsync();
+
+    private async Task UnblockAsync()
     {
         if (!NeedAdmin()) return;
         var restart = RestartAfterBox.IsChecked == true && _steamRoot is not null;
@@ -489,6 +572,7 @@ public partial class MainWindow : Window
         StatusText.Text = restart
             ? $"Removed {removed} rule(s). Steam is restarting."
             : $"Removed {removed} firewall rule(s).";
+        _steamBlocked = false;
         RefreshFirewallAsync();
         RefreshProcesses();
         if (restart)
@@ -672,6 +756,7 @@ public partial class MainWindow : Window
         try { names = await Task.Run(Firewall.RuleNames); }
         catch { names = []; }
         var blocked = names.Count > 0;
+        _steamBlocked = blocked;
         FirewallChip.Text = blocked ? "steam blocked" : "steam allowed";
         FirewallChip.Foreground = Brush(blocked ? "Red" : "Green");
         TileNetwork.Text = blocked ? "blocked" : "allowed";
@@ -796,7 +881,7 @@ public partial class MainWindow : Window
     private void Elevate_Click(object sender, RoutedEventArgs e)
     {
         SteamClient.RelaunchAsAdmin();
-        Close();
+        Quit();
     }
 
     private bool NeedAdmin(string action = "A firewall change")
@@ -805,7 +890,7 @@ public partial class MainWindow : Window
         if (MessageBox.Show($"{action} needs Administrator. Relaunch as admin now?", "Administrator required", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
         {
             SteamClient.RelaunchAsAdmin();
-            Close();
+            Quit();
         }
         return false;
     }
@@ -1076,9 +1161,13 @@ public partial class MainWindow : Window
         RefreshBondUi();
     }
 
-    private async void BondToggle_Click(object sender, RoutedEventArgs e)
+    private async void BondToggle_Click(object sender, RoutedEventArgs e) => await ToggleBondAsync();
+
+    private async Task ToggleBondAsync()
     {
         if (_bondWorking) return;
+        // From the tray the Bond page may never have been opened, so the link list is still empty.
+        if (!_bonder.Running && _bondRows.Count == 0) RefreshBondUi();
         var restart = BondRestartBox.IsChecked == true && _steamRoot is not null;
         var root = _steamRoot;
         _bondWorking = true;

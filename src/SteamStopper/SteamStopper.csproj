@@ -5,16 +5,22 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- Only for the tray icon (NotifyIcon); its namespaces stay out of the global usings so WPF types aren't ambiguous. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>SteamStopper</AssemblyName>
     <RootNamespace>SteamStopper</RootNamespace>
     <Product>Steam Stopper</Product>
     <ApplicationTitle>Steam Stopper</ApplicationTitle>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>2.3.0</Version>
-    <FileVersion>2.3.0</FileVersion>
-    <AssemblyVersion>2.3.0</AssemblyVersion>
+    <Version>2.3.1</Version>
+    <FileVersion>2.3.1</FileVersion>
+    <AssemblyVersion>2.3.1</AssemblyVersion>
   </PropertyGroup>
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.Management" Version="8.0.0" />
     <Content Include="FeedUrl.txt" CopyToOutputDirectory="PreserveNewest" />

@@ -29,6 +29,8 @@ It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s ow
 
 ## What's new in 2.3
 
+- **System tray** (2.3.1): the X button can minimize to the tray, and the tray icon's right-click menu has Steam blocking, bonding and quit.
+
 - **Bond**: download Steam games over two internet connections at once, for example Ethernet plus your phone.
 - **Routes**: choose which connection each app uses, like Valorant on Ethernet and Discord on your phone.
 - New app icon.
@@ -66,6 +68,8 @@ No install and no auto-update. Includes the .NET runtime, so it runs on a clean 
 | **Clean** | Remove temp files, caches, Recycle Bin, and leftover Steam junk. |
 | **Organize** | Sort a messy Downloads folder into Installers, Archives, Documents, Images and more. One-click undo. |
 | **Apps** | Install or remove 56 common apps (Discord, Brave, OBS, 7-Zip, and more), then clear the folders they leave behind in AppData and Program Files. |
+
+**System tray**: pressing **X** asks whether to minimize to the tray or quit (tick *Remember my choice* to stop asking). Right-click the tray icon to block or allow Steam's internet, turn bonding on or off, or quit.
 
 Settings live in `%APPDATA%\SteamStopper\settings.json`.
 
