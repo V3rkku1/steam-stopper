@@ -1,0 +1,79 @@
+name: Release
+
+# Push a version tag (git tag v2.3.0 && git push origin v2.3.0) to build and publish a release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the v (for example 2.3.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = if ("${{ github.event_name }}" -eq "workflow_dispatch") { "${{ inputs.version }}" } else { "${{ github.ref_name }}".TrimStart("v") }
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Version '$v' must look like 2.3.0" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      # Same steps as pack.bat, without the pauses and Desktop copies.
+      - name: Publish app
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          dotnet publish src/SteamStopper/SteamStopper.csproj -c Release -p:Version=$v -p:AssemblyVersion=$v -p:FileVersion=$v -p:SelfContained=false -o dist/app
+          Copy-Item Install.bat dist/app/
+          Copy-Item src/SteamStopper/FeedUrl.txt dist/app/
+          Copy-Item installer/EnsureDotNet.bat dist/app/
+          Set-Content dist/app/.installed "installed"
+          Remove-Item dist/app/*.pdb -ErrorAction SilentlyContinue
+
+      - name: Build MSI
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          dotnet build installer/SteamStopper.wixproj -c Release -p:ProductVersion=$v -p:PublishDir="$PWD\dist\app\"
+          $msi = Get-ChildItem installer/bin -Recurse -Filter SteamStopper.msi | Select-Object -First 1
+          if (-not $msi) { throw "MSI not found" }
+          Copy-Item $msi.FullName dist/SteamStopper.msi
+
+      - name: Build portable
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          dotnet publish src/SteamStopper/SteamStopper.csproj -c Release -r win-x64 --self-contained true -p:Version=$v -p:AssemblyVersion=$v -p:FileVersion=$v -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -p:DebugSymbols=false -o dist/portable
+          Copy-Item installer/PortableReadme.txt dist/portable/README.txt
+
+      - name: Zip
+        shell: pwsh
+        run: |
+          # SteamStopper.zip is what installed copies download to auto-update.
+          Compress-Archive -Path dist/app/* -DestinationPath dist/SteamStopper.zip -Force
+          Compress-Archive -Path dist/portable/* -DestinationPath dist/SteamStopper-portable.zip -Force
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: Steam Stopper ${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          body_path: .github/release-notes.md
+          files: |
+            dist/SteamStopper.msi
+            dist/SteamStopper-portable.zip
+            dist/SteamStopper.zip

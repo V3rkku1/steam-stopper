@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Windows desktop app for your Steam client</strong><br>
-  Firewall kill switch · download watcher · DNS jumper · cleaner · Downloads organizer · app installer
+  Firewall kill switch · download watcher · DNS jumper · link bonding · per-app routes · cleaner · Downloads organizer · app installer
 </p>
 
 <p align="center">
@@ -23,9 +23,15 @@
   <a href="https://github.com/V3rkku1/steam-stopper/releases/latest/download/SteamStopper-portable.zip"><strong>Download portable (.zip)</strong></a>
 </p>
 
-Steam Stopper is a local Windows utility for managing your Steam client: cut or restore internet access, watch downloads and act when they finish, switch DNS, clean junk, and install common tools.
+Steam Stopper is a local Windows utility for managing your Steam client: cut or restore internet access, watch downloads and act when they finish, combine two internet connections for faster downloads, choose which connection each app uses, switch DNS, clean junk, and install common tools.
 
-It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, and power settings on this PC.
+It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
+
+## What's new in 2.3
+
+- **Bond**: download Steam games over two internet connections at once, for example Ethernet plus your phone.
+- **Routes**: choose which connection each app uses, like Valorant on Ethernet and Discord on your phone.
+- New app icon.
 
 ## Get started
 
@@ -55,11 +61,37 @@ No install and no auto-update. Includes the .NET runtime, so it runs on a clean 
 | **Downloads** | Watch download speed, then shut down, sleep, lock, or exit Steam when it finishes. |
 | **Library** | Browse installed games and sizes, back up config, clear Steam caches. |
 | **DNS** | Switch providers, ping for the fastest, restore automatic DNS. |
+| **Routes** | Pick which internet each app uses: keep games like Valorant on Ethernet and send Discord, browsers or Spotify over your phone. |
+| **Bond** | Combine two internet connections (for example Ethernet plus your phone's USB tethering or hotspot) so Steam downloads use both at once. |
 | **Clean** | Remove temp files, caches, Recycle Bin, and leftover Steam junk. |
 | **Organize** | Sort a messy Downloads folder into Installers, Archives, Documents, Images and more. One-click undo. |
 | **Apps** | Install or remove 56 common apps (Discord, Brave, OBS, 7-Zip, and more), then clear the folders they leave behind in AppData and Program Files. |
 
 Settings live in `%APPDATA%\SteamStopper\settings.json`.
+
+## Link bonding
+
+The **Bond** page lets Steam download over two or more internet connections at once, for example your Ethernet plus your phone.
+
+1. Connect the second internet: plug in your phone with **USB tethering** on, or join its **hotspot** over Wi-Fi while Ethernet stays plugged in.
+2. Open **Bond** and press **Rescan**. Every connection that has its own gateway is listed.
+3. Tick the connections to combine. Give a faster one a higher **weight** so it gets more of the traffic.
+4. Press **Start bonding**. Steam restarts and its downloads are spread across the links. The per-link speed columns show it working.
+
+How it works: Steam Stopper runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and the proxy sends each new connection out a different link, so the speeds add up. A single connection still runs over one link, so one big HTTPS file in a browser will not get faster. If a link drops, new connections move to the others.
+
+Stopping bonding or closing the app puts your old proxy setting back. If the app crashes, it is restored the next time Steam Stopper starts. Mobile data counts against your phone plan, so watch the totals.
+
+## Per-app routes
+
+The **Routes** page chooses which internet connection each app uses, for example Valorant on Ethernet and Discord on your phone.
+
+1. **Main connection**: pick your steadiest link (usually Ethernet) and press **Make main**. Everything without its own route uses it, including games. **Restore automatic** undoes it.
+2. **Apps**: pick a connection next to Discord, Chrome, Edge, Brave, Opera GX or Spotify and press **Apply**. The app restarts on that link.
+
+How it works: Steam Stopper never touches the game, so anti-cheat such as Vanguard has nothing to see. A routed app is restarted with `--proxy-server` pointing at a local proxy pinned to its link. Discord voice runs over UDP, which a proxy can't carry, so Discord also gets a Windows route that sends Discord's voice servers (`66.22.192.0/18`) out the same link. That route disappears on reboot.
+
+Closing Steam Stopper or pressing **Reset all** restarts routed apps on the main connection. If the routed link drops, that app goes offline until you switch it back.
 
 ## Requirements
 
@@ -94,6 +126,20 @@ Output in `dist\`:
 | `SteamStopper.msi` | Installer |
 | `SteamStopper-portable.zip` | Portable app |
 | `SteamStopper.zip` | Auto-update package for installed copies |
+
+## Making a release
+
+Releases are built by GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)) on a Windows runner.
+
+1. Bump the version in `src/SteamStopper/SteamStopper.csproj` and `pack.bat`, and update [`.github/release-notes.md`](.github/release-notes.md).
+2. Commit, then push a tag with that version:
+
+   ```bat
+   git tag v2.3.0
+   git push origin v2.3.0
+   ```
+
+The workflow builds the MSI, the portable zip and the auto-update zip, and publishes them as a GitHub release. Installed copies pick it up on their next launch. You can also start it from the **Actions** tab with **Run workflow**.
 
 ## License
 

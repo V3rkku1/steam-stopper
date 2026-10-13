@@ -11,9 +11,9 @@
     <Product>Steam Stopper</Product>
     <ApplicationTitle>Steam Stopper</ApplicationTitle>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>2.2.0</Version>
-    <FileVersion>2.2.0</FileVersion>
-    <AssemblyVersion>2.2.0</AssemblyVersion>
+    <Version>2.3.0</Version>
+    <FileVersion>2.3.0</FileVersion>
+    <AssemblyVersion>2.3.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Management" Version="8.0.0" />

@@ -123,6 +123,15 @@ public sealed class AppSettings
     public string WatchTarget { get; set; } = "steam";
     public int SpeedFloorKbps { get; set; } = 200;
     public string OrganizeFolder { get; set; } = "";
+    public int BondPort { get; set; } = LinkBonder.DefaultPort;
+    // Adapter name -> weight 1-4, or 0 when the adapter is left out of bonding.
+    public Dictionary<string, int> BondLinks { get; set; } = [];
+    public bool BondRestartSteam { get; set; } = true;
+    // Adapters whose interface metric the Routes page changed, so it can put them back on automatic.
+    public List<string> MainLinkAdapters { get; set; } = [];
+    public string MainLink { get; set; } = "";
+    // App key -> adapter name it was last pinned to.
+    public Dictionary<string, string> RouteLinks { get; set; } = [];
 
     private static string PathName =>
         System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SteamStopper", "settings.json");

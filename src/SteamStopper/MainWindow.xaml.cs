@@ -28,6 +28,8 @@ public partial class MainWindow : Window
         ["downloads"] = ("Downloads", "Watch downloads and act when they finish"),
         ["library"] = ("Library", "Installed games, sizes and Steam maintenance"),
         ["dns"] = ("DNS", "Switch DNS providers and find the fastest"),
+        ["bond"] = ("Bond", "Combine two internet connections for faster downloads"),
+        ["routes"] = ("Routes", "Choose which internet connection each app uses"),
         ["clean"] = ("Clean", "Free space from temp files and caches"),
         ["organize"] = ("Organize", "Sort a messy Downloads folder into tidy subfolders"),
         ["apps"] = ("Apps", "Install and remove common tools")
@@ -48,10 +50,15 @@ public partial class MainWindow : Window
     private readonly SpeedWatch _speedWatch = new();
     private readonly TrafficSampler _traffic = new();
     private readonly NicMonitor _nic = new();
+    private readonly LinkBonder _bonder = new();
     private readonly DispatcherTimer _pollTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly Dictionary<string, UIElement> _pages;
     private List<GameEntry> _games = [];
     private List<DnsProvider> _dnsRows = [];
+    private List<BondLink> _bondRows = [];
+    private bool _bondWorking;
+    private List<RouteRule> _routeRules = [];
+    private bool _routesWorking;
     private List<CleanerTarget> _cleanRows = [];
     private List<AppOffer> _appRows = [];
     private List<OrganizeItem> _orgPlan = [];
@@ -78,6 +85,8 @@ public partial class MainWindow : Window
             ["downloads"] = PageDownloads,
             ["library"] = PageLibrary,
             ["dns"] = PageDns,
+            ["bond"] = PageBond,
+            ["routes"] = PageRoutes,
             ["clean"] = PageClean,
             ["organize"] = PageOrganize,
             ["apps"] = PageApps
@@ -85,6 +94,9 @@ public partial class MainWindow : Window
 
         if (_steamRoot is not null)
             _watcher = new DownloadWatcher(_steamRoot);
+
+        // A crash while bonding leaves Windows pointed at a proxy that is no longer running.
+        try { SystemProxy.Restore(); } catch { }
 
         SteamPathText.Text = _steamRoot ?? "Not found";
         SteamPathText.ToolTip = _steamRoot;
@@ -100,8 +112,21 @@ public partial class MainWindow : Window
         RescanLibrary();
 
         _pollTimer.Tick += (_, _) => PollWatch();
+        _pollTimer.Tick += (_, _) => PaintBondSpeed();
         _pollTimer.Start();
-        Closed += (_, _) => { PersistSettings(); _pollTimer.Stop(); };
+        Closed += (_, _) =>
+        {
+            PersistSettings();
+            _pollTimer.Stop();
+            _bonder.Stop();
+            try { SystemProxy.Restore(); } catch { }
+            // Routed apps lose their proxy with this process, so bring them back on the main connection.
+            foreach (var rule in _routeRules.Where(r => r.Proxy is not null))
+            {
+                StopRoute(rule);
+                try { if (rule.Exe is not null) AppRoutes.Restart(rule.App, rule.Exe, null); } catch { }
+            }
+        };
     }
 
     private async Task CheckForAppUpdates()
@@ -144,6 +169,8 @@ public partial class MainWindow : Window
         GameExeBox.IsChecked = _settings.BlockGameExes;
         KillAfterBox.IsChecked = _settings.KillAfterBlock;
         RestartAfterBox.IsChecked = _settings.RestartAfterUnblock;
+        BondPortBox.Text = _settings.BondPort.ToString();
+        BondRestartBox.IsChecked = _settings.BondRestartSteam;
         ApplyWatcherSettings();
         _suppress = false;
         ActionBox.SelectionChanged += WatchSettings_Changed;
@@ -188,6 +215,8 @@ public partial class MainWindow : Window
         ShowPageHeader(key);
         if (key == "control") RefreshProcesses();
         if (key == "dns") RefreshDnsUi();
+        if (key == "bond") RefreshBondUi();
+        if (key == "routes") RefreshRoutesUi();
         if (key == "clean") _ = ScanCleanerAsync();
         if (key == "apps") RefreshApps();
         if (key == "organize") _ = ScanOrganizeAsync();
@@ -430,6 +459,8 @@ public partial class MainWindow : Window
         }
         var includeGames = GameExeBox.IsChecked == true;
         var kill = KillAfterBox.IsChecked == true;
+        // Steam would otherwise keep downloading through the bonding proxy around the firewall rules.
+        if (_bonder.Running) StopBondingCore();
         StatusText.Text = "Adding firewall rules…";
         var count = await Task.Run(() =>
         {
@@ -620,6 +651,9 @@ public partial class MainWindow : Window
         _settings.DnsProvider = (DnsGrid.SelectedItem as DnsProvider)?.Name ?? _settings.DnsProvider;
         _settings.WatchTarget = WatchTargetKey();
         _settings.SpeedFloorKbps = (int)Math.Round(_speedWatch.ThresholdBps / 1024.0);
+        if (int.TryParse(BondPortBox.Text.Trim(), out var bondPort)) _settings.BondPort = bondPort;
+        _settings.BondRestartSteam = BondRestartBox.IsChecked == true;
+        SaveBondLinks();
         _settings.Save();
     }
 
@@ -974,6 +1008,283 @@ public partial class MainWindow : Window
         {
             _dnsWorking = false;
             DnsBusy.Text = "";
+        }
+    }
+
+    private void RefreshBondUi()
+    {
+        if (!_bonder.Running)
+        {
+            SaveBondLinks();
+            _bondRows = LinkBonder.Discover();
+            foreach (var link in _bondRows)
+            {
+                if (!_settings.BondLinks.TryGetValue(link.Name, out var weight)) continue;
+                link.Selected = weight > 0;
+                if (weight > 0) link.Weight = weight;
+            }
+        }
+        BondGrid.ItemsSource = null;
+        BondGrid.ItemsSource = _bondRows;
+        PaintBond();
+    }
+
+    private void SaveBondLinks()
+    {
+        foreach (var link in _bondRows)
+            _settings.BondLinks[link.Name] = link.Selected ? link.Weight : 0;
+    }
+
+    private void PaintBond()
+    {
+        var running = _bonder.Running;
+        var count = _bondRows.Count(l => l.Selected);
+        BondHeadline.Text = running ? $"On · {count} links" : "Off";
+        BondHeadline.Foreground = Brush(running ? "Green" : "Muted");
+        BondButton.Content = running ? "Stop bonding" : "Start bonding";
+        BondButton.Style = (Style)FindResource(running ? "WideDanger" : "WideSafe");
+        BondButton.IsEnabled = !_bondWorking;
+        BondPortBox.IsEnabled = !running;
+        if (!running)
+        {
+            BondChip.Text = "";
+            BondTotal.Text = _bondRows.Count switch
+            {
+                0 => "No connection with its own gateway found. Plug in or tether a second one, then Rescan.",
+                1 => "Only one internet connection found. Connect a second one (phone tethering, Wi-Fi), then Rescan.",
+                _ => $"{_bondRows.Count} connections found. Tick the ones to combine."
+            };
+        }
+    }
+
+    private void PaintBondSpeed()
+    {
+        if (!_bonder.Running) return;
+        var total = _bonder.Sample();
+        var active = _bondRows.Count(l => l.Selected);
+        BondChip.Text = $"bond: {active} links · {Format.Speed(total)}";
+        BondTotal.Text = $"Combined {Format.Speed(total)} across {active} links.";
+    }
+
+    private void BondRescan_Click(object sender, RoutedEventArgs e)
+    {
+        if (_bonder.Running)
+        {
+            StatusText.Text = "Stop bonding before rescanning connections.";
+            return;
+        }
+        RefreshBondUi();
+    }
+
+    private async void BondToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (_bondWorking) return;
+        var restart = BondRestartBox.IsChecked == true && _steamRoot is not null;
+        var root = _steamRoot;
+        _bondWorking = true;
+        PaintBond();
+        try
+        {
+            if (_bonder.Running)
+            {
+                BondBusy.Text = "Stopping…";
+                StopBondingCore();
+                if (restart && root is not null && SteamClient.IsRunning())
+                {
+                    BondBusy.Text = "Restarting Steam…";
+                    await Task.Run(() => SteamClient.Restart(root));
+                }
+                StatusText.Text = "Bonding stopped. Windows proxy setting restored.";
+                return;
+            }
+
+            if (!int.TryParse(BondPortBox.Text.Trim(), out var port))
+            {
+                StatusText.Text = "The proxy port must be a number.";
+                return;
+            }
+            BondBusy.Text = "Checking firewall…";
+            var blocked = await Task.Run(() => { try { return Firewall.RuleNames().Count > 0; } catch { return false; } });
+            if (blocked)
+            {
+                StatusText.Text = "Steam is blocked by the firewall. Restore its internet on Control first.";
+                return;
+            }
+
+            var result = _bonder.Start(_bondRows, port);
+            if (!_bonder.Running)
+            {
+                StatusText.Text = result;
+                return;
+            }
+            SystemProxy.Enable(port);
+            SaveBondLinks();
+            _settings.BondPort = port;
+            _settings.Save();
+            if (restart && root is not null && SteamClient.IsRunning())
+            {
+                BondBusy.Text = "Restarting Steam so it uses the bonded links…";
+                await Task.Run(() => SteamClient.Restart(root));
+                result += " Steam restarted.";
+            }
+            else if (SteamClient.IsRunning())
+            {
+                result += " Restart Steam so it picks this up.";
+            }
+            StatusText.Text = result;
+        }
+        catch (Exception ex)
+        {
+            StopBondingCore();
+            StatusText.Text = "Bonding failed: " + ex.Message;
+        }
+        finally
+        {
+            _bondWorking = false;
+            BondBusy.Text = "";
+            PaintBond();
+        }
+    }
+
+    private void StopBondingCore()
+    {
+        _bonder.Stop();
+        try { SystemProxy.Restore(); } catch { }
+        foreach (var link in _bondRows) link.ResetCounters();
+        PaintBond();
+    }
+
+    private void RefreshRoutesUi()
+    {
+        var links = LinkBonder.Discover();
+        MainLinkBox.ItemsSource = links;
+        MainLinkBox.SelectedItem = links.FirstOrDefault(l => l.Name == _settings.MainLink) ?? links.FirstOrDefault();
+        MainHeadline.Text = _settings.MainLink.Length > 0 ? _settings.MainLink : "Automatic";
+
+        var choices = new List<string> { RouteRule.Main };
+        choices.AddRange(links.Select(l => l.Name));
+        _routeRules = AppRoutes.Catalog.Select(app =>
+        {
+            var active = _routeRules.FirstOrDefault(r => r.App.Key == app.Key && r.Proxy is not null);
+            if (active is not null) return active;
+            var exe = app.Find();
+            var rule = new RouteRule { App = app, Exe = exe, LinkChoices = choices };
+            if (_settings.RouteLinks.TryGetValue(app.Key, out var saved) && choices.Contains(saved))
+                rule.Link = saved;
+            rule.Status = exe is null ? "Not installed" : "Main connection";
+            return rule;
+        }).ToList();
+        RoutesGrid.ItemsSource = null;
+        RoutesGrid.ItemsSource = _routeRules;
+    }
+
+    private void RoutesRescan_Click(object sender, RoutedEventArgs e) => RefreshRoutesUi();
+
+    private async void MainSet_Click(object sender, RoutedEventArgs e)
+    {
+        if (_routesWorking || MainLinkBox.SelectedItem is not BondLink main) return;
+        var links = MainLinkBox.ItemsSource.Cast<BondLink>().ToList();
+        await RunRoutesAsync($"Making {main.Name} the main connection…", () =>
+        {
+            var error = AppRoutes.SetMain(main, links);
+            if (error is not null) return "Could not set the main connection. " + error;
+            _settings.MainLink = main.Name;
+            _settings.MainLinkAdapters = _settings.MainLinkAdapters.Union(links.Select(l => l.Name)).ToList();
+            return $"{main.Name} is now the main connection. Games and other apps use it.";
+        });
+    }
+
+    private async void MainRestore_Click(object sender, RoutedEventArgs e)
+    {
+        if (_routesWorking) return;
+        await RunRoutesAsync("Restoring automatic connection choice…", () =>
+        {
+            AppRoutes.RestoreMain(_settings.MainLinkAdapters);
+            _settings.MainLink = "";
+            _settings.MainLinkAdapters = [];
+            return "Windows picks the main connection automatically again.";
+        });
+    }
+
+    private async void RouteApply_Click(object sender, RoutedEventArgs e)
+    {
+        if (_routesWorking || sender is not Button { Tag: RouteRule rule } || rule.Exe is null) return;
+        var exe = rule.Exe;
+        var wanted = rule.Link;
+        var port = _settings.BondPort + 1 + Array.IndexOf(AppRoutes.Catalog, rule.App);
+        await RunRoutesAsync($"Restarting {rule.Name}…", () =>
+        {
+            StopRoute(rule);
+            _settings.RouteLinks[rule.App.Key] = wanted;
+            if (wanted == RouteRule.Main)
+            {
+                if (AppRoutes.IsRunning(rule.App)) AppRoutes.Restart(rule.App, exe, null);
+                Dispatcher.Invoke(() => rule.Status = "Main connection");
+                return $"{rule.Name} uses the main connection.";
+            }
+
+            var link = LinkBonder.Discover().FirstOrDefault(l => l.Name == wanted);
+            if (link is null) return $"{wanted} is not connected right now.";
+            var proxy = new LinkBonder();
+            var started = proxy.Start([link], port, 1);
+            if (!proxy.Running) return started;
+            var routeError = AppRoutes.AddRoutes(rule.App, link);
+            rule.Proxy = proxy;
+            rule.Pinned = link;
+            AppRoutes.Restart(rule.App, exe, port);
+            Dispatcher.Invoke(() => rule.Status = $"Using {link.Name}");
+            return routeError is null
+                ? $"{rule.Name} now uses {link.Name}."
+                : $"{rule.Name} now uses {link.Name}, but its voice route failed: {routeError}";
+        }, refresh: false);
+    }
+
+    private async void RoutesReset_Click(object sender, RoutedEventArgs e)
+    {
+        if (_routesWorking) return;
+        var active = _routeRules.Where(r => r.Proxy is not null).ToList();
+        await RunRoutesAsync("Putting every app back on the main connection…", () =>
+        {
+            foreach (var rule in active)
+            {
+                StopRoute(rule);
+                if (rule.Exe is not null && AppRoutes.IsRunning(rule.App))
+                    AppRoutes.Restart(rule.App, rule.Exe, null);
+                _settings.RouteLinks[rule.App.Key] = RouteRule.Main;
+            }
+            return active.Count == 0
+                ? "No app was routed."
+                : $"{active.Count} app(s) back on the main connection.";
+        });
+    }
+
+    private static void StopRoute(RouteRule rule)
+    {
+        rule.Proxy?.Stop();
+        if (rule.Pinned is not null) AppRoutes.RemoveRoutes(rule.App, rule.Pinned);
+        rule.Proxy = null;
+        rule.Pinned = null;
+    }
+
+    private async Task RunRoutesAsync(string status, Func<string> work, bool refresh = true)
+    {
+        _routesWorking = true;
+        RoutesBusy.Text = status;
+        StatusText.Text = status;
+        try
+        {
+            StatusText.Text = await Task.Run(work);
+            _settings.Save();
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = ex.Message;
+        }
+        finally
+        {
+            _routesWorking = false;
+            RoutesBusy.Text = "";
+            if (refresh) RefreshRoutesUi();
         }
     }
 
