@@ -130,6 +130,8 @@ public sealed class AppSettings
     // Adapters whose interface metric the Routes page changed, so it can put them back on automatic.
     public List<string> MainLinkAdapters { get; set; } = [];
     public string MainLink { get; set; } = "";
+    // What the window's X does: "ask", "tray" or "quit".
+    public string CloseAction { get; set; } = "ask";
     // App key -> adapter name it was last pinned to.
     public Dictionary<string, string> RouteLinks { get; set; } = [];
 
