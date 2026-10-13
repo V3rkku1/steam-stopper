@@ -54,6 +54,12 @@
               <TextBlock Style="{StaticResource NavText}" Text="DNS"/>
             </StackPanel>
           </RadioButton>
+          <RadioButton Style="{StaticResource NavItem}" Tag="bond" Click="Nav_Click">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE839;"/>
+              <TextBlock Style="{StaticResource NavText}" Text="Bond"/>
+            </StackPanel>
+          </RadioButton>
           <RadioButton Style="{StaticResource NavItem}" Tag="clean" Click="Nav_Click">
             <StackPanel Orientation="Horizontal">
               <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE74D;"/>
@@ -115,6 +121,7 @@
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
           <TextBlock x:Name="FirewallChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="16,0,0,0"/>
           <TextBlock x:Name="DnsChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="16,0,0,0"/>
+          <TextBlock x:Name="BondChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="16,0,0,0"/>
           <TextBlock x:Name="DownloadChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="16,0,0,0"/>
           <TextBlock x:Name="AutoChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="16,0,0,0"/>
         </StackPanel>
@@ -470,6 +477,81 @@
                   </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
                 <DataGridTextColumn Header="PING" Binding="{Binding PingText}" Width="70"/>
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </Border>
+      </Grid>
+
+      <!-- ===================== BOND ===================== -->
+      <Grid x:Name="PageBond" Visibility="Collapsed">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="0.9*"/>
+          <ColumnDefinition Width="14"/>
+          <ColumnDefinition Width="1.1*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Style="{StaticResource HeroCard}">
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0,0,4,0">
+              <TextBlock Text="LINK BONDING" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+              <TextBlock x:Name="BondHeadline" Text="Off" Style="{StaticResource Hero}" TextTrimming="CharacterEllipsis"/>
+              <TextBlock x:Name="BondHint" Foreground="{StaticResource Muted}" Margin="0,4,0,18" TextWrapping="Wrap"
+                         Text="Plug in two internet connections, for example Ethernet plus your phone over USB tethering or Wi-Fi hotspot, tick both on the right, then start."/>
+              <TextBlock Text="Local proxy port" Style="{StaticResource FieldLabel}"/>
+              <TextBox x:Name="BondPortBox" Margin="0,0,0,14" ToolTip="Steam talks to the bonder on 127.0.0.1 at this port"/>
+              <DockPanel Style="{StaticResource Option}" Margin="0,0,0,18">
+                <ToggleButton x:Name="BondRestartBox" DockPanel.Dock="Right" Style="{StaticResource Switch}"/>
+                <TextBlock Style="{StaticResource OptionText}" Text="Restart Steam on start and stop so it picks up the change"/>
+              </DockPanel>
+              <Button x:Name="BondButton" Content="Start bonding" Style="{StaticResource WideSafe}" Click="BondToggle_Click"/>
+              <TextBlock x:Name="BondBusy" Text="" Foreground="{StaticResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+              <TextBlock Text="HOW IT WORKS" Style="{StaticResource SectionLabel}" Margin="0,18,0,6"/>
+              <TextBlock Foreground="{StaticResource Faint}" FontSize="11" TextWrapping="Wrap"
+                         Text="Steam downloads a game over many connections at once. Bonding runs a small proxy on this PC and sends each new connection out a different link, so the speeds add up. One single connection still uses one link, and Windows' proxy setting is restored when you stop or close the app. Give a faster link a higher weight so it gets more connections."/>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+
+        <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="20,18,12,10">
+          <DockPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,8,10">
+              <Button DockPanel.Dock="Right" Content="Rescan" Style="{StaticResource SmallButton}" Margin="0" Click="BondRescan_Click"/>
+              <StackPanel>
+                <TextBlock Text="INTERNET CONNECTIONS" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
+                <TextBlock x:Name="BondTotal" Text="Adapters with their own gateway show up here." Foreground="{StaticResource Faint}" FontSize="11"/>
+              </StackPanel>
+            </DockPanel>
+            <DataGrid x:Name="BondGrid">
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header="" Width="40">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <CheckBox IsChecked="{Binding Selected, UpdateSourceTrigger=PropertyChanged}" Margin="0" VerticalAlignment="Center"/>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="CONNECTION" Width="*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <StackPanel VerticalAlignment="Center" ToolTip="{Binding Hint}">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Detail}" Foreground="{StaticResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="WEIGHT" Width="76">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <ComboBox ItemsSource="{Binding WeightChoices}" SelectedItem="{Binding Weight, UpdateSourceTrigger=PropertyChanged}"
+                                Margin="0,2" VerticalAlignment="Center" ToolTip="Share of connections: 2 gets twice as many as 1"/>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="CONNS" Binding="{Binding Active}" Width="62"/>
+                <DataGridTextColumn Header="SPEED" Binding="{Binding SpeedText}" Width="90"/>
+                <DataGridTextColumn Header="TOTAL" Binding="{Binding TotalText}" Width="80"/>
               </DataGrid.Columns>
             </DataGrid>
           </DockPanel>

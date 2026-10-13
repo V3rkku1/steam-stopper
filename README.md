@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Windows desktop app for your Steam client</strong><br>
-  Firewall kill switch · download watcher · DNS jumper · cleaner · Downloads organizer · app installer
+  Firewall kill switch · download watcher · DNS jumper · link bonding · cleaner · Downloads organizer · app installer
 </p>
 
 <p align="center">
@@ -55,11 +55,25 @@ No install and no auto-update. Includes the .NET runtime, so it runs on a clean 
 | **Downloads** | Watch download speed, then shut down, sleep, lock, or exit Steam when it finishes. |
 | **Library** | Browse installed games and sizes, back up config, clear Steam caches. |
 | **DNS** | Switch providers, ping for the fastest, restore automatic DNS. |
+| **Bond** | Combine two internet connections (for example Ethernet plus your phone's USB tethering or hotspot) so Steam downloads use both at once. |
 | **Clean** | Remove temp files, caches, Recycle Bin, and leftover Steam junk. |
 | **Organize** | Sort a messy Downloads folder into Installers, Archives, Documents, Images and more. One-click undo. |
 | **Apps** | Install or remove 56 common apps (Discord, Brave, OBS, 7-Zip, and more), then clear the folders they leave behind in AppData and Program Files. |
 
 Settings live in `%APPDATA%\SteamStopper\settings.json`.
+
+## Link bonding
+
+The **Bond** page lets Steam download over two or more internet connections at once, for example your Ethernet plus your phone.
+
+1. Connect the second internet: plug in your phone with **USB tethering** on, or join its **hotspot** over Wi-Fi while Ethernet stays plugged in.
+2. Open **Bond** and press **Rescan**. Every connection that has its own gateway is listed.
+3. Tick the connections to combine. Give a faster one a higher **weight** so it gets more of the traffic.
+4. Press **Start bonding**. Steam restarts and its downloads are spread across the links. The per-link speed columns show it working.
+
+How it works: Steam Stopper runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and the proxy sends each new connection out a different link, so the speeds add up. A single connection still runs over one link, so one big HTTPS file in a browser will not get faster. If a link drops, new connections move to the others.
+
+Stopping bonding or closing the app puts your old proxy setting back. If the app crashes, it is restored the next time Steam Stopper starts. Mobile data counts against your phone plan, so watch the totals.
 
 ## Requirements
 

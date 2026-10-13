@@ -28,6 +28,7 @@ public partial class MainWindow : Window
         ["downloads"] = ("Downloads", "Watch downloads and act when they finish"),
         ["library"] = ("Library", "Installed games, sizes and Steam maintenance"),
         ["dns"] = ("DNS", "Switch DNS providers and find the fastest"),
+        ["bond"] = ("Bond", "Combine two internet connections for faster downloads"),
         ["clean"] = ("Clean", "Free space from temp files and caches"),
         ["organize"] = ("Organize", "Sort a messy Downloads folder into tidy subfolders"),
         ["apps"] = ("Apps", "Install and remove common tools")
@@ -48,10 +49,13 @@ public partial class MainWindow : Window
     private readonly SpeedWatch _speedWatch = new();
     private readonly TrafficSampler _traffic = new();
     private readonly NicMonitor _nic = new();
+    private readonly LinkBonder _bonder = new();
     private readonly DispatcherTimer _pollTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly Dictionary<string, UIElement> _pages;
     private List<GameEntry> _games = [];
     private List<DnsProvider> _dnsRows = [];
+    private List<BondLink> _bondRows = [];
+    private bool _bondWorking;
     private List<CleanerTarget> _cleanRows = [];
     private List<AppOffer> _appRows = [];
     private List<OrganizeItem> _orgPlan = [];
@@ -78,6 +82,7 @@ public partial class MainWindow : Window
             ["downloads"] = PageDownloads,
             ["library"] = PageLibrary,
             ["dns"] = PageDns,
+            ["bond"] = PageBond,
             ["clean"] = PageClean,
             ["organize"] = PageOrganize,
             ["apps"] = PageApps
@@ -85,6 +90,9 @@ public partial class MainWindow : Window
 
         if (_steamRoot is not null)
             _watcher = new DownloadWatcher(_steamRoot);
+
+        // A crash while bonding leaves Windows pointed at a proxy that is no longer running.
+        try { SystemProxy.Restore(); } catch { }
 
         SteamPathText.Text = _steamRoot ?? "Not found";
         SteamPathText.ToolTip = _steamRoot;
@@ -100,8 +108,15 @@ public partial class MainWindow : Window
         RescanLibrary();
 
         _pollTimer.Tick += (_, _) => PollWatch();
+        _pollTimer.Tick += (_, _) => PaintBondSpeed();
         _pollTimer.Start();
-        Closed += (_, _) => { PersistSettings(); _pollTimer.Stop(); };
+        Closed += (_, _) =>
+        {
+            PersistSettings();
+            _pollTimer.Stop();
+            _bonder.Stop();
+            try { SystemProxy.Restore(); } catch { }
+        };
     }
 
     private async Task CheckForAppUpdates()
@@ -144,6 +159,8 @@ public partial class MainWindow : Window
         GameExeBox.IsChecked = _settings.BlockGameExes;
         KillAfterBox.IsChecked = _settings.KillAfterBlock;
         RestartAfterBox.IsChecked = _settings.RestartAfterUnblock;
+        BondPortBox.Text = _settings.BondPort.ToString();
+        BondRestartBox.IsChecked = _settings.BondRestartSteam;
         ApplyWatcherSettings();
         _suppress = false;
         ActionBox.SelectionChanged += WatchSettings_Changed;
@@ -188,6 +205,7 @@ public partial class MainWindow : Window
         ShowPageHeader(key);
         if (key == "control") RefreshProcesses();
         if (key == "dns") RefreshDnsUi();
+        if (key == "bond") RefreshBondUi();
         if (key == "clean") _ = ScanCleanerAsync();
         if (key == "apps") RefreshApps();
         if (key == "organize") _ = ScanOrganizeAsync();
@@ -430,6 +448,8 @@ public partial class MainWindow : Window
         }
         var includeGames = GameExeBox.IsChecked == true;
         var kill = KillAfterBox.IsChecked == true;
+        // Steam would otherwise keep downloading through the bonding proxy around the firewall rules.
+        if (_bonder.Running) StopBondingCore();
         StatusText.Text = "Adding firewall rules…";
         var count = await Task.Run(() =>
         {
@@ -620,6 +640,9 @@ public partial class MainWindow : Window
         _settings.DnsProvider = (DnsGrid.SelectedItem as DnsProvider)?.Name ?? _settings.DnsProvider;
         _settings.WatchTarget = WatchTargetKey();
         _settings.SpeedFloorKbps = (int)Math.Round(_speedWatch.ThresholdBps / 1024.0);
+        if (int.TryParse(BondPortBox.Text.Trim(), out var bondPort)) _settings.BondPort = bondPort;
+        _settings.BondRestartSteam = BondRestartBox.IsChecked == true;
+        SaveBondLinks();
         _settings.Save();
     }
 
@@ -975,6 +998,149 @@ public partial class MainWindow : Window
             _dnsWorking = false;
             DnsBusy.Text = "";
         }
+    }
+
+    private void RefreshBondUi()
+    {
+        if (!_bonder.Running)
+        {
+            SaveBondLinks();
+            _bondRows = LinkBonder.Discover();
+            foreach (var link in _bondRows)
+            {
+                if (!_settings.BondLinks.TryGetValue(link.Name, out var weight)) continue;
+                link.Selected = weight > 0;
+                if (weight > 0) link.Weight = weight;
+            }
+        }
+        BondGrid.ItemsSource = null;
+        BondGrid.ItemsSource = _bondRows;
+        PaintBond();
+    }
+
+    private void SaveBondLinks()
+    {
+        foreach (var link in _bondRows)
+            _settings.BondLinks[link.Name] = link.Selected ? link.Weight : 0;
+    }
+
+    private void PaintBond()
+    {
+        var running = _bonder.Running;
+        var count = _bondRows.Count(l => l.Selected);
+        BondHeadline.Text = running ? $"On · {count} links" : "Off";
+        BondHeadline.Foreground = Brush(running ? "Green" : "Muted");
+        BondButton.Content = running ? "Stop bonding" : "Start bonding";
+        BondButton.Style = (Style)FindResource(running ? "WideDanger" : "WideSafe");
+        BondButton.IsEnabled = !_bondWorking;
+        BondPortBox.IsEnabled = !running;
+        if (!running)
+        {
+            BondChip.Text = "";
+            BondTotal.Text = _bondRows.Count switch
+            {
+                0 => "No connection with its own gateway found. Plug in or tether a second one, then Rescan.",
+                1 => "Only one internet connection found. Connect a second one (phone tethering, Wi-Fi), then Rescan.",
+                _ => $"{_bondRows.Count} connections found. Tick the ones to combine."
+            };
+        }
+    }
+
+    private void PaintBondSpeed()
+    {
+        if (!_bonder.Running) return;
+        var total = _bonder.Sample();
+        var active = _bondRows.Count(l => l.Selected);
+        BondChip.Text = $"bond: {active} links · {Format.Speed(total)}";
+        BondTotal.Text = $"Combined {Format.Speed(total)} across {active} links.";
+    }
+
+    private void BondRescan_Click(object sender, RoutedEventArgs e)
+    {
+        if (_bonder.Running)
+        {
+            StatusText.Text = "Stop bonding before rescanning connections.";
+            return;
+        }
+        RefreshBondUi();
+    }
+
+    private async void BondToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if (_bondWorking) return;
+        var restart = BondRestartBox.IsChecked == true && _steamRoot is not null;
+        var root = _steamRoot;
+        _bondWorking = true;
+        PaintBond();
+        try
+        {
+            if (_bonder.Running)
+            {
+                BondBusy.Text = "Stopping…";
+                StopBondingCore();
+                if (restart && root is not null && SteamClient.IsRunning())
+                {
+                    BondBusy.Text = "Restarting Steam…";
+                    await Task.Run(() => SteamClient.Restart(root));
+                }
+                StatusText.Text = "Bonding stopped. Windows proxy setting restored.";
+                return;
+            }
+
+            if (!int.TryParse(BondPortBox.Text.Trim(), out var port))
+            {
+                StatusText.Text = "The proxy port must be a number.";
+                return;
+            }
+            BondBusy.Text = "Checking firewall…";
+            var blocked = await Task.Run(() => { try { return Firewall.RuleNames().Count > 0; } catch { return false; } });
+            if (blocked)
+            {
+                StatusText.Text = "Steam is blocked by the firewall. Restore its internet on Control first.";
+                return;
+            }
+
+            var result = _bonder.Start(_bondRows, port);
+            if (!_bonder.Running)
+            {
+                StatusText.Text = result;
+                return;
+            }
+            SystemProxy.Enable(port);
+            SaveBondLinks();
+            _settings.BondPort = port;
+            _settings.Save();
+            if (restart && root is not null && SteamClient.IsRunning())
+            {
+                BondBusy.Text = "Restarting Steam so it uses the bonded links…";
+                await Task.Run(() => SteamClient.Restart(root));
+                result += " Steam restarted.";
+            }
+            else if (SteamClient.IsRunning())
+            {
+                result += " Restart Steam so it picks this up.";
+            }
+            StatusText.Text = result;
+        }
+        catch (Exception ex)
+        {
+            StopBondingCore();
+            StatusText.Text = "Bonding failed: " + ex.Message;
+        }
+        finally
+        {
+            _bondWorking = false;
+            BondBusy.Text = "";
+            PaintBond();
+        }
+    }
+
+    private void StopBondingCore()
+    {
+        _bonder.Stop();
+        try { SystemProxy.Restore(); } catch { }
+        foreach (var link in _bondRows) link.ResetCounters();
+        PaintBond();
     }
 
     private async Task ScanCleanerAsync()
