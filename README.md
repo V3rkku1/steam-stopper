@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Windows desktop app for your Steam client</strong><br>
-  Firewall kill switch · download watcher · DNS jumper · link bonding · cleaner · Downloads organizer · app installer
+  Firewall kill switch · download watcher · DNS jumper · link bonding · per-app routes · cleaner · Downloads organizer · app installer
 </p>
 
 <p align="center">
@@ -55,6 +55,7 @@ No install and no auto-update. Includes the .NET runtime, so it runs on a clean 
 | **Downloads** | Watch download speed, then shut down, sleep, lock, or exit Steam when it finishes. |
 | **Library** | Browse installed games and sizes, back up config, clear Steam caches. |
 | **DNS** | Switch providers, ping for the fastest, restore automatic DNS. |
+| **Routes** | Pick which internet each app uses: keep games like Valorant on Ethernet and send Discord, browsers or Spotify over your phone. |
 | **Bond** | Combine two internet connections (for example Ethernet plus your phone's USB tethering or hotspot) so Steam downloads use both at once. |
 | **Clean** | Remove temp files, caches, Recycle Bin, and leftover Steam junk. |
 | **Organize** | Sort a messy Downloads folder into Installers, Archives, Documents, Images and more. One-click undo. |
@@ -74,6 +75,17 @@ The **Bond** page lets Steam download over two or more internet connections at o
 How it works: Steam Stopper runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and the proxy sends each new connection out a different link, so the speeds add up. A single connection still runs over one link, so one big HTTPS file in a browser will not get faster. If a link drops, new connections move to the others.
 
 Stopping bonding or closing the app puts your old proxy setting back. If the app crashes, it is restored the next time Steam Stopper starts. Mobile data counts against your phone plan, so watch the totals.
+
+## Per-app routes
+
+The **Routes** page chooses which internet connection each app uses, for example Valorant on Ethernet and Discord on your phone.
+
+1. **Main connection**: pick your steadiest link (usually Ethernet) and press **Make main**. Everything without its own route uses it, including games. **Restore automatic** undoes it.
+2. **Apps**: pick a connection next to Discord, Chrome, Edge, Brave, Opera GX or Spotify and press **Apply**. The app restarts on that link.
+
+How it works: Steam Stopper never touches the game, so anti-cheat such as Vanguard has nothing to see. A routed app is restarted with `--proxy-server` pointing at a local proxy pinned to its link. Discord voice runs over UDP, which a proxy can't carry, so Discord also gets a Windows route that sends Discord's voice servers (`66.22.192.0/18`) out the same link. That route disappears on reboot.
+
+Closing Steam Stopper or pressing **Reset all** restarts routed apps on the main connection. If the routed link drops, that app goes offline until you switch it back.
 
 ## Requirements
 

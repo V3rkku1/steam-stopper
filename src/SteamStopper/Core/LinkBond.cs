@@ -24,6 +24,7 @@ public sealed class BondLink : INotifyPropertyChanged
     internal long FailUntilTicks;
 
     public string Name { get; init; } = "";
+    public int Index { get; init; }
     public string Description { get; init; } = "";
     public string Kind { get; init; } = "";
     public IPAddress Address { get; init; } = IPAddress.None;
@@ -122,6 +123,7 @@ public sealed class LinkBonder
                 list.Add(new BondLink
                 {
                     Name = nic.Name,
+                    Index = props.GetIPv4Properties()?.Index ?? 0,
                     Description = nic.Description,
                     Kind = KindOf(nic),
                     Address = address,
@@ -150,13 +152,13 @@ public sealed class LinkBonder
         };
     }
 
-    public string Start(List<BondLink> links, int port)
+    public string Start(List<BondLink> links, int port, int minLinks = 2)
     {
         lock (_gate)
         {
             if (Running) return $"Bonding already running on port {Port}.";
             var chosen = links.Where(l => l.Selected).ToList();
-            if (chosen.Count < 2)
+            if (chosen.Count < minLinks)
                 return "Pick at least two internet connections to bond.";
             if (port is < 1024 or > 65535)
                 return "Pick a port between 1024 and 65535.";
@@ -170,7 +172,9 @@ public sealed class LinkBonder
             Port = port;
             _lastSample = DateTime.UtcNow;
             _ = AcceptLoop(listener, _stop.Token);
-            return $"Bonding {chosen.Count} links through 127.0.0.1:{port}.";
+            return chosen.Count == 1
+                ? $"Pinned to {chosen[0].Name} through 127.0.0.1:{port}."
+                : $"Bonding {chosen.Count} links through 127.0.0.1:{port}.";
         }
     }
 

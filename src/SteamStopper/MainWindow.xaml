@@ -60,6 +60,12 @@
               <TextBlock Style="{StaticResource NavText}" Text="Bond"/>
             </StackPanel>
           </RadioButton>
+          <RadioButton Style="{StaticResource NavItem}" Tag="routes" Click="Nav_Click">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8AB;"/>
+              <TextBlock Style="{StaticResource NavText}" Text="Routes"/>
+            </StackPanel>
+          </RadioButton>
           <RadioButton Style="{StaticResource NavItem}" Tag="clean" Click="Nav_Click">
             <StackPanel Orientation="Horizontal">
               <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE74D;"/>
@@ -552,6 +558,79 @@
                 <DataGridTextColumn Header="CONNS" Binding="{Binding Active}" Width="62"/>
                 <DataGridTextColumn Header="SPEED" Binding="{Binding SpeedText}" Width="90"/>
                 <DataGridTextColumn Header="TOTAL" Binding="{Binding TotalText}" Width="80"/>
+              </DataGrid.Columns>
+            </DataGrid>
+          </DockPanel>
+        </Border>
+      </Grid>
+
+      <!-- ===================== ROUTES ===================== -->
+      <Grid x:Name="PageRoutes" Visibility="Collapsed">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="0.9*"/>
+          <ColumnDefinition Width="14"/>
+          <ColumnDefinition Width="1.1*"/>
+        </Grid.ColumnDefinitions>
+
+        <Border Style="{StaticResource HeroCard}">
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0,0,4,0">
+              <TextBlock Text="MAIN CONNECTION" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+              <TextBlock x:Name="MainHeadline" Text="Automatic" Style="{StaticResource Hero}" TextTrimming="CharacterEllipsis"/>
+              <TextBlock Foreground="{StaticResource Muted}" Margin="0,4,0,18" TextWrapping="Wrap"
+                         Text="Everything without its own route uses the main connection, including games like Valorant. Pick your steadiest link, usually Ethernet."/>
+              <TextBlock Text="Connection" Style="{StaticResource FieldLabel}"/>
+              <ComboBox x:Name="MainLinkBox" Margin="0,0,0,18" DisplayMemberPath="Name"/>
+              <Button Content="Make main" Style="{StaticResource WideSafe}" Click="MainSet_Click"/>
+              <Button Content="Restore automatic" Style="{StaticResource WideButton}" Margin="0,8,0,0" Click="MainRestore_Click"/>
+              <TextBlock x:Name="RoutesBusy" Text="" Foreground="{StaticResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+              <TextBlock Text="HOW IT WORKS" Style="{StaticResource SectionLabel}" Margin="0,18,0,6"/>
+              <TextBlock Foreground="{StaticResource Faint}" FontSize="11" TextWrapping="Wrap"
+                         Text="Steam Stopper never touches the game, so anti-cheat has nothing to see. An app sent to another link is restarted through a small proxy pinned to that link. Discord voice also gets a Windows route to Discord's voice servers. Closing Steam Stopper restarts routed apps on the main connection."/>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+
+        <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="20,18,12,10">
+          <DockPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,8,10">
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Rescan" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="RoutesRescan_Click"/>
+                <Button Content="Reset all" Style="{StaticResource SmallButton}" Margin="0" Click="RoutesReset_Click"/>
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Text="APPS" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
+                <TextBlock Text="Pick a connection for an app, then press Apply. The app restarts." Foreground="{StaticResource Faint}" FontSize="11"/>
+              </StackPanel>
+            </DockPanel>
+            <DataGrid x:Name="RoutesGrid">
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header="APP" Width="*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Status}" Foreground="{StaticResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="CONNECTION" Width="1.1*">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <ComboBox ItemsSource="{Binding LinkChoices}" SelectedItem="{Binding Link, UpdateSourceTrigger=PropertyChanged}"
+                                IsEnabled="{Binding Installed}" Margin="0,2" VerticalAlignment="Center"/>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="" Width="84">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <Button Content="Apply" Style="{StaticResource SmallButton}" Margin="0,2" Tag="{Binding}"
+                              IsEnabled="{Binding Installed}" Click="RouteApply_Click"/>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
               </DataGrid.Columns>
             </DataGrid>
           </DockPanel>

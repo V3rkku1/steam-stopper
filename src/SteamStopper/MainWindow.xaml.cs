@@ -29,6 +29,7 @@ public partial class MainWindow : Window
         ["library"] = ("Library", "Installed games, sizes and Steam maintenance"),
         ["dns"] = ("DNS", "Switch DNS providers and find the fastest"),
         ["bond"] = ("Bond", "Combine two internet connections for faster downloads"),
+        ["routes"] = ("Routes", "Choose which internet connection each app uses"),
         ["clean"] = ("Clean", "Free space from temp files and caches"),
         ["organize"] = ("Organize", "Sort a messy Downloads folder into tidy subfolders"),
         ["apps"] = ("Apps", "Install and remove common tools")
@@ -56,6 +57,8 @@ public partial class MainWindow : Window
     private List<DnsProvider> _dnsRows = [];
     private List<BondLink> _bondRows = [];
     private bool _bondWorking;
+    private List<RouteRule> _routeRules = [];
+    private bool _routesWorking;
     private List<CleanerTarget> _cleanRows = [];
     private List<AppOffer> _appRows = [];
     private List<OrganizeItem> _orgPlan = [];
@@ -83,6 +86,7 @@ public partial class MainWindow : Window
             ["library"] = PageLibrary,
             ["dns"] = PageDns,
             ["bond"] = PageBond,
+            ["routes"] = PageRoutes,
             ["clean"] = PageClean,
             ["organize"] = PageOrganize,
             ["apps"] = PageApps
@@ -116,6 +120,12 @@ public partial class MainWindow : Window
             _pollTimer.Stop();
             _bonder.Stop();
             try { SystemProxy.Restore(); } catch { }
+            // Routed apps lose their proxy with this process, so bring them back on the main connection.
+            foreach (var rule in _routeRules.Where(r => r.Proxy is not null))
+            {
+                StopRoute(rule);
+                try { if (rule.Exe is not null) AppRoutes.Restart(rule.App, rule.Exe, null); } catch { }
+            }
         };
     }
 
@@ -206,6 +216,7 @@ public partial class MainWindow : Window
         if (key == "control") RefreshProcesses();
         if (key == "dns") RefreshDnsUi();
         if (key == "bond") RefreshBondUi();
+        if (key == "routes") RefreshRoutesUi();
         if (key == "clean") _ = ScanCleanerAsync();
         if (key == "apps") RefreshApps();
         if (key == "organize") _ = ScanOrganizeAsync();
@@ -1141,6 +1152,140 @@ public partial class MainWindow : Window
         try { SystemProxy.Restore(); } catch { }
         foreach (var link in _bondRows) link.ResetCounters();
         PaintBond();
+    }
+
+    private void RefreshRoutesUi()
+    {
+        var links = LinkBonder.Discover();
+        MainLinkBox.ItemsSource = links;
+        MainLinkBox.SelectedItem = links.FirstOrDefault(l => l.Name == _settings.MainLink) ?? links.FirstOrDefault();
+        MainHeadline.Text = _settings.MainLink.Length > 0 ? _settings.MainLink : "Automatic";
+
+        var choices = new List<string> { RouteRule.Main };
+        choices.AddRange(links.Select(l => l.Name));
+        _routeRules = AppRoutes.Catalog.Select(app =>
+        {
+            var active = _routeRules.FirstOrDefault(r => r.App.Key == app.Key && r.Proxy is not null);
+            if (active is not null) return active;
+            var exe = app.Find();
+            var rule = new RouteRule { App = app, Exe = exe, LinkChoices = choices };
+            if (_settings.RouteLinks.TryGetValue(app.Key, out var saved) && choices.Contains(saved))
+                rule.Link = saved;
+            rule.Status = exe is null ? "Not installed" : "Main connection";
+            return rule;
+        }).ToList();
+        RoutesGrid.ItemsSource = null;
+        RoutesGrid.ItemsSource = _routeRules;
+    }
+
+    private void RoutesRescan_Click(object sender, RoutedEventArgs e) => RefreshRoutesUi();
+
+    private async void MainSet_Click(object sender, RoutedEventArgs e)
+    {
+        if (_routesWorking || MainLinkBox.SelectedItem is not BondLink main) return;
+        var links = MainLinkBox.ItemsSource.Cast<BondLink>().ToList();
+        await RunRoutesAsync($"Making {main.Name} the main connection…", () =>
+        {
+            var error = AppRoutes.SetMain(main, links);
+            if (error is not null) return "Could not set the main connection. " + error;
+            _settings.MainLink = main.Name;
+            _settings.MainLinkAdapters = _settings.MainLinkAdapters.Union(links.Select(l => l.Name)).ToList();
+            return $"{main.Name} is now the main connection. Games and other apps use it.";
+        });
+    }
+
+    private async void MainRestore_Click(object sender, RoutedEventArgs e)
+    {
+        if (_routesWorking) return;
+        await RunRoutesAsync("Restoring automatic connection choice…", () =>
+        {
+            AppRoutes.RestoreMain(_settings.MainLinkAdapters);
+            _settings.MainLink = "";
+            _settings.MainLinkAdapters = [];
+            return "Windows picks the main connection automatically again.";
+        });
+    }
+
+    private async void RouteApply_Click(object sender, RoutedEventArgs e)
+    {
+        if (_routesWorking || sender is not Button { Tag: RouteRule rule } || rule.Exe is null) return;
+        var exe = rule.Exe;
+        var wanted = rule.Link;
+        var port = _settings.BondPort + 1 + Array.IndexOf(AppRoutes.Catalog, rule.App);
+        await RunRoutesAsync($"Restarting {rule.Name}…", () =>
+        {
+            StopRoute(rule);
+            _settings.RouteLinks[rule.App.Key] = wanted;
+            if (wanted == RouteRule.Main)
+            {
+                if (AppRoutes.IsRunning(rule.App)) AppRoutes.Restart(rule.App, exe, null);
+                Dispatcher.Invoke(() => rule.Status = "Main connection");
+                return $"{rule.Name} uses the main connection.";
+            }
+
+            var link = LinkBonder.Discover().FirstOrDefault(l => l.Name == wanted);
+            if (link is null) return $"{wanted} is not connected right now.";
+            var proxy = new LinkBonder();
+            var started = proxy.Start([link], port, 1);
+            if (!proxy.Running) return started;
+            var routeError = AppRoutes.AddRoutes(rule.App, link);
+            rule.Proxy = proxy;
+            rule.Pinned = link;
+            AppRoutes.Restart(rule.App, exe, port);
+            Dispatcher.Invoke(() => rule.Status = $"Using {link.Name}");
+            return routeError is null
+                ? $"{rule.Name} now uses {link.Name}."
+                : $"{rule.Name} now uses {link.Name}, but its voice route failed: {routeError}";
+        }, refresh: false);
+    }
+
+    private async void RoutesReset_Click(object sender, RoutedEventArgs e)
+    {
+        if (_routesWorking) return;
+        var active = _routeRules.Where(r => r.Proxy is not null).ToList();
+        await RunRoutesAsync("Putting every app back on the main connection…", () =>
+        {
+            foreach (var rule in active)
+            {
+                StopRoute(rule);
+                if (rule.Exe is not null && AppRoutes.IsRunning(rule.App))
+                    AppRoutes.Restart(rule.App, rule.Exe, null);
+                _settings.RouteLinks[rule.App.Key] = RouteRule.Main;
+            }
+            return active.Count == 0
+                ? "No app was routed."
+                : $"{active.Count} app(s) back on the main connection.";
+        });
+    }
+
+    private static void StopRoute(RouteRule rule)
+    {
+        rule.Proxy?.Stop();
+        if (rule.Pinned is not null) AppRoutes.RemoveRoutes(rule.App, rule.Pinned);
+        rule.Proxy = null;
+        rule.Pinned = null;
+    }
+
+    private async Task RunRoutesAsync(string status, Func<string> work, bool refresh = true)
+    {
+        _routesWorking = true;
+        RoutesBusy.Text = status;
+        StatusText.Text = status;
+        try
+        {
+            StatusText.Text = await Task.Run(work);
+            _settings.Save();
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = ex.Message;
+        }
+        finally
+        {
+            _routesWorking = false;
+            RoutesBusy.Text = "";
+            if (refresh) RefreshRoutesUi();
+        }
     }
 
     private async Task ScanCleanerAsync()
