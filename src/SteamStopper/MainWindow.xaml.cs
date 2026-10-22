@@ -1150,7 +1150,9 @@ public partial class MainWindow : Window
         var total = _bondBps = _bonder.Sample();
         var active = _bondRows.Count(l => l.Selected);
         BondChip.Text = $"bond: {active} links · {Format.Speed(total)}";
-        BondTotal.Text = $"Combined {Format.Speed(total)} across {active} links.";
+        BondTotal.Text = _bondRows.All(l => Interlocked.Read(ref l.ByteCount) == 0)
+            ? "Nothing has gone through the bonder yet. Restart Steam so it picks up the proxy, then start a download."
+            : $"Combined {Format.Speed(total)} across {active} links.";
     }
 
     private void BondRescan_Click(object sender, RoutedEventArgs e)
