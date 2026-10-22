@@ -24,11 +24,11 @@ public sealed class BondLink : INotifyPropertyChanged
     internal long FailUntilTicks;
 
     public string Name { get; init; } = "";
-    public int Index { get; set; }
+    public int Index { get; init; }
     public string Description { get; init; } = "";
     public string Kind { get; init; } = "";
-    public IPAddress Address { get; set; } = IPAddress.None;
-    public string Gateway { get; set; } = "";
+    public IPAddress Address { get; init; } = IPAddress.None;
+    public string Gateway { get; init; } = "";
     public string Detail => $"{Address}  ·  {Kind}";
     public string Hint => $"{Description}\nIP {Address}, gateway {Gateway}";
     public int[] WeightChoices { get; } = [1, 2, 3, 4];
@@ -47,7 +47,7 @@ public sealed class BondLink : INotifyPropertyChanged
     }
 
     public int Active => _activeShown;
-    public string SpeedText => Failing ? "can't connect" : _bps <= 0 ? "—" : Format.Speed(_bps);
+    public string SpeedText => _bps <= 0 ? "—" : Format.Speed(_bps);
     public string TotalText => _bytesShown <= 0 ? "—" : Format.Bytes(_bytesShown);
     public double Bps => _bps;
 
@@ -59,9 +59,7 @@ public sealed class BondLink : INotifyPropertyChanged
     internal void Sample(double seconds)
     {
         var bytes = Interlocked.Read(ref ByteCount);
-        var raw = seconds > 0 ? Math.Max(0, bytes - _lastBytes) / seconds : 0;
-        // Smooth over a few seconds so the speed doesn't jump between 0 and double each tick.
-        _bps = _bps * 0.6 + raw * 0.4;
+        _bps = seconds > 0 ? Math.Max(0, bytes - _lastBytes) / seconds : 0;
         _lastBytes = bytes;
         _bytesShown = bytes;
         _activeShown = Volatile.Read(ref ActiveCount);
@@ -70,23 +68,11 @@ public sealed class BondLink : INotifyPropertyChanged
         OnChanged(nameof(TotalText));
     }
 
-    // The adapter got a new IP (phone tether reconnected, DHCP renew): send from the new one.
-    internal void Moved(BondLink fresh)
-    {
-        Address = fresh.Address;
-        Gateway = fresh.Gateway;
-        Index = fresh.Index;
-        Interlocked.Exchange(ref FailUntilTicks, 0);
-        OnChanged(nameof(Detail));
-        OnChanged(nameof(Hint));
-    }
-
     internal void ResetCounters()
     {
         Interlocked.Exchange(ref ByteCount, 0);
         Interlocked.Exchange(ref FailUntilTicks, 0);
         _lastBytes = 0;
-        _bps = 0;
         Sample(0);
     }
 
@@ -112,7 +98,6 @@ public sealed class LinkBonder
     private CancellationTokenSource? _stop;
     private List<BondLink> _links = [];
     private DateTime _lastSample = DateTime.UtcNow;
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, IPAddress[]> _dns = new();
 
     public bool Running => _listener is not null;
     public int Port { get; private set; }
@@ -190,7 +175,6 @@ public sealed class LinkBonder
             Port = port;
             _lastSample = DateTime.UtcNow;
             _ = AcceptLoop(listener, _stop.Token);
-            _ = WatchLinks(_stop.Token);
             return chosen.Count == 1
                 ? $"Pinned to {chosen[0].Name} through 127.0.0.1:{port}."
                 : $"Bonding {chosen.Count} links through 127.0.0.1:{port}.";
@@ -227,25 +211,6 @@ public sealed class LinkBonder
             try { client = await listener.AcceptSocketAsync(cancel); }
             catch { break; }
             _ = Task.Run(() => Serve(client, cancel), CancellationToken.None);
-        }
-    }
-
-    private async Task WatchLinks(CancellationToken cancel)
-    {
-        while (!cancel.IsCancellationRequested)
-        {
-            try { await Task.Delay(TimeSpan.FromSeconds(5), cancel); }
-            catch { break; }
-            try
-            {
-                var found = Discover();
-                foreach (var link in _links)
-                {
-                    var fresh = found.FirstOrDefault(f => f.Name == link.Name);
-                    if (fresh is not null && !fresh.Address.Equals(link.Address)) link.Moved(fresh);
-                }
-            }
-            catch { }
         }
     }
 
@@ -377,13 +342,8 @@ public sealed class LinkBonder
         if (IPAddress.TryParse(host, out var literal)) addresses = [literal];
         else
         {
-            try { _dns[host] = addresses = await Dns.GetHostAddressesAsync(host, cancel); }
-            // DNS goes out the main link; when that link is down, reuse the last answer so the others keep working.
-            catch
-            {
-                if (!_dns.TryGetValue(host, out var cached)) return (null, null);
-                addresses = cached;
-            }
+            try { addresses = await Dns.GetHostAddressesAsync(host, cancel); }
+            catch { return (null, null); }
         }
 
         var v4 = addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
@@ -445,8 +405,7 @@ public sealed class LinkBonder
 
     private static async Task Pipe(Socket client, Socket upstream, BondLink? link, CancellationToken cancel)
     {
-        // Only the download direction counts toward the link's speed.
-        var up = Copy(client, upstream, null, cancel);
+        var up = Copy(client, upstream, link, cancel);
         var down = Copy(upstream, client, link, cancel);
         if (await Task.WhenAny(up, down) == up)
         {

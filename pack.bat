@@ -3,7 +3,7 @@ setlocal
 title Pack Steam Stopper
 cd /d "%~dp0"
 set "PATH=C:\Program Files\dotnet;%PATH%"
-set "VER=2.3.5"
+set "VER=2.3.1"
 set "PUB=%~dp0dist\app\"
 set "PORT=%~dp0dist\portable\"
 

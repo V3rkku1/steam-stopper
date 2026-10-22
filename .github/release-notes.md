@@ -1,11 +1,7 @@
-## 2.3.5: bonding back to 2.3.1
+## New
 
-2.3.2–2.3.4 changed how bonding hands out connections and made downloads slower. 2.3.5 puts that back exactly as it was in 2.3.1 and keeps only these fixes:
-
-- **Correct speeds**: the Bond page shows download speed, smoothed, and the Downloads page shows the combined speed of all links.
-- **Links follow IP changes**: when a phone tether reconnects with a new IP, bonding switches to it. No Rescan needed.
-- **Survives the main internet going down**: the other links keep working with the last known server addresses.
-- **Easier to see what's wrong**: a link that can't reach the internet shows *can't connect*, and the Bond page says when Steam isn't using bonding yet (restart Steam).
+- **System tray**: pressing **X** now asks whether to minimize Steam Stopper to the system tray or quit. Tick *Remember my choice* to skip the question; the tray menu's *Ask what the X button does* brings it back.
+- **Tray menu**: right-click the tray icon to block or allow Steam's internet, turn bonding on or off, open the window, or quit. Left-click opens the window.
 
 ## Downloads
 
