@@ -1,7 +1,10 @@
-## New
+## Bonding fixes
 
-- **System tray**: pressing **X** now asks whether to minimize Steam Stopper to the system tray or quit. Tick *Remember my choice* to skip the question; the tray menu's *Ask what the X button does* brings it back.
-- **Tray menu**: right-click the tray icon to block or allow Steam's internet, turn bonding on or off, open the window, or quit. Left-click opens the window.
+- **Faster, steadier downloads**: Steam's requests reuse open connections on each link instead of opening a new one per chunk.
+- **No more slowdowns from dead connections**: a connection with no traffic for 45 seconds is closed, so Steam retries on a working link.
+- **Smarter link choice**: new requests go to the link that is fastest right now.
+- **Links follow IP changes**: when a phone tether reconnects or gets a new IP, bonding switches to it automatically. No Rescan needed.
+- **Correct speeds**: the Bond page shows download speed, smoothed, and the Downloads page shows the combined speed of all links.
 
 ## Downloads
 

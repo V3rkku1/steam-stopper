@@ -30,6 +30,7 @@ It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s ow
 ## What's new in 2.3
 
 - **System tray** (2.3.1): the X button can minimize to the tray, and the tray icon's right-click menu has Steam blocking, bonding and quit.
+- **Faster bonding** (2.3.2): connections are reused per link, stalled ones are dropped, links follow IP changes without Rescan, and speeds show the combined total.
 
 - **Bond**: download Steam games over two internet connections at once, for example Ethernet plus your phone.
 - **Routes**: choose which connection each app uses, like Valorant on Ethernet and Discord on your phone.
