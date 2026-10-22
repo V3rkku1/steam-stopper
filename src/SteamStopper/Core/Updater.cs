@@ -10,7 +10,7 @@ namespace SteamStopper.Core;
 public static class Updater
 {
     public static string Version =>
-        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "2.3.2";
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "2.3.3";
 
     public static bool IsInstalled =>
         File.Exists(Path.Combine(AppContext.BaseDirectory, ".installed"));

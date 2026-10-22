@@ -22,6 +22,7 @@ public sealed class BondLink : INotifyPropertyChanged
     internal int ActiveCount;
     internal long ByteCount;
     internal long FailUntilTicks;
+    internal long Picks;
 
     public string Name { get; init; } = "";
     public int Index { get; init; }
@@ -84,6 +85,7 @@ public sealed class BondLink : INotifyPropertyChanged
     {
         Interlocked.Exchange(ref ByteCount, 0);
         Interlocked.Exchange(ref FailUntilTicks, 0);
+        Interlocked.Exchange(ref Picks, 0);
         _lastBytes = 0;
         _bps = 0;
         Sample(0);
@@ -107,6 +109,8 @@ public sealed class LinkBonder
     // A connection with no traffic either way this long is dead (link dropped, NAT expired);
     // closing it makes Steam retry the chunk on a fresh connection instead of hanging.
     internal static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(45);
+    // HTTPS tunnels also carry quiet keep-alive sockets (Steam login, Discord's ~41s heartbeat).
+    private static readonly TimeSpan TunnelIdleTimeout = TimeSpan.FromSeconds(90);
     // Servers drop idle keep-alive connections after ~60s; reuse well inside that.
     private static readonly TimeSpan PoolIdle = TimeSpan.FromSeconds(20);
 
@@ -117,6 +121,7 @@ public sealed class LinkBonder
     private DateTime _lastSample = DateTime.UtcNow;
     // Idle keep-alive upstream connections, by link + its address + target host.
     private readonly Dictionary<string, Stack<(Wire Wire, DateTime At)>> _pool = [];
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, IPAddress[]> _dns = new();
 
     public bool Running => _listener is not null;
     public int Port { get; private set; }
@@ -275,7 +280,8 @@ public sealed class LinkBonder
                 }
                 if (request.Value.Tunnel)
                 {
-                    await Tunnel(from, request.Value, idle.Token);
+                    // The tunnel keeps its own idle timer; this one stops being refreshed once piping starts.
+                    await Tunnel(from, request.Value, cancel);
                     return;
                 }
                 if (!await Forward(from, request.Value, idle)) return;
@@ -470,6 +476,7 @@ public sealed class LinkBonder
         foreach (var link in Ranked())
         {
             Interlocked.Increment(ref link.ActiveCount);
+            Interlocked.Increment(ref link.Picks);
             var key = PoolKey(link, host, port);
             if (pooled && Take(key) is { } idle) return (idle, link);
 
@@ -478,8 +485,9 @@ public sealed class LinkBonder
                 if (IPAddress.TryParse(host, out var literal)) addresses = [literal];
                 else
                 {
-                    try { addresses = await Dns.GetHostAddressesAsync(host, cancel); }
-                    catch { addresses = []; }
+                    try { _dns[host] = addresses = await Dns.GetHostAddressesAsync(host, cancel); }
+                    // DNS goes out the main link; when that link is down, reuse the last answer so the others keep working.
+                    catch { addresses = _dns.GetValueOrDefault(host) ?? []; }
                 }
                 v4 = addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a));
             }
@@ -555,8 +563,8 @@ public sealed class LinkBonder
     }
 
     // Weighted least-connections, healthy links first so a dead phone hotspot only costs one retry.
-    // Ties go to the link moving data fastest right now, not the one with fewer total bytes:
-    // balancing totals kept feeding new chunks to the slow link and dragged the whole download down.
+    // Ties go round-robin by requests handed out (weighted). Not by speed: the first link to get
+    // going won every tie and the others sat idle. Not by total bytes: that fed the slow link.
     private List<BondLink> Ranked()
     {
         var chosen = _links.Where(l => l.Selected).ToList();
@@ -564,7 +572,7 @@ public sealed class LinkBonder
         return chosen
             .OrderBy(l => l.Failing)
             .ThenBy(l => (Volatile.Read(ref l.ActiveCount) + 1.0) / l.Weight)
-            .ThenByDescending(l => l.Bps / l.Weight)
+            .ThenBy(l => Interlocked.Read(ref l.Picks) / (double)l.Weight)
             .ToList();
     }
 
@@ -591,7 +599,7 @@ public sealed class LinkBonder
     private static async Task Pipe(Socket client, Socket upstream, BondLink? link, CancellationToken cancel)
     {
         using var idle = CancellationTokenSource.CreateLinkedTokenSource(cancel);
-        idle.CancelAfter(IdleTimeout);
+        idle.CancelAfter(TunnelIdleTimeout);
         var up = Copy(client, upstream, null, idle);
         var down = Copy(upstream, client, link, idle);
         if (await Task.WhenAny(up, down) == up)
@@ -618,7 +626,7 @@ public sealed class LinkBonder
                 var read = await from.ReceiveAsync(buffer, SocketFlags.None, token);
                 if (read <= 0) break;
                 if (link is not null) Interlocked.Add(ref link.ByteCount, read);
-                try { idle.CancelAfter(IdleTimeout); } catch (ObjectDisposedException) { }
+                try { idle.CancelAfter(TunnelIdleTimeout); } catch (ObjectDisposedException) { }
                 var sent = 0;
                 while (sent < read)
                     sent += await to.SendAsync(buffer.AsMemory(sent, read - sent), SocketFlags.None, token);
