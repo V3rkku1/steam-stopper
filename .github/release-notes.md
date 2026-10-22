@@ -1,14 +1,11 @@
-## Bonding fixes
+## 2.3.5: bonding back to 2.3.1
 
-- **2.3.4: the second connection actually gets used.** Windows could send a bonded connection out the main adapter anyway, so it never connected and the other link sat at 0. Each connection is now forced onto its adapter.
-- **2.3.4: easier to see what's wrong.** A link that can't reach the internet shows *can't connect*, and the Bond page says when Steam isn't using the bonder yet (restart Steam).
-- **2.3.3: bonding uses every link again.** 2.3.2 sent almost everything to whichever link got going first; requests are now shared out in turn (by weight).
-- **2.3.3: HTTPS connections no longer cut off.** In 2.3.2 every HTTPS connection through the bonder was closed 45 seconds after it opened, even mid-download. Quiet ones (Steam login, Discord) now get 90 seconds.
-- **2.3.3: survives the main internet going down.** Bonding remembers the last address for each server, so the other links keep downloading when the main link's DNS stops answering.
-- **Faster, steadier downloads**: Steam's requests reuse open connections on each link instead of opening a new one per chunk.
-- **No more slowdowns from dead connections**: a connection with no traffic for 45 seconds is closed, so Steam retries on a working link.
-- **Links follow IP changes**: when a phone tether reconnects or gets a new IP, bonding switches to it automatically. No Rescan needed.
+2.3.2–2.3.4 changed how bonding hands out connections and made downloads slower. 2.3.5 puts that back exactly as it was in 2.3.1 and keeps only these fixes:
+
 - **Correct speeds**: the Bond page shows download speed, smoothed, and the Downloads page shows the combined speed of all links.
+- **Links follow IP changes**: when a phone tether reconnects with a new IP, bonding switches to it. No Rescan needed.
+- **Survives the main internet going down**: the other links keep working with the last known server addresses.
+- **Easier to see what's wrong**: a link that can't reach the internet shows *can't connect*, and the Bond page says when Steam isn't using bonding yet (restart Steam).
 
 ## Downloads
 
