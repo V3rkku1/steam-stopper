@@ -22,6 +22,7 @@ public sealed class BondLink : INotifyPropertyChanged
     internal int ActiveCount;
     internal long ByteCount;
     internal long FailUntilTicks;
+    internal long Picks;
 
     public string Name { get; init; } = "";
     public int Index { get; init; }
@@ -84,6 +85,7 @@ public sealed class BondLink : INotifyPropertyChanged
     {
         Interlocked.Exchange(ref ByteCount, 0);
         Interlocked.Exchange(ref FailUntilTicks, 0);
+        Interlocked.Exchange(ref Picks, 0);
         _lastBytes = 0;
         _bps = 0;
         Sample(0);
@@ -470,6 +472,7 @@ public sealed class LinkBonder
         foreach (var link in Ranked())
         {
             Interlocked.Increment(ref link.ActiveCount);
+            Interlocked.Increment(ref link.Picks);
             var key = PoolKey(link, host, port);
             if (pooled && Take(key) is { } idle) return (idle, link);
 
@@ -555,8 +558,8 @@ public sealed class LinkBonder
     }
 
     // Weighted least-connections, healthy links first so a dead phone hotspot only costs one retry.
-    // Ties go to the link moving data fastest right now, not the one with fewer total bytes:
-    // balancing totals kept feeding new chunks to the slow link and dragged the whole download down.
+    // Ties go round-robin by requests handed out (weighted). Not by speed: the first link to get
+    // going won every tie and the others sat idle. Not by total bytes: that fed the slow link.
     private List<BondLink> Ranked()
     {
         var chosen = _links.Where(l => l.Selected).ToList();
@@ -564,7 +567,7 @@ public sealed class LinkBonder
         return chosen
             .OrderBy(l => l.Failing)
             .ThenBy(l => (Volatile.Read(ref l.ActiveCount) + 1.0) / l.Weight)
-            .ThenByDescending(l => l.Bps / l.Weight)
+            .ThenBy(l => Interlocked.Read(ref l.Picks) / (double)l.Weight)
             .ToList();
     }
 
