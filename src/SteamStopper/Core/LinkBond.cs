@@ -25,7 +25,7 @@ public sealed class BondLink : INotifyPropertyChanged
     internal long Picks;
 
     public string Name { get; init; } = "";
-    public int Index { get; init; }
+    public int Index { get; set; }
     public string Description { get; init; } = "";
     public string Kind { get; init; } = "";
     public IPAddress Address { get; set; } = IPAddress.None;
@@ -48,7 +48,7 @@ public sealed class BondLink : INotifyPropertyChanged
     }
 
     public int Active => _activeShown;
-    public string SpeedText => _bps <= 0 ? "—" : Format.Speed(_bps);
+    public string SpeedText => Failing ? "can't connect" : _bps <= 0 ? "—" : Format.Speed(_bps);
     public string TotalText => _bytesShown <= 0 ? "—" : Format.Bytes(_bytesShown);
     public double Bps => _bps;
 
@@ -76,6 +76,7 @@ public sealed class BondLink : INotifyPropertyChanged
     {
         Address = fresh.Address;
         Gateway = fresh.Gateway;
+        Index = fresh.Index;
         Interlocked.Exchange(ref FailUntilTicks, 0);
         OnChanged(nameof(Detail));
         OnChanged(nameof(Hint));
@@ -252,7 +253,7 @@ public sealed class LinkBonder
                 foreach (var link in _links)
                 {
                     var fresh = found.FirstOrDefault(f => f.Name == link.Name);
-                    if (fresh is not null && !fresh.Address.Equals(link.Address)) link.Moved(fresh);
+                    if (fresh is not null && (!fresh.Address.Equals(link.Address) || fresh.Index != link.Index)) link.Moved(fresh);
                 }
             }
             catch { }
@@ -496,7 +497,7 @@ public sealed class LinkBonder
                 Interlocked.Decrement(ref link.ActiveCount);
                 break;
             }
-            var socket = await TryConnect(v4, port, link.Address, cancel);
+            var socket = await TryConnect(v4, port, link.Address, cancel, link.Index);
             if (socket is not null)
             {
                 socket.NoDelay = true;
@@ -576,14 +577,19 @@ public sealed class LinkBonder
             .ToList();
     }
 
-    private static async Task<Socket?> TryConnect(IPAddress target, int port, IPAddress? source, CancellationToken cancel)
+    // IP_UNICAST_IF: IPPROTO_IP option 31, interface index in network byte order.
+    private const SocketOptionName UnicastInterface = (SocketOptionName)31;
+
+    private static async Task<Socket?> TryConnect(IPAddress target, int port, IPAddress? source, CancellationToken cancel, int index = 0)
     {
         var socket = new Socket(target.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         try
         {
-            // Windows sends from the adapter that owns the bound source address (strong host model),
-            // so binding is all it takes to push this connection out a specific link.
             if (source is not null) socket.Bind(new IPEndPoint(source, 0));
+            // Binding alone doesn't pick the adapter on Windows: with two default gateways the packet can
+            // still leave through the main one (wrong source IP, so it never connects). Force the adapter.
+            if (index > 0 && OperatingSystem.IsWindows())
+                socket.SetSocketOption(SocketOptionLevel.IP, UnicastInterface, IPAddress.HostToNetworkOrder(index));
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
             timeout.CancelAfter(ConnectTimeout);
             await socket.ConnectAsync(new IPEndPoint(target, port), timeout.Token);

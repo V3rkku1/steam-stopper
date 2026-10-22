@@ -1,5 +1,7 @@
 ## Bonding fixes
 
+- **2.3.4: the second connection actually gets used.** Windows could send a bonded connection out the main adapter anyway, so it never connected and the other link sat at 0. Each connection is now forced onto its adapter.
+- **2.3.4: easier to see what's wrong.** A link that can't reach the internet shows *can't connect*, and the Bond page says when Steam isn't using the bonder yet (restart Steam).
 - **2.3.3: bonding uses every link again.** 2.3.2 sent almost everything to whichever link got going first; requests are now shared out in turn (by weight).
 - **2.3.3: HTTPS connections no longer cut off.** In 2.3.2 every HTTPS connection through the bonder was closed 45 seconds after it opened, even mid-download. Quiet ones (Steam login, Discord) now get 90 seconds.
 - **2.3.3: survives the main internet going down.** Bonding remembers the last address for each server, so the other links keep downloading when the main link's DNS stops answering.
