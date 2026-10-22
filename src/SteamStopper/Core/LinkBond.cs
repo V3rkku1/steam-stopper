@@ -59,7 +59,9 @@ public sealed class BondLink : INotifyPropertyChanged
     internal void Sample(double seconds)
     {
         var bytes = Interlocked.Read(ref ByteCount);
-        _bps = seconds > 0 ? Math.Max(0, bytes - _lastBytes) / seconds : 0;
+        var raw = seconds > 0 ? Math.Max(0, bytes - _lastBytes) / seconds : 0;
+        // Smooth over a few seconds so the speed doesn't jump between 0 and double each tick.
+        _bps = _bps * 0.6 + raw * 0.4;
         _lastBytes = bytes;
         _bytesShown = bytes;
         _activeShown = Volatile.Read(ref ActiveCount);
@@ -73,6 +75,7 @@ public sealed class BondLink : INotifyPropertyChanged
         Interlocked.Exchange(ref ByteCount, 0);
         Interlocked.Exchange(ref FailUntilTicks, 0);
         _lastBytes = 0;
+        _bps = 0;
         Sample(0);
     }
 
@@ -92,6 +95,9 @@ public sealed class LinkBonder
     private const int MaxHead = 64 * 1024;
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan FailPenalty = TimeSpan.FromSeconds(20);
+    // A connection with no traffic either way this long is dead (link dropped, NAT expired);
+    // closing it makes Steam retry the chunk on a fresh connection instead of hanging.
+    private static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(45);
 
     private readonly object _gate = new();
     private TcpListener? _listener;
@@ -372,6 +378,8 @@ public sealed class LinkBonder
     }
 
     // Weighted least-connections, healthy links first so a dead phone hotspot only costs one retry.
+    // Ties go to the link moving data fastest right now, not the one with fewer total bytes:
+    // balancing totals kept feeding new chunks to the slow link and dragged the whole download down.
     private List<BondLink> Ranked()
     {
         var chosen = _links.Where(l => l.Selected).ToList();
@@ -379,7 +387,7 @@ public sealed class LinkBonder
         return chosen
             .OrderBy(l => l.Failing)
             .ThenBy(l => (Volatile.Read(ref l.ActiveCount) + 1.0) / l.Weight)
-            .ThenBy(l => Interlocked.Read(ref l.ByteCount) / (double)l.Weight)
+            .ThenByDescending(l => l.Bps / l.Weight)
             .ToList();
     }
 
@@ -405,8 +413,10 @@ public sealed class LinkBonder
 
     private static async Task Pipe(Socket client, Socket upstream, BondLink? link, CancellationToken cancel)
     {
-        var up = Copy(client, upstream, link, cancel);
-        var down = Copy(upstream, client, link, cancel);
+        using var idle = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        idle.CancelAfter(IdleTimeout);
+        var up = Copy(client, upstream, null, idle);
+        var down = Copy(upstream, client, link, idle);
         if (await Task.WhenAny(up, down) == up)
         {
             // Client finished sending; keep streaming the response until the server closes.
@@ -419,19 +429,22 @@ public sealed class LinkBonder
         try { await Task.WhenAny(up, Task.Delay(TimeSpan.FromSeconds(5), cancel)); } catch { }
     }
 
-    private static async Task Copy(Socket from, Socket to, BondLink? link, CancellationToken cancel)
+    // link is set only for the download direction, so the speed column shows download speed.
+    private static async Task Copy(Socket from, Socket to, BondLink? link, CancellationTokenSource idle)
     {
+        var token = idle.Token;
         var buffer = new byte[64 * 1024];
         try
         {
             while (true)
             {
-                var read = await from.ReceiveAsync(buffer, SocketFlags.None, cancel);
+                var read = await from.ReceiveAsync(buffer, SocketFlags.None, token);
                 if (read <= 0) break;
                 if (link is not null) Interlocked.Add(ref link.ByteCount, read);
+                try { idle.CancelAfter(IdleTimeout); } catch (ObjectDisposedException) { }
                 var sent = 0;
                 while (sent < read)
-                    sent += await to.SendAsync(buffer.AsMemory(sent, read - sent), SocketFlags.None, cancel);
+                    sent += await to.SendAsync(buffer.AsMemory(sent, read - sent), SocketFlags.None, token);
             }
         }
         catch { }
