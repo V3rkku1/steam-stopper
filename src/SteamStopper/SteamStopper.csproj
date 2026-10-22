@@ -13,9 +13,9 @@
     <Product>Steam Stopper</Product>
     <ApplicationTitle>Steam Stopper</ApplicationTitle>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>2.3.5</Version>
-    <FileVersion>2.3.5</FileVersion>
-    <AssemblyVersion>2.3.5</AssemblyVersion>
+    <Version>2.3.1</Version>
+    <FileVersion>2.3.1</FileVersion>
+    <AssemblyVersion>2.3.1</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />

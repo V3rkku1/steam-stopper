@@ -56,7 +56,6 @@ public partial class MainWindow : Window
     private List<GameEntry> _games = [];
     private List<DnsProvider> _dnsRows = [];
     private List<BondLink> _bondRows = [];
-    private double _bondBps;
     private bool _bondWorking;
     private List<RouteRule> _routeRules = [];
     private TrayIcon? _tray;
@@ -379,8 +378,7 @@ public partial class MainWindow : Window
 
     private double SampleWatchSpeed(DownloadSnapshot? snapshot, string key)
     {
-        // NicMonitor reports the busiest single adapter; while bonding the real speed is the sum of all links.
-        var nic = Math.Max(_nic.ReceiveBps(), _bondBps);
+        var nic = _nic.ReceiveBps();
         if (key == "pc")
             return nic;
 
@@ -1146,13 +1144,11 @@ public partial class MainWindow : Window
 
     private void PaintBondSpeed()
     {
-        if (!_bonder.Running) { _bondBps = 0; return; }
-        var total = _bondBps = _bonder.Sample();
+        if (!_bonder.Running) return;
+        var total = _bonder.Sample();
         var active = _bondRows.Count(l => l.Selected);
         BondChip.Text = $"bond: {active} links · {Format.Speed(total)}";
-        BondTotal.Text = _bondRows.All(l => Interlocked.Read(ref l.ByteCount) == 0)
-            ? "Nothing has gone through the bonder yet. Restart Steam so it picks up the proxy, then start a download."
-            : $"Combined {Format.Speed(total)} across {active} links.";
+        BondTotal.Text = $"Combined {Format.Speed(total)} across {active} links.";
     }
 
     private void BondRescan_Click(object sender, RoutedEventArgs e)
