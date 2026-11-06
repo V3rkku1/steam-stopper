@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Cross-platform check of Core/Fetcher.cs against a local range server. Run it from the repo root with: dotnet run, project tests/FetcherTests -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>CA1416</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/SteamStopper/Core/Fetcher.cs" />
+    <Compile Include="../../src/SteamStopper/Core/LinkBond.cs" />
+  </ItemGroup>
+</Project>

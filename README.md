@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Windows desktop app for your Steam client</strong><br>
-  Firewall kill switch · download watcher · DNS jumper · link bonding · per-app routes · cleaner · Downloads organizer · app installer
+  Firewall kill switch · download watcher · DNS jumper · link bonding · download manager · per-app routes · cleaner · Downloads organizer · app installer
 </p>
 
 <p align="center">
@@ -65,6 +65,7 @@ No install and no auto-update. Includes the .NET runtime, so it runs on a clean 
 | **DNS** | Switch providers, ping for the fastest, restore automatic DNS. |
 | **Routes** | Pick which internet each app uses: keep games like Valorant on Ethernet and send Discord, browsers or Spotify over your phone. |
 | **Bond** | Combine two internet connections (for example Ethernet plus your phone's USB tethering or hotspot) so Steam downloads use both at once. |
+| **Fetch** | Download manager: paste links and each file downloads in pieces over all your bonded connections at once. Pause, resume after a restart, queue several files. |
 | **Clean** | Remove temp files, caches, Recycle Bin, and leftover Steam junk. |
 | **Organize** | Sort a messy Downloads folder into Installers, Archives, Documents, Images and more. One-click undo. |
 | **Apps** | Install or remove 56 common apps (Discord, Brave, OBS, 7-Zip, and more), then clear the folders they leave behind in AppData and Program Files. |
@@ -85,6 +86,18 @@ The **Bond** page lets Steam download over two or more internet connections at o
 How it works: Steam Stopper runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and the proxy sends each new connection out a different link, so the speeds add up. A single connection still runs over one link, so one big HTTPS file in a browser will not get faster. If a link drops, new connections move to the others.
 
 Stopping bonding or closing the app puts your old proxy setting back. If the app crashes, it is restored the next time Steam Stopper starts. Mobile data counts against your phone plan, so watch the totals.
+
+## Fetch (download manager)
+
+The **Fetch** page downloads any file, not just Steam games, over every connection ticked on the **Bond** page. Bonding itself does not need to be on.
+
+1. Paste one or more `http://` or `https://` links (one per line). A link on the clipboard is filled in for you.
+2. Pick the folder, the **connections per file** (8 is a good start) and how many **files at once**.
+3. Press **Download**. Each row shows which links are carrying it and how fast.
+
+How it works: the file is split into pieces that download in parallel, and each piece's connection is pinned to one link, so a single big file uses all of them. When a link finishes its piece, it takes over half of the biggest piece still running, so faster links end up doing more. A dropped link is skipped for 20 seconds and its piece moves to another one.
+
+Progress is kept in `name.part.json` next to the unfinished `name.part`, so **Pause**, closing the app or losing the internet doesn't lose anything. If the server doesn't allow resuming, the file downloads over one connection and starts over after a failure. Servers that limit connections per user may refuse many connections; lower the count if a download keeps failing.
 
 ## Per-app routes
 

@@ -108,6 +108,8 @@ public static class Power
     }
 }
 
+public sealed record FetchEntry(string State, string Url, string Folder);
+
 public sealed class AppSettings
 {
     public string AutoAction { get; set; } = "shutdown";
@@ -134,6 +136,11 @@ public sealed class AppSettings
     public string CloseAction { get; set; } = "ask";
     // App key -> adapter name it was last pinned to.
     public Dictionary<string, string> RouteLinks { get; set; } = [];
+    public string FetchFolder { get; set; } = "";
+    public int FetchConnections { get; set; } = 8;
+    public int FetchAtOnce { get; set; } = 2;
+    // Unfinished downloads: their progress file, or the link when they never started.
+    public List<FetchEntry> FetchJobs { get; set; } = [];
 
     private static string PathName =>
         System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SteamStopper", "settings.json");

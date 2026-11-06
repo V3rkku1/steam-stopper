@@ -60,6 +60,12 @@
               <TextBlock Style="{StaticResource NavText}" Text="Bond"/>
             </StackPanel>
           </RadioButton>
+          <RadioButton Style="{StaticResource NavItem}" Tag="fetch" Click="Nav_Click">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE71B;"/>
+              <TextBlock Style="{StaticResource NavText}" Text="Fetch"/>
+            </StackPanel>
+          </RadioButton>
           <RadioButton Style="{StaticResource NavItem}" Tag="routes" Click="Nav_Click">
             <StackPanel Orientation="Horizontal">
               <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8AB;"/>
@@ -560,6 +566,98 @@
                 <DataGridTextColumn Header="TOTAL" Binding="{Binding TotalText}" Width="80"/>
               </DataGrid.Columns>
             </DataGrid>
+          </DockPanel>
+        </Border>
+      </Grid>
+
+      <!-- ===================== FETCH ===================== -->
+      <Grid x:Name="PageFetch" Visibility="Collapsed">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="0.9*"/>
+          <ColumnDefinition Width="14"/>
+          <ColumnDefinition Width="1.1*"/>
+        </Grid.ColumnDefinitions>
+        <Border Style="{StaticResource HeroCard}">
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0,0,4,0">
+              <TextBlock Text="DOWNLOAD SPEED" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+              <TextBlock x:Name="FetchHeadline" Text="Idle" Style="{StaticResource Hero}" TextTrimming="CharacterEllipsis"/>
+              <TextBlock x:Name="FetchHint" Foreground="{StaticResource Muted}" Margin="0,4,0,18" TextWrapping="Wrap"/>
+              <TextBlock Text="Links, one per line" Style="{StaticResource FieldLabel}"/>
+              <TextBox x:Name="FetchUrlBox" Height="84" AcceptsReturn="True" TextWrapping="NoWrap"
+                       VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="0,0,0,14"/>
+              <TextBlock Text="Save to" Style="{StaticResource FieldLabel}"/>
+              <DockPanel Margin="0,0,0,14">
+                <Button DockPanel.Dock="Right" Content="Change" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="FetchFolder_Click"/>
+                <Border Background="{StaticResource Raised}" CornerRadius="10" Padding="12,8">
+                  <TextBlock x:Name="FetchPath" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                </Border>
+              </DockPanel>
+              <UniformGrid Columns="2" Margin="0,0,0,18">
+                <StackPanel Margin="0,0,4,0">
+                  <TextBlock Text="Connections per file" Style="{StaticResource FieldLabel}"/>
+                  <ComboBox x:Name="FetchConnBox" ToolTip="More connections spread better over your links. Some servers limit this."/>
+                </StackPanel>
+                <StackPanel Margin="4,0,0,0">
+                  <TextBlock Text="Files at once" Style="{StaticResource FieldLabel}"/>
+                  <ComboBox x:Name="FetchAtOnceBox"/>
+                </StackPanel>
+              </UniformGrid>
+              <Button Content="Download" Style="{StaticResource WideSafe}" Click="FetchAdd_Click"/>
+              <TextBlock x:Name="FetchBusy" Text="" Foreground="{StaticResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+              <TextBlock Text="HOW IT WORKS" Style="{StaticResource SectionLabel}" Margin="0,18,0,6"/>
+              <TextBlock Foreground="{StaticResource Faint}" FontSize="11" TextWrapping="Wrap"
+                         Text="Each file is split into pieces that download in parallel, and every piece goes out one of the connections ticked on the Bond page, so one file uses all of them. Faster links finish first and take over half of the slowest piece. Bonding does not have to be on. Pause, close the app or lose a link, and the download picks up where it stopped, as long as the server allows it."/>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
+        <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="20,18,12,10">
+          <DockPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,8,10">
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Pause" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="FetchPause_Click"/>
+                <Button Content="Resume" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="FetchResume_Click"/>
+                <Button Content="Remove" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="FetchRemove_Click"/>
+                <Button Content="Open folder" Style="{StaticResource SmallButton}" Margin="0" Click="FetchOpen_Click"/>
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Text="FILES" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
+                <TextBlock x:Name="FetchSummary" Text="" Foreground="{StaticResource Faint}" FontSize="11"/>
+              </StackPanel>
+            </DockPanel>
+            <Grid>
+              <DataGrid x:Name="FetchGrid" SelectionMode="Extended" RowHeight="44" MouseDoubleClick="FetchGrid_DoubleClick"
+                        ToolTip="Double-click a finished file to open it">
+                <DataGrid.Columns>
+                  <DataGridTemplateColumn Header="FILE" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <StackPanel VerticalAlignment="Center" ToolTip="{Binding Hint}">
+                          <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Text="{Binding Detail}" Foreground="{StaticResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTextColumn Header="STATUS" Binding="{Binding StatusText}" Width="90"/>
+                  <DataGridTemplateColumn Header="PROGRESS" Width="120">
+                    <DataGridTemplateColumn.CellTemplate>
+                      <DataTemplate>
+                        <DockPanel VerticalAlignment="Center">
+                          <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressText}" Width="40" TextAlignment="Right" Foreground="{StaticResource Muted}" FontSize="12"/>
+                          <ProgressBar Value="{Binding Percent, Mode=OneWay}" Maximum="1" Height="4" Margin="0,0,8,0"/>
+                        </DockPanel>
+                      </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                  </DataGridTemplateColumn>
+                  <DataGridTextColumn Header="SIZE" Binding="{Binding SizeText}" Width="130"/>
+                  <DataGridTextColumn Header="SPEED" Binding="{Binding SpeedText}" Width="84"/>
+                  <DataGridTextColumn Header="LEFT" Binding="{Binding EtaText}" Width="70"/>
+                </DataGrid.Columns>
+              </DataGrid>
+              <TextBlock x:Name="FetchEmpty" Text="Paste a link on the left to start." Foreground="{StaticResource Faint}"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+            </Grid>
           </DockPanel>
         </Border>
       </Grid>
