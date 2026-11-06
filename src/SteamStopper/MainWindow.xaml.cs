@@ -29,6 +29,7 @@ public partial class MainWindow : Window
         ["library"] = ("Library", "Installed games, sizes and Steam maintenance"),
         ["dns"] = ("DNS", "Switch DNS providers and find the fastest"),
         ["bond"] = ("Bond", "Combine two internet connections for faster downloads"),
+        ["fetch"] = ("Fetch", "Download files over all your internet connections at once"),
         ["routes"] = ("Routes", "Choose which internet connection each app uses"),
         ["clean"] = ("Clean", "Free space from temp files and caches"),
         ["organize"] = ("Organize", "Sort a messy Downloads folder into tidy subfolders"),
@@ -90,6 +91,7 @@ public partial class MainWindow : Window
             ["library"] = PageLibrary,
             ["dns"] = PageDns,
             ["bond"] = PageBond,
+            ["fetch"] = PageFetch,
             ["routes"] = PageRoutes,
             ["clean"] = PageClean,
             ["organize"] = PageOrganize,
@@ -110,6 +112,7 @@ public partial class MainWindow : Window
         FillComboBoxes();
         FillAppCategories();
         LoadUiFromSettings();
+        InitFetch();
         RefreshAdmin();
         RefreshFirewallAsync();
         RefreshProcesses();
@@ -117,6 +120,7 @@ public partial class MainWindow : Window
 
         _pollTimer.Tick += (_, _) => PollWatch();
         _pollTimer.Tick += (_, _) => PaintBondSpeed();
+        _pollTimer.Tick += (_, _) => PaintFetchSpeed();
         _pollTimer.Start();
         _tray = new TrayIcon(
             isBlocked: () => _steamBlocked,
@@ -138,6 +142,7 @@ public partial class MainWindow : Window
         {
             _tray?.Dispose();
             _tray = null;
+            StopFetchJobs();
             PersistSettings();
             _pollTimer.Stop();
             _bonder.Stop();
@@ -294,6 +299,7 @@ public partial class MainWindow : Window
         if (key == "control") RefreshProcesses();
         if (key == "dns") RefreshDnsUi();
         if (key == "bond") RefreshBondUi();
+        if (key == "fetch") RefreshFetchUi();
         if (key == "routes") RefreshRoutesUi();
         if (key == "clean") _ = ScanCleanerAsync();
         if (key == "apps") RefreshApps();
@@ -738,6 +744,7 @@ public partial class MainWindow : Window
         if (int.TryParse(BondPortBox.Text.Trim(), out var bondPort)) _settings.BondPort = bondPort;
         _settings.BondRestartSteam = BondRestartBox.IsChecked == true;
         SaveBondLinks();
+        SaveFetchSettings();
         _settings.Save();
     }
 
