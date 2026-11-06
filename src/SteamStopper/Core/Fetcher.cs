@@ -52,12 +52,6 @@ public sealed class FetchJob : INotifyPropertyChanged
     [JsonIgnore] public string Error => _error;
     [JsonIgnore] public long Received => Interlocked.Read(ref _received);
     [JsonIgnore] public string Name => FileName.Length > 0 ? FileName : Url;
-    [JsonIgnore] public string StatusText => _state switch
-    {
-        FetchState.Failed => "Failed",
-        FetchState.Downloading when _bps <= 0 => "Waiting",
-        _ => _state.ToString()
-    };
     [JsonIgnore] public string Hint => _error.Length > 0 ? $"{Url}\n{_error}" : Url;
     [JsonIgnore] public double Percent => Total > 0 ? Math.Min(1, Received / (double)Total) : _state == FetchState.Done ? 1 : 0;
     [JsonIgnore] public string ProgressText => Total > 0 ? $"{Percent * 100:0}%" : "—";
@@ -66,7 +60,14 @@ public sealed class FetchJob : INotifyPropertyChanged
     [JsonIgnore] public string SpeedText => _state == FetchState.Downloading ? Format.Speed(_bps) : "—";
     [JsonIgnore] public string EtaText => _state == FetchState.Downloading && Total > 0 && _bps > 1024
         ? Format.Duration((Total - Received) / _bps) : "—";
-    [JsonIgnore] public string Detail => _state == FetchState.Failed ? _error : _via;
+    [JsonIgnore] public string Detail => _state switch
+    {
+        FetchState.Failed => $"Failed · {_error}",
+        FetchState.Done => $"Done · {Format.Bytes(Received)}",
+        FetchState.Downloading when _via.Length > 0 => $"{SizeText} · {_via}",
+        FetchState.Connecting => "Connecting…",
+        _ => $"{_state} · {SizeText}"
+    };
     [JsonIgnore] public bool Running => _state is FetchState.Connecting or FetchState.Downloading;
     [JsonIgnore] public bool CanResume => _state is FetchState.Paused or FetchState.Failed;
 

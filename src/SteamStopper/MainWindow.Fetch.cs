@@ -18,7 +18,7 @@ public partial class MainWindow
     private int _fetchTicks;
 
     // Reads _bondRows from worker threads; the UI only ever swaps the whole list.
-    private Fetcher FetchEngine => _fetcher ??= new Fetcher(() => _bondRows);
+    private Fetcher FetchEngine => _fetcher ??= new Fetcher(() => _settings.FetchBond ? _bondRows : []);
 
     private void InitFetch()
     {
@@ -29,6 +29,7 @@ public partial class MainWindow
         FetchAtOnceBox.SelectionChanged += (_, _) => { SaveFetchSettings(); PumpFetch(); };
         FetchConnBox.SelectionChanged += (_, _) => SaveFetchSettings();
         FetchGrid.ItemsSource = _fetchJobs;
+        FetchBondBox.IsChecked = _settings.FetchBond;
         _fetchJobs.CollectionChanged += (_, _) => PaintFetch();
 
         foreach (var entry in _settings.FetchJobs)
@@ -61,6 +62,7 @@ public partial class MainWindow
     {
         // From a fresh start the Bond page may never have been opened, so the link list is still empty.
         if (_bondRows.Count == 0) RefreshBondUi();
+        FetchLinks.ItemsSource = _bondRows;
         FetchPath.Text = FetchFolder();
         FetchPath.ToolTip = FetchPath.Text;
         if (FetchUrlBox.Text.Length == 0)
@@ -83,30 +85,63 @@ public partial class MainWindow
 
     private void PaintFetch()
     {
-        var links = _bondRows.Where(l => l.Selected).ToList();
-        FetchHint.Text = links.Count switch
-        {
-            0 => "No internet connection ticked on the Bond page, so files use Windows' normal route.",
-            1 => $"Only {links[0].Name} is ticked on the Bond page. Plug in a second connection and tick it to combine them.",
-            _ => $"Downloads go out {links.Count} connections at once: {string.Join(", ", links.Select(l => l.Name))}."
-        };
+        var bond = _settings.FetchBond;
+        var picked = _bondRows.Count(l => l.Selected);
+        FetchBondHint.Text = !bond ? "Off. Files use Windows' normal connection."
+            : _bondRows.Count == 0 ? "No internet connection found. Press Rescan."
+            : _bondRows.Count == 1 ? "Only one connection found. Plug in your phone with USB tethering or join a hotspot, then press Rescan."
+            : picked == 0 ? "Tick at least one connection below."
+            : picked == 1 ? "Only one ticked. Tick another to combine them."
+            : $"Each file downloads over {picked} connections at once.";
+        FetchLinks.IsEnabled = bond;
+        FetchLinks.Opacity = bond ? 1 : 0.45;
+        FetchHint.Text = bond && picked > 1 ? $"Combining {picked} connections." : "Using one connection.";
         FetchEmpty.Visibility = _fetchJobs.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         var running = _fetchJobs.Count(j => j.Running);
         var queued = _fetchJobs.Count(j => j.State == FetchState.Queued);
         var done = _fetchJobs.Count(j => j.State == FetchState.Done);
-        FetchSummary.Text = _fetchJobs.Count == 0 ? "Nothing yet."
-            : $"{running} downloading · {queued} queued · {done} done";
+        var stopped = _fetchJobs.Count - running - queued - done;
+        var parts = new[] { (running, "downloading"), (queued, "queued"), (stopped, "stopped"), (done, "done") }
+            .Where(p => p.Item1 > 0).Select(p => $"{p.Item1} {p.Item2}");
+        FetchSummary.Text = _fetchJobs.Count == 0 ? "Nothing yet." : string.Join(" · ", parts);
     }
 
     private void PaintFetchSpeed()
     {
         var running = _fetchJobs.Where(j => j.Running).ToList();
         foreach (var job in running) job.Sample(_pollTimer.Interval.TotalSeconds);
+        // The bonder samples link speeds itself while it runs; sampling twice would halve them.
+        if (!_bonder.Running) foreach (var link in _bondRows) link.Sample(_pollTimer.Interval.TotalSeconds);
         if (++_fetchTicks % 5 == 0) foreach (var job in running) job.Save();
         var total = running.Sum(j => j.Bps);
         FetchHeadline.Text = running.Count == 0 ? "Idle" : Format.Speed(total);
         FetchHeadline.Foreground = Brush(running.Count == 0 ? "Muted" : "Green");
         if (running.Count > 0) PaintFetch();
+    }
+
+    private void FetchBond_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.FetchBond = FetchBondBox.IsChecked == true;
+        _settings.Save();
+        PaintFetch();
+    }
+
+    private void FetchLink_Click(object sender, RoutedEventArgs e)
+    {
+        SaveBondLinks();
+        _settings.Save();
+        PaintFetch();
+    }
+
+    private void FetchRescan_Click(object sender, RoutedEventArgs e)
+    {
+        if (_bonder.Running)
+        {
+            FetchBusy.Text = "Stop bonding on the Bond page before rescanning connections.";
+            return;
+        }
+        RefreshBondUi();
+        RefreshFetchUi();
     }
 
     private void FetchAdd_Click(object sender, RoutedEventArgs e)

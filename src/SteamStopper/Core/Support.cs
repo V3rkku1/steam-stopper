@@ -139,6 +139,8 @@ public sealed class AppSettings
     public string FetchFolder { get; set; } = "";
     public int FetchConnections { get; set; } = 8;
     public int FetchAtOnce { get; set; } = 2;
+    // Spread Fetch downloads over the links ticked on the Bond page; off uses Windows' normal route.
+    public bool FetchBond { get; set; } = true;
     // Unfinished downloads: their progress file, or the link when they never started.
     public List<FetchEntry> FetchJobs { get; set; } = [];
 

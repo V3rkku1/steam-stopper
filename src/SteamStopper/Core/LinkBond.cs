@@ -106,7 +106,11 @@ public sealed class LinkBonder
     public static List<BondLink> Discover()
     {
         var list = new List<BondLink>();
-        foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+        NetworkInterface[] nics;
+        // Throws "Request not supported" on some systems (Wine, broken network stacks); show no links instead of an error.
+        try { nics = NetworkInterface.GetAllNetworkInterfaces(); }
+        catch (NetworkInformationException) { return list; }
+        foreach (var nic in nics)
         {
             try
             {

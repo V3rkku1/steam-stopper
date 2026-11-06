@@ -94,7 +94,7 @@ Stopping bonding or closing the app puts your old proxy setting back. If the app
 
 ## Fetch (download manager)
 
-The **Fetch** page downloads any file, not just Steam games, over every connection ticked on the **Bond** page. Bonding itself does not need to be on.
+The **Fetch** page downloads any file, not just Steam games, over all your internet connections at once. Turn on **Use all my connections** and tick the ones to combine right on the page (the same list as the **Bond** page). Bonding itself does not need to be on.
 
 1. Paste one or more `http://` or `https://` links (one per line). A link on the clipboard is filled in for you.
 2. Pick the folder, the **connections per file** (8 is a good start) and how many **files at once**.
