@@ -101,8 +101,9 @@ public partial class MainWindow : Window
         if (_steamRoot is not null)
             _watcher = new DownloadWatcher(_steamRoot);
 
-        // A crash while bonding leaves Windows pointed at a proxy that is no longer running.
-        try { SystemProxy.Restore(); } catch { }
+        // A crash while bonding leaves Windows pointed at a proxy that is no longer running, and routed
+        // apps on proxies that died with it. The watchdog normally fixes that; this covers it being killed too.
+        _ = Task.Run(Watchdog.Recover);
 
         SteamPathText.Text = _steamRoot ?? "Not found";
         SteamPathText.ToolTip = _steamRoot;
@@ -1213,6 +1214,7 @@ public partial class MainWindow : Window
                 StatusText.Text = result;
                 return;
             }
+            Watchdog.Ensure();
             SystemProxy.Enable(port);
             SaveBondLinks();
             _settings.BondPort = port;
@@ -1327,6 +1329,8 @@ public partial class MainWindow : Window
             var routeError = AppRoutes.AddRoutes(rule.App, link);
             rule.Proxy = proxy;
             rule.Pinned = link;
+            Watchdog.Ensure();
+            Watchdog.TrackRouted(rule.App.Key, exe);
             AppRoutes.Restart(rule.App, exe, port);
             Dispatcher.Invoke(() => rule.Status = $"Using {link.Name}");
             return routeError is null
@@ -1356,6 +1360,7 @@ public partial class MainWindow : Window
 
     private static void StopRoute(RouteRule rule)
     {
+        if (rule.Proxy is not null) Watchdog.TrackRouted(rule.App.Key, null);
         rule.Proxy?.Stop();
         if (rule.Pinned is not null) AppRoutes.RemoveRoutes(rule.App, rule.Pinned);
         rule.Proxy = null;
