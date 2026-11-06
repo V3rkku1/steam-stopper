@@ -1,7 +1,10 @@
 ## New
 
-- **System tray**: pressing **X** now asks whether to minimize Steam Stopper to the system tray or quit. Tick *Remember my choice* to skip the question; the tray menu's *Ask what the X button does* brings it back.
-- **Tray menu**: right-click the tray icon to block or allow Steam's internet, turn bonding on or off, open the window, or quit. Left-click opens the window.
+- **Fetch** (download manager): paste one or more links and each file downloads in pieces over every connection ticked on the Bond page, so a single file uses all of them. Bonding doesn't need to be on. Faster links take over work from slower ones, a dropped link is skipped, and **Pause**, closing the app or losing the internet keeps your progress. Set the connections per file, how many files run at once, and the save folder.
+
+## Fixed
+
+- **Bond**: when every link had failed in the last 20 seconds, new connections kept going to the highest-weight link even if it was the dead one. They now retry the link that failed longest ago.
 
 ## Downloads
 

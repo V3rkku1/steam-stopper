@@ -377,7 +377,8 @@ public sealed class LinkBonder
         var chosen = _links.Where(l => l.Selected).ToList();
         if (chosen.Count == 0) chosen = _links.ToList();
         return chosen
-            .OrderBy(l => l.Failing)
+            // When every link failed lately, retry the one that failed longest ago, not the heaviest.
+            .OrderBy(l => l.Failing ? Interlocked.Read(ref l.FailUntilTicks) : 0)
             .ThenBy(l => (Volatile.Read(ref l.ActiveCount) + 1.0) / l.Weight)
             .ThenBy(l => Interlocked.Read(ref l.ByteCount) / (double)l.Weight)
             .ToList();
