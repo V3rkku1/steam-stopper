@@ -42,7 +42,9 @@ jobs:
           New-Item -ItemType Directory -Force $old | Out-Null
           Copy-Item "$env:WINDIR\System32\notepad.exe" "$old\SteamStopper.exe"
           Set-Content "$old\keep-me.txt" 'user file'
-          $helper = Start-Process dist/app/SteamStopper.exe -ArgumentList '--install-update', '1', $old -PassThru -Wait
+          # Not -Wait: that also waits for the app the helper starts at the end, which keeps running.
+          $helper = Start-Process dist/app/SteamStopper.exe -ArgumentList '--install-update', '1', $old -PassThru
+          if (-not $helper.WaitForExit(120000)) { throw 'Install step did not finish within 2 minutes' }
           if ($helper.ExitCode -ne 0) { throw "Install step exited with $($helper.ExitCode)" }
           $new = (Get-FileHash dist/app/SteamStopper.exe).Hash
           $got = (Get-FileHash "$old\SteamStopper.exe").Hash
