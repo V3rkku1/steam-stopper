@@ -282,7 +282,8 @@ public static class AppHub
 
         new() { Name = "Eden", Id = "Utopia.Eden.MSVC", Match = "Eden", Category = "Switch", Systems = "Nintendo Switch", Color = "#E60012", Blurb = "Switch emulator. Needs keys and firmware dumped from your own Switch." },
         new() { Name = "Ryujinx", Kind = "site", Url = "https://ryujinx.app", Category = "Switch", Systems = "Nintendo Switch", Color = "#C4262E", Blurb = "Switch emulator kept alive by the community. Needs keys from your Switch. Opens its site." },
-        new() { Name = "Switch 2 emulator", Kind = "none", Category = "Switch 2", Systems = "Nintendo Switch 2", Color = "#555555", Blurb = "No working Switch 2 emulator exists. Sites and videos offering one are scams or malware." },
+        // Fork of Eden (formerly Eglantine). Not on winget; builds are zip archives on its GitHub releases.
+        new() { Name = "Lichii", Kind = "site", Url = "https://github.com/zortos293/Lichii/releases", Category = "Switch 2", Systems = "Switch 2 and Switch", Color = "#7C4DFF", Blurb = "Experimental Switch 2 emulator. Few games run. Opens its GitHub releases." },
 
         new() { Name = "Azahar", Id = "AzaharEmu.Azahar", Match = "Azahar", Category = "DS & 3DS", Systems = "Nintendo 3DS", Color = "#D12228", Blurb = "3DS emulator, the successor to Citra." },
         new() { Name = "melonDS", Id = "melonDS.melonDS", Match = "melonDS", Category = "DS & 3DS", Systems = "Nintendo DS", Color = "#E0484F", Blurb = "Accurate Nintendo DS emulator with local wireless." },
