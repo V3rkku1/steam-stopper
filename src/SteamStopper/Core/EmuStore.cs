@@ -33,7 +33,8 @@ public static class EmuStore
     public static string FolderFor(string name) => Path.Combine(Root, string.Concat(name.Split(Path.GetInvalidFileNameChars())));
 
     /// <summary>Newest release (pre-releases included, drafts skipped) that has a Windows build matching the source.</summary>
-    public static async Task<EmuRelease?> FindLatest(EmuSource source, CancellationToken cancel)
+    /// <param name="pgo">Prefer builds with "pgo" in the name (profile-guided, usually faster); false skips them.</param>
+    public static async Task<EmuRelease?> FindLatest(EmuSource source, bool pgo, CancellationToken cancel)
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("SteamStopper");
@@ -41,13 +42,13 @@ public static class EmuStore
         {
             http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
             var json = await http.GetStringAsync($"https://api.github.com/repos/{source.Repo}/releases?per_page=15", cancel);
-            return PickGitHub(json, source);
+            return PickGitHub(json, source, pgo);
         }
         var url = $"{source.Host.TrimEnd('/')}/api/v4/projects/{Uri.EscapeDataString(source.Repo)}/releases?per_page=15";
-        return PickGitLab(await http.GetStringAsync(url, cancel), source);
+        return PickGitLab(await http.GetStringAsync(url, cancel), source, pgo);
     }
 
-    public static EmuRelease? PickGitHub(string json, EmuSource source)
+    public static EmuRelease? PickGitHub(string json, EmuSource source, bool pgo = true)
     {
         using var doc = JsonDocument.Parse(json);
         var releases = doc.RootElement.EnumerateArray()
@@ -57,10 +58,10 @@ public static class EmuStore
                     .Select(a => (Name: a.GetProperty("name").GetString() ?? "", Url: a.GetProperty("browser_download_url").GetString() ?? ""))
                     .ToList()))
             .ToList();
-        return Pick(releases, source);
+        return Pick(releases, source, pgo);
     }
 
-    public static EmuRelease? PickGitLab(string json, EmuSource source)
+    public static EmuRelease? PickGitLab(string json, EmuSource source, bool pgo = true)
     {
         using var doc = JsonDocument.Parse(json);
         var releases = doc.RootElement.EnumerateArray()
@@ -72,16 +73,20 @@ public static class EmuStore
                         .ToList()
                     : []))
             .ToList();
-        return Pick(releases, source);
+        return Pick(releases, source, pgo);
     }
 
-    private static EmuRelease? Pick(List<(string Tag, List<(string Name, string Url)> Files)> releases, EmuSource source)
+    private static EmuRelease? Pick(List<(string Tag, List<(string Name, string Url)> Files)> releases, EmuSource source, bool pgo)
     {
         foreach (var (tag, files) in releases)
         {
             foreach (var pattern in source.Assets)
             {
-                var hit = files.FirstOrDefault(f => !SkipAsset.IsMatch(f.Name) && Regex.IsMatch(f.Name, pattern, RegexOptions.IgnoreCase));
+                var hit = files
+                    .Where(f => !SkipAsset.IsMatch(f.Name) && Regex.IsMatch(f.Name, pattern, RegexOptions.IgnoreCase))
+                    .Where(f => pgo || !IsPgo(f.Name))
+                    .OrderBy(f => pgo && IsPgo(f.Name) ? 0 : 1)
+                    .FirstOrDefault();
                 if (hit.Url is { Length: > 0 }) return new EmuRelease(hit.Url, hit.Name, tag);
             }
         }
@@ -148,7 +153,10 @@ public static class EmuStore
             .FirstOrDefault()?.FullName;
     }
 
-    public sealed record Entry(string Exe, string Version);
+    public static bool IsPgo(string file) => Regex.IsMatch(file, @"(?<![a-z])pgo(?![a-z])", RegexOptions.IgnoreCase);
+
+    /// <param name="File">Release file it came from; tells PGO and standard builds of one version apart.</param>
+    public sealed record Entry(string Exe, string Version, string File = "");
 
     public static Dictionary<string, Entry> Installed()
     {

@@ -10,10 +10,19 @@ namespace SteamStopper;
 // Emulators tab: portable installs through the Fetch downloader, Play and Remove.
 public partial class MainWindow
 {
+    private readonly Dictionary<string, EmuRelease> _emuLatest = [];
+    private DateTime _emuChecked = DateTime.MinValue;
+    private bool _emuChecking;
+
     private void AppCardRemove_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { DataContext: AppOffer app }) return;
-        if (EmuStore.Find(app.Name) is not null) RemovePortable(app);
+        if (app.UpdateTo is not null)
+        {
+            if (EmulatorRunning(app.Name)) StatusText.Text = $"Close {app.Name} first, then update it.";
+            else _ = InstallEmulator(app);
+        }
+        else if (EmuStore.Find(app.Name) is not null) RemovePortable(app);
         else _ = UninstallApp(app);
     }
 
@@ -32,7 +41,8 @@ public partial class MainWindow
         }
     }
 
-    private async Task InstallEmulator(AppOffer app)
+    /// <param name="background">Auto-update: on a failed lookup, stay quiet instead of falling back to winget or the website.</param>
+    private async Task InstallEmulator(AppOffer app, bool background = false)
     {
         if (_toolsWorking || app.Source is not { } source) return;
         _toolsWorking = true;
@@ -50,12 +60,17 @@ public partial class MainWindow
             AppBusy.Text = $"Looking for the latest {app.Name}…";
             EmuRelease? release = null;
             string? lookupError = null;
-            try { release = await EmuStore.FindLatest(source, CancellationToken.None); }
+            try { release = await EmuStore.FindLatest(source, _settings.PreferPgo, CancellationToken.None); }
             catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode is System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.TooManyRequests)
             {
                 lookupError = "the release server refused the lookup, usually its hourly limit; try again later";
             }
             catch (Exception ex) { lookupError = ex.Message.TrimEnd('.'); }
+            if (release is null && background)
+            {
+                AppBusy.Text = "";
+                return;
+            }
             if (release is null)
             {
                 // No portable build found (API down, rate limit, renamed files): fall back to winget or the website.
@@ -86,7 +101,7 @@ public partial class MainWindow
             try { File.Delete(archive); } catch { }
             var exe = EmuStore.FindExe(folder, source.Exe)
                 ?? throw new IOException("It unpacked, but no program was found inside.");
-            EmuStore.Record(app.Name, new EmuStore.Entry(exe, release.Version));
+            EmuStore.Record(app.Name, new EmuStore.Entry(exe, release.Version, release.File));
             StatusText.Text = $"{app.Name} {release.Version} is ready. Press Play.";
             AppBusy.Text = "";
         }
@@ -105,6 +120,94 @@ public partial class MainWindow
             _toolsWorking = false;
             RefreshApps();
         }
+    }
+
+    /// <summary>
+    /// Look for newer builds of the portable emulators (at most hourly unless forced), install them in the
+    /// background when auto-update is on and the emulator is closed, and flag the rest with an Update button.
+    /// </summary>
+    private async Task CheckEmulatorUpdates(bool force = false)
+    {
+        if (_emuChecking || (!force && DateTime.UtcNow - _emuChecked < TimeSpan.FromHours(1))) return;
+        _emuChecking = true;
+        try
+        {
+            var installed = AppHub.Emulators.Where(e => e.Source is not null && EmuStore.Find(e.Name) is not null).ToList();
+            foreach (var emu in installed)
+            {
+                // One failed lookup (rate limit, server down) shouldn't stop the others.
+                try
+                {
+                    if (await EmuStore.FindLatest(emu.Source!, _settings.PreferPgo, CancellationToken.None) is { } latest) _emuLatest[emu.Name] = latest;
+                }
+                catch { }
+            }
+            _emuChecked = DateTime.UtcNow;
+            if (_settings.AutoUpdateEmulators)
+            {
+                foreach (var emu in installed.Where(e => UpdateFor(e.Name) is not null && !EmulatorRunning(e.Name)))
+                {
+                    var from = EmuStore.Find(emu.Name)?.Version;
+                    await InstallEmulator(emu, background: true);
+                    if (UpdateFor(emu.Name) is null) StatusText.Text = $"Updated {emu.Name} from {from} to {EmuStore.Find(emu.Name)?.Version}.";
+                }
+            }
+            var waiting = installed.Where(e => UpdateFor(e.Name) is not null).Select(e => e.Name).ToList();
+            if (waiting.Count > 0)
+                StatusText.Text = $"New build ready for {string.Join(", ", waiting)}. Press Update on the Emulators tab"
+                    + (_settings.AutoUpdateEmulators ? ", or it updates by itself once closed." : ".");
+            if (_emuMode) RefreshApps();
+        }
+        finally { _emuChecking = false; }
+    }
+
+    private EmuRelease? UpdateFor(string name) =>
+        EmuStore.Find(name) is { } have && _emuLatest.TryGetValue(name, out var latest)
+        // A different release file of the same version is the PGO switch being flipped.
+        && (latest.Version != have.Version || have.File.Length > 0 && latest.File != have.File) ? latest : null;
+
+    private void MarkEmulatorUpdates(List<AppOffer> rows)
+    {
+        foreach (var row in rows)
+        {
+            if (UpdateFor(row.Name) is not { } latest) continue;
+            row.UpdateTo = latest.Version;
+            // The card has no room for both versions; "Update ready" plus the status bar message say enough.
+            row.State = "Update ready";
+        }
+    }
+
+    // Updating unpacks over the emulator's files, which fails while it is running.
+    private static bool EmulatorRunning(string name)
+    {
+        var dir = EmuStore.FolderFor(name);
+        foreach (var p in Process.GetProcesses())
+        {
+            using (p)
+            {
+                try
+                {
+                    if (p.MainModule?.FileName?.StartsWith(dir, StringComparison.OrdinalIgnoreCase) == true) return true;
+                }
+                catch { } // System and other users' processes can't be read.
+            }
+        }
+        return false;
+    }
+
+    private void EmuPgo_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.PreferPgo = EmuPgoBox.IsChecked == true;
+        _settings.Save();
+        // The installed copies may now be the other build; the check flags (or auto-installs) the switch.
+        _ = CheckEmulatorUpdates(force: true);
+    }
+
+    private void EmuAuto_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.AutoUpdateEmulators = EmuAutoBox.IsChecked == true;
+        _settings.Save();
+        if (_settings.AutoUpdateEmulators) _ = CheckEmulatorUpdates(force: true);
     }
 
     private void RemovePortable(AppOffer app)

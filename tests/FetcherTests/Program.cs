@@ -155,6 +155,17 @@ Check("github: skips draft, symbols, installer, arm64", pick?.Url == "https://x/
 Check("github: second pattern used when first misses",
     EmuStore.PickGitHub(gh, pcsx2 with { Assets = [@"nomatch", @"x64-Qt\.7z$"] })?.Url == "https://x/good.7z");
 Check("github: nothing matches gives null", EmuStore.PickGitHub(gh, pcsx2 with { Assets = [@"\.dmg$"] }) is null);
+var egl = """
+[{"tag_name":"daily-20261107","assets":[
+   {"name":"eglantine-windows-x86_64-pgo.zip","browser_download_url":"https://e/pgo"},
+   {"name":"eglantine-linux-x86_64.AppImage","browser_download_url":"https://e/linux"},
+   {"name":"eglantine-windows-x86_64.zip","browser_download_url":"https://e/std"}]}]
+""";
+var eglSrc = new EmuSource("Djihads80/Eglantine", [@"windows-x86_64(-pgo)?\.zip$", @"windows.*\.zip$"], @"^eglantine\.exe$");
+Check("pgo on: takes the PGO build", EmuStore.PickGitHub(egl, eglSrc, pgo: true)?.Url == "https://e/pgo");
+Check("pgo off: takes the standard build", EmuStore.PickGitHub(egl, eglSrc, pgo: false)?.Url == "https://e/std");
+Check("pgo on, none published: standard build", EmuStore.PickGitHub(gh, pcsx2, pgo: true)?.Url == "https://x/good.7z");
+Check("'pgo' only as its own word", EmuStore.IsPgo("x-windows-pgo.zip") && EmuStore.IsPgo("x_PGO.zip") && !EmuStore.IsPgo("pgoat.zip"));
 var gl = """
 [{"tag_name":"1.3.2","assets":{"links":[
    {"name":"ryujinx-1.3.2-linux_x64.tar.gz","url":"https://g/l"},
@@ -207,7 +218,20 @@ File.WriteAllText(Path.Combine(roms, "ps1", "Crash.bin"), "");
 File.WriteAllText(Path.Combine(roms, "ps1", "FF7", "FF7 (Disc 1).cue"), "");
 File.WriteAllText(Path.Combine(roms, "ps1", "FF7", "FF7 (Disc 2).cue"), "");
 File.WriteAllText(Path.Combine(roms, "ps1", "FF7", "FF7.m3u"), "FF7 (Disc 1).cue\nFF7 (Disc 2).cue\n");
+File.WriteAllBytes(Path.Combine(roms, "Mario Kart World.nup"), [(byte)'N', (byte)'U', (byte)'P', 1, 0, 0]);
+File.WriteAllBytes(Path.Combine(roms, "router-firmware.nup"), [(byte)'P', (byte)'K', 3, 4]);
+var astro = Path.Combine(roms, "ps5", "PPSA01325-app");
+Directory.CreateDirectory(Path.Combine(astro, "sce_sys"));
+File.WriteAllText(Path.Combine(astro, "eboot.bin"), "");
+File.WriteAllText(Path.Combine(astro, "sce_sys", "param.json"),
+    """{"localizedParameters":{"defaultLanguage":"en-US","en-US":{"titleName":"ASTRO BOT"}}}""");
+var ps4 = Path.Combine(roms, "ps4", "CUSA00001");
+Directory.CreateDirectory(Path.Combine(ps4, "sce_sys"));
+File.WriteAllText(Path.Combine(ps4, "eboot.bin"), "");
+File.WriteAllText(Path.Combine(ps4, "sce_sys", "param.sfo"), "");
+File.WriteAllText(Path.Combine(roms, "Demon's Souls.zar"), "");
 string? Con(string n) => RomLibrary.ConsoleOf(Path.Combine(roms, n));
+Check("Switch 2 .nup: Lichii archive yes, other .nup no", Con("Mario Kart World.nup") == "SWITCH 2" && Con("router-firmware.nup") is null);
 Check("iso headers: Wii, GameCube, PS2, PSP, Xbox",
     Con("Wii Sports (USA).iso") == "WII" && Con("Melee (USA) (Rev 2).iso") == "GAMECUBE" && Con("GTA SA.iso") == "PS2"
     && Con("Crisis Core.iso") == "PSP" && Con("Halo.iso") == "XBOX");
@@ -218,10 +242,15 @@ Check("multi-disc: discs listed in .m3u are hidden", Con("ps1/FF7/FF7 (Disc 1).c
 Check("titles drop region and dump tags", RomLibrary.TitleOf("Super Mario 64 (USA) [!].z64") == "Super Mario 64" && RomLibrary.TitleOf("Zelda_TOTK.nsp") == "Zelda TOTK");
 var store = new RomLibrary.Store { Folders = [roms] };
 var found = RomLibrary.Scan(store);
-Check($"scan finds 10 games, second scan finds none (got {found})", found == 10 && RomLibrary.Scan(store) == 0);
+Check("PS5 folder dump: titled from param.json; PS4 folder and its eboot not added",
+    store.Games.Any(g => g.Path == astro && g.Title == "ASTRO BOT" && g.Console == "PS5")
+    && !store.Games.Any(g => g.Path.StartsWith(ps4)) && !store.Games.Any(g => g.Path.EndsWith("eboot.bin")));
+Check(".zar is PS5", store.Games.Any(g => g.Title == "Demon's Souls" && g.Console == "PS5"));
+Check($"scan finds 13 games, second scan finds none (got {found})", found == 13 && RomLibrary.Scan(store) == 0);
+Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
-Check("every console tile's emulators exist in the catalog",
-    AppHub.Consoles.SelectMany(c => c.Emulators).All(n => AppHub.Emulators.Any(e => e.Name == n)));
+Check("every console tile has emulators, all in the catalog",
+    AppHub.Consoles.All(c => c.Emulators.Length > 0) && AppHub.Consoles.SelectMany(c => c.Emulators).All(n => AppHub.Emulators.Any(e => e.Name == n)));
 Check("every launchable emulator exists in the catalog", RomLibrary.LaunchArgs.Keys.All(n => AppHub.Emulators.Any(e => e.Name == n)));
 
 Console.WriteLine("12) updater: release picking, checksum, file swap and rollback");
@@ -268,6 +297,37 @@ err = Updater.Install(999999, src, dst, start: false);
 Check($"rollback: failure restores old files and removes added ones (err={err})",
     err is not null && File.ReadAllText(Path.Combine(dst, "SteamStopper.exe")) == "new exe"
     && !File.Exists(Path.Combine(dst, "runtimes", "added.dll")));
+
+Console.WriteLine("13) Steam shortcuts: binary VDF, keep user's own, replace ours, box art");
+Check("crc32 check value", SteamShortcuts.Crc32(System.Text.Encoding.ASCII.GetBytes("123456789")) == 0xCBF43926);
+var steam = Path.Combine(dir, "steam");
+Directory.CreateDirectory(Path.Combine(steam, "config"));
+Directory.CreateDirectory(Path.Combine(steam, "userdata", "12345", "config"));
+File.WriteAllText(Path.Combine(steam, "config", "loginusers.vdf"),
+    "\"users\"\n{\n\t\"76561197960278073\"\n\t{\n\t\t\"AccountName\"\t\t\"me\"\n\t\t\"MostRecent\"\t\t\"1\"\n\t}\n}\n");
+var cfg = SteamShortcuts.UserConfig(steam);
+Check("user folder from loginusers MostRecent (account id = SteamID64 low bits)", cfg == Path.Combine(steam, "userdata", "12345", "config"));
+// A file as Steam writes it, with one shortcut of the user's own and an unusual uint64 field.
+var mine = new Dictionary<string, object> { ["shortcuts"] = new Dictionary<string, object> { ["0"] = new Dictionary<string, object>
+    { ["appid"] = -123, ["AppName"] = "My Tool", ["Exe"] = "\"C:\\tool.exe\"", ["LastPlayTime"] = 5, ["big"] = 9UL,
+      ["tags"] = new Dictionary<string, object> { ["0"] = "Utilities" } } } };
+var bytes = SteamShortcuts.Write(mine);
+Check("binary layout ends with two end markers", bytes[^1] == 8 && bytes[^2] == 8 && bytes[0] == 0);
+File.WriteAllBytes(Path.Combine(cfg!, "shortcuts.vdf"), bytes);
+var cover = Path.Combine(dir, "cover.png"); File.WriteAllText(cover, "png");
+SteamShortcuts.Sync(cfg!, [new SteamGame("Wii Sports", @"C:\emu\Dolphin.exe", "-b -e \"C:\\g\\ws.iso\"", cover, "Nintendo Wii"),
+                           new SteamGame("Mario Kart 64", @"C:\emu\ares.exe", "\"C:\\g\\mk.z64\"", null, "Nintendo 64")]);
+SteamShortcuts.Sync(cfg!, [new SteamGame("Wii Sports", @"C:\emu\Dolphin.exe", "-b -e \"C:\\g\\ws.iso\"", cover, "Nintendo Wii")]);
+var back = (Dictionary<string, object>)SteamShortcuts.Read(File.ReadAllBytes(Path.Combine(cfg!, "shortcuts.vdf")))["shortcuts"];
+var entries = back.Values.Cast<Dictionary<string, object>>().ToList();
+Check($"user's shortcut kept intact, ours replaced not duplicated (got {entries.Count})",
+    entries.Count == 2 && entries[0]["AppName"] as string == "My Tool" && (ulong)entries[0]["big"] == 9UL && (int)entries[0]["appid"] == -123
+    && entries[1]["AppName"] as string == "Wii Sports" && entries[1]["Exe"] as string == "\"C:\\emu\\Dolphin.exe\""
+    && entries[1]["StartDir"] as string == $"\"{Path.GetDirectoryName(@"C:\emu\Dolphin.exe")}\"" && back.Keys.SequenceEqual(["0", "1"]));
+var id = SteamShortcuts.AppId("\"C:\\emu\\Dolphin.exe\"", "Wii Sports");
+Check("appid has the top bit set and matches the stored int; box art named <id>p.png",
+    (id & 0x80000000) != 0 && unchecked((uint)(int)entries[1]["appid"]) == id && File.Exists(Path.Combine(cfg!, "grid", $"{id}p.png")));
+Check("backup of the previous file kept", File.Exists(Path.Combine(cfg!, "shortcuts.vdf.bak")));
 
 Directory.Delete(dir, true);
 Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");

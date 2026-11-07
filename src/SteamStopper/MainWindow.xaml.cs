@@ -1482,12 +1482,17 @@ public partial class MainWindow : Window
         }
         _emuConsole = null;
         if (emulators) StatusText.Text = "Emulators come without games, BIOS, keys or firmware. Dump them from consoles you own.";
+        EmuAutoPanel.Visibility = emulators ? Visibility.Visible : Visibility.Collapsed;
+        EmuAutoBox.IsChecked = _settings.AutoUpdateEmulators;
+        EmuPgoBox.IsChecked = _settings.PreferPgo;
         RefreshApps();
+        if (emulators) _ = CheckEmulatorUpdates();
     }
 
     private void RefreshApps()
     {
         _appRows = AppHub.Snapshot(_emuMode ? AppHub.Emulators : null);
+        if (_emuMode) MarkEmulatorUpdates(_appRows);
         BindApps();
     }
 

@@ -43,7 +43,8 @@ public sealed class Rom : INotifyPropertyChanged
         : PlaySeconds < 90 ? "1 minute" : PlaySeconds < 3600 ? $"{PlaySeconds / 60:0} minutes" : $"{PlaySeconds / 3600:0.0} hours";
     [JsonIgnore] public string LastPlayedText => LastPlayed is not { } t ? "Never"
         : t.Date == DateTime.Today ? "Today" : t.Date == DateTime.Today.AddDays(-1) ? "Yesterday" : t.ToString("d MMM yyyy");
-    [JsonIgnore] public string SizeText => File.Exists(Path) ? Format.Bytes(new FileInfo(Path).Length) : "File missing";
+    [JsonIgnore] public bool Exists => File.Exists(Path) || Directory.Exists(Path);
+    [JsonIgnore] public string SizeText => File.Exists(Path) ? Format.Bytes(new FileInfo(Path).Length) : Directory.Exists(Path) ? "Game folder" : "File missing";
 
     public void Refresh() => OnChanged(null);
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -56,6 +57,8 @@ public static class RomLibrary
     private static readonly Dictionary<string, string> ByExtension = new(StringComparer.OrdinalIgnoreCase)
     {
         [".nsp"] = "SWITCH", [".xci"] = "SWITCH",
+        // Switch 2 archive used by Lichii and Eglantine: base game plus updates in one file (magic "NUP\x01").
+        [".nup"] = "SWITCH 2",
         [".3ds"] = "3DS", [".cci"] = "3DS", [".3dsx"] = "3DS",
         [".nds"] = "DS",
         [".wua"] = "WII U", [".wux"] = "WII U", [".wud"] = "WII U", [".rpx"] = "WII U",
@@ -67,6 +70,7 @@ public static class RomLibrary
         [".cue"] = "PS1", [".chd"] = "PS1", [".m3u"] = "PS1",
         [".gdi"] = "DREAMCAST", [".cdi"] = "DREAMCAST",
         [".xex"] = "XBOX 360",
+        [".zar"] = "PS5",
         [".iso"] = ""
     };
 
@@ -79,6 +83,7 @@ public static class RomLibrary
         ["PPSSPP"] = "\"{rom}\"",
         ["Eden"] = "-g \"{rom}\"",
         ["Lichii"] = "-g \"{rom}\"",
+        ["Eglantine"] = "-g \"{rom}\"",
         ["Ryujinx"] = "\"{rom}\"",
         ["Azahar"] = "\"{rom}\"",
         ["melonDS"] = "\"{rom}\"",
@@ -90,8 +95,12 @@ public static class RomLibrary
         ["Mesen"] = "\"{rom}\"",
         ["Project64"] = "\"{rom}\"",
         ["ares"] = "\"{rom}\"",
+        ["KytyPS5"] = "--game \"{rom}\"",
         ["redream"] = "\"{rom}\""
     };
+
+    // Emulators whose games start from a different exe than the one Play opens.
+    public static readonly Dictionary<string, string> GameExe = new() { ["KytyPS5"] = "kyty_emulator.exe" };
 
     // libretro-thumbnails folder per console; consoles missing here get the colour cover.
     private static readonly Dictionary<string, string> ThumbSystems = new()
@@ -148,6 +157,16 @@ public static class RomLibrary
             catch { continue; }
             foreach (var file in files)
             {
+                // PS5 dumps are folders: eboot.bin next to sce_sys\param.json (PS4 uses param.sfo instead).
+                if (System.IO.Path.GetFileName(file).Equals("eboot.bin", StringComparison.OrdinalIgnoreCase)
+                    && System.IO.Path.GetDirectoryName(file) is { } game && !known.Contains(game)
+                    && File.Exists(System.IO.Path.Combine(game, "sce_sys", "param.json")))
+                {
+                    store.Games.Add(new Rom { Path = game, Title = Ps5Title(game), Console = "PS5" });
+                    known.Add(game);
+                    added++;
+                    continue;
+                }
                 if (known.Contains(file) || ConsoleOf(file) is not { } console) continue;
                 store.Games.Add(new Rom { Path = file, Title = TitleOf(file), Console = console });
                 known.Add(file);
@@ -157,10 +176,26 @@ public static class RomLibrary
         return added;
     }
 
+    /// <summary>The game's name from param.json in its default language, else the folder name.</summary>
+    public static string Ps5Title(string folder)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(System.IO.Path.Combine(folder, "sce_sys", "param.json")));
+            var local = doc.RootElement.GetProperty("localizedParameters");
+            var language = local.GetProperty("defaultLanguage").GetString() ?? "en-US";
+            if (local.GetProperty(language).GetProperty("titleName").GetString() is { Length: > 0 } name) return name;
+        }
+        catch { }
+        return System.IO.Path.GetFileName(folder.TrimEnd('\\', '/'));
+    }
+
     /// <summary>Console for a game file, "" when it is a game but the console is unclear, null when it isn't a game.</summary>
     public static string? ConsoleOf(string file)
     {
         if (!ByExtension.TryGetValue(System.IO.Path.GetExtension(file), out var console)) return null;
+        // .nup is also used by unrelated firmware updaters; only NUP-format archives are games.
+        if (console == "SWITCH 2") return HasMagic(file, "NUP\x01"u8) ? console : null;
         // Multi-disc .m3u lists and loose .cue sheets: one entry per game, not per disc track.
         if (console == "PS1" && !file.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) && InM3u(file)) return null;
         return console.Length > 0 && console is not ("WII" or "GAMECUBE") ? console : Sniff(file) ?? console;
@@ -200,6 +235,16 @@ public static class RomLibrary
         return null;
     }
 
+    private static bool HasMagic(string file, ReadOnlySpan<byte> magic)
+    {
+        try
+        {
+            using var s = File.OpenRead(file);
+            return Read(s, 0, magic.Length).AsSpan().SequenceEqual(magic);
+        }
+        catch { return false; }
+    }
+
     private static byte[] Read(Stream s, long offset, int count)
     {
         if (offset + count > s.Length) return [];
@@ -226,6 +271,8 @@ public static class RomLibrary
     public static async Task<string?> CoverFor(Rom rom, HttpClient http)
     {
         if (rom.CustomCover.Length > 0 && File.Exists(rom.CustomCover)) return rom.CustomCover;
+        // PS5 folder dumps carry their own art.
+        if (Directory.Exists(rom.Path) && System.IO.Path.Combine(rom.Path, "sce_sys", "icon0.png") is var icon && File.Exists(icon)) return icon;
         if (!ThumbSystems.TryGetValue(rom.Console, out var system)) return null;
         // libretro names art after the No-Intro/Redump file name, with these characters swapped for _.
         var name = Regex.Replace(System.IO.Path.GetFileNameWithoutExtension(rom.Path), @"[&*/:`<>?\\|""]", "_");

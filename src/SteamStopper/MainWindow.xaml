@@ -1001,6 +1001,8 @@
           <DockPanel>
             <DockPanel DockPanel.Dock="Top" Margin="4,0,4,10">
               <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Steam" Style="{StaticResource SmallButton}" Margin="0,0,6,0" Click="GamesToSteam_Click"
+                        ToolTip="Add these games to Steam as non-Steam games, with box art, so they start from your Steam library and Big Picture"/>
                 <Button Content="Rescan" Style="{StaticResource SmallButton}" Margin="0,0,6,0" Click="GamesRescan_Click" ToolTip="Look for new games in your folders"/>
                 <Button Content="Add folder" Style="{StaticResource SmallPrimary}" Margin="0" Click="GamesAdd_Click" ToolTip="Add a folder with your game files"/>
               </StackPanel>
@@ -1165,6 +1167,14 @@
           <Button x:Name="EmuBackButton" DockPanel.Dock="Left" Content="&#x2190;  All consoles" Style="{StaticResource GhostButton}"
                   Margin="0,0,14,0" Click="EmuBack_Click" Visibility="Collapsed"/>
           <TextBlock x:Name="EmuTitle" DockPanel.Dock="Left" Foreground="{StaticResource Muted}" FontSize="13" VerticalAlignment="Center"/>
+          <StackPanel x:Name="EmuAutoPanel" DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0" Visibility="Collapsed"
+                      ToolTip="When a new build of an installed emulator comes out, install it in the background while the emulator is closed">
+            <TextBlock Text="PGO builds" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"
+                       ToolTip="Download the PGO (profile-guided optimisation) build when an emulator offers one, such as Eglantine. Usually faster; turn off for the standard build."/>
+            <ToggleButton x:Name="EmuPgoBox" Style="{StaticResource Switch}" Click="EmuPgo_Click" Margin="0,0,16,0"/>
+            <TextBlock Text="Auto-update" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ToggleButton x:Name="EmuAutoBox" Style="{StaticResource Switch}" Click="EmuAuto_Click"/>
+          </StackPanel>
           <TextBlock x:Name="AppCount" DockPanel.Dock="Right" Text="" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="12,0,0,0"/>
           <TextBlock x:Name="AppBusy" Text="" Foreground="{StaticResource AccentText}" VerticalAlignment="Center" Margin="16,0,0,0" TextTrimming="CharacterEllipsis"/>
         </DockPanel>
@@ -1263,7 +1273,7 @@
                       <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
                     </DockPanel>
                     <DockPanel DockPanel.Dock="Bottom">
-                      <Button DockPanel.Dock="Right" Click="AppCardAction_Click" Content="{Binding ActionLabel}" IsEnabled="{Binding CanAct}">
+                      <Button DockPanel.Dock="Right" Click="AppCardAction_Click" Content="{Binding ActionLabel}">
                         <Button.Style>
                           <Style TargetType="Button" BasedOn="{StaticResource SmallPrimary}">
                             <Setter Property="Margin" Value="0"/>
@@ -1276,7 +1286,7 @@
                           </Style>
                         </Button.Style>
                       </Button>
-                      <Button DockPanel.Dock="Right" Click="AppCardRemove_Click" Content="Remove" Margin="0,0,6,0" ToolTip="Uninstall or delete this emulator">
+                      <Button DockPanel.Dock="Right" Click="AppCardRemove_Click" Content="{Binding SecondaryLabel}" Margin="0,0,6,0" ToolTip="Update, uninstall or delete this emulator">
                         <Button.Style>
                           <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
                             <Setter Property="Visibility" Value="Collapsed"/>

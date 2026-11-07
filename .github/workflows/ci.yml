@@ -1,0 +1,55 @@
+name: CI
+
+# Runs on real Windows what the Linux dev box can only fake: the tests, the build, starting the app,
+# and the updater's install step.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Tests
+        run: dotnet run --project tests/FetcherTests -c Release
+
+      - name: Build
+        run: dotnet publish src/SteamStopper/SteamStopper.csproj -c Release -o dist/app
+
+      # The app must start and keep running; a crash at startup fails the job.
+      - name: Start the app
+        shell: pwsh
+        run: |
+          $p = Start-Process dist/app/SteamStopper.exe -PassThru
+          Start-Sleep 25
+          if ($p.HasExited) { throw "Steam Stopper exited during startup with code $($p.ExitCode)" }
+          Stop-Process -Id $p.Id -Force
+          Get-Process SteamStopper -ErrorAction SilentlyContinue | Stop-Process -Force
+
+      # The new build installs itself over an "old" folder: files replaced, user files kept, no backup left.
+      - name: Updater install step
+        shell: pwsh
+        run: |
+          $old = Join-Path $env:RUNNER_TEMP 'old-install'
+          New-Item -ItemType Directory -Force $old | Out-Null
+          Copy-Item "$env:WINDIR\System32\notepad.exe" "$old\SteamStopper.exe"
+          Set-Content "$old\keep-me.txt" 'user file'
+          # Not -Wait: that also waits for the app the helper starts at the end, which keeps running.
+          $helper = Start-Process dist/app/SteamStopper.exe -ArgumentList '--install-update', '1', $old -PassThru
+          if (-not $helper.WaitForExit(120000)) { throw 'Install step did not finish within 2 minutes' }
+          if ($helper.ExitCode -ne 0) { throw "Install step exited with $($helper.ExitCode)" }
+          $new = (Get-FileHash dist/app/SteamStopper.exe).Hash
+          $got = (Get-FileHash "$old\SteamStopper.exe").Hash
+          if ($new -ne $got) { throw 'SteamStopper.exe was not replaced' }
+          if (-not (Test-Path "$old\keep-me.txt")) { throw 'A user file was deleted' }
+          if (Test-Path "$old\.update-backup") { throw 'The backup folder was left behind' }
+          Start-Sleep 10
+          Get-Process SteamStopper -ErrorAction SilentlyContinue | Stop-Process -Force

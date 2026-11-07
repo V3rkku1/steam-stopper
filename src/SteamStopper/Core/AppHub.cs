@@ -40,9 +40,11 @@ public sealed class AppOffer
     public string ActionLabel => LaunchPath is not null ? "Play"
         : Installed ? "Uninstall"
         : Source is not null ? "Install"
-        : Kind switch { "site" => "Get", "none" => "None", _ => "Install" };
-    public bool CanAct => Kind != "none";
+        : Kind == "site" ? "Get" : "Install";
     public bool CanRemove => LaunchPath is not null;
+    // Newer portable build found online; the card's second button turns into Update.
+    public string? UpdateTo { get; set; }
+    public string SecondaryLabel => UpdateTo is not null ? "Update" : "Remove";
     public string Subtitle => Systems.Length > 0 ? Systems : Category;
     // Bundled logo (Assets/apps/<Icon>.png); cards fall back to the coloured initial when empty.
     public string? IconUri => Icon.Length > 0 ? $"pack://application:,,,/Assets/apps/{Icon}.png" : null;
@@ -54,7 +56,7 @@ public sealed record ConsoleTile(string Name, string Maker, string Color, string
     {
         get
         {
-            var real = AppHub.Emulators.Count(e => e.Kind != "none" && Emulators.Contains(e.Name));
+            var real = AppHub.Emulators.Count(e => Emulators.Contains(e.Name));
             return real == 0 ? "No emulator yet" : real == 1 ? "1 emulator" : $"{real} emulators";
         }
     }
@@ -292,11 +294,11 @@ public static class AppHub
         new("PS2", "PlayStation 2", "#1D3A8A", ["PCSX2"]),
         new("PS3", "PlayStation 3", "#2A2A30", ["RPCS3"]),
         new("PS4", "PlayStation 4", "#003791", ["shadPS4"]),
-        new("PS5", "PlayStation 5", "#2D64E6", ["PS5 emulator"]),
+        new("PS5", "PlayStation 5", "#2D64E6", ["KytyPS5"]),
         new("PSP", "PlayStation Portable", "#3A3A40", ["PPSSPP", "RetroArch"]),
         new("VITA", "PlayStation Vita", "#1E5BB8", ["Vita3K"]),
-        new("SWITCH", "Nintendo Switch", "#E60012", ["Eden", "Ryujinx", "Lichii"]),
-        new("SWITCH 2", "Nintendo Switch 2", "#B0102A", ["Lichii"]),
+        new("SWITCH", "Nintendo Switch", "#E60012", ["Eden", "Ryujinx", "Lichii", "Eglantine"]),
+        new("SWITCH 2", "Nintendo Switch 2", "#B0102A", ["Lichii", "Eglantine"]),
         new("3DS", "Nintendo 3DS", "#CE181E", ["Azahar"]),
         new("DS", "Nintendo DS", "#8A8D96", ["melonDS"]),
         new("WII U", "Nintendo Wii U", "#009AC7", ["Cemu"]),
@@ -312,8 +314,7 @@ public static class AppHub
         new("ALL-IN-ONE", "Many consoles in one app", "#4A4A55", ["RetroArch", "ares", "ES-DE"])
     ];
 
-    // Ids checked against microsoft/winget-pkgs. "site" opens the official download page (no winget package),
-    // "none" marks consoles with no working emulator, because fake ones for them are a common malware lure.
+    // Ids checked against microsoft/winget-pkgs. "site" opens the official download page (no winget package).
     public static readonly AppOffer[] Emulators =
     [
         new() { Name = "DuckStation", Source = new("stenzek/duckstation", [@"windows-x64-release\.zip$", @"windows.*x64.*\.zip$"], "duckstation"), Id = "Stenzek.DuckStation", Match = "DuckStation", Category = "PlayStation", Systems = "PlayStation 1", Color = "#2E6FD8", Blurb = "Fast, accurate PS1 emulator. Needs a PS1 BIOS from your console." },
@@ -322,12 +323,14 @@ public static class AppHub
         new() { Name = "shadPS4", Source = new("shadps4-emu/shadPS4", [@"win64-qt.*\.zip$", @"win64.*\.zip$"], "shadps4"), Id = "shadps4-emu.shadPS4", Match = "shadPS4", Category = "PlayStation", Systems = "PlayStation 4", Color = "#0B3D91", Blurb = "Early PS4 emulator. Some games run, many don't yet." },
         new() { Name = "PPSSPP", Id = "PPSSPPTeam.PPSSPP", Match = "PPSSPP", Category = "PlayStation", Systems = "PSP", Color = "#33A1DE", Blurb = "PSP emulator that runs most games well." },
         new() { Name = "Vita3K", Source = new("Vita3K/Vita3K", [@"^windows-latest\.zip$", @"windows.*\.zip$"], "vita3k"), Id = "Vita3K.Vita3K", Match = "Vita3K", Category = "PlayStation", Systems = "PS Vita", Color = "#1F4E9C", Blurb = "Experimental PS Vita emulator." },
-        new() { Name = "PS5 emulator", Kind = "none", Category = "PS5", Systems = "PlayStation 5", Color = "#555555", Blurb = "No working PS5 emulator exists. Sites and videos offering one are scams or malware." },
+        // Releases are KytyPS5-<date>-<sha>-Windows-x64.zip. Play opens kyty_launcher; the Games tab starts kyty_emulator --game.
+        new() { Name = "KytyPS5", Source = new("KytyPS5/KytyPS5", [@"Windows-x64\.zip$"], @"^kyty_launcher\.exe$"), Kind = "site", Url = "https://github.com/KytyPS5/KytyPS5/releases", Category = "PS5", Systems = "PlayStation 5", Color = "#1F3A93", Blurb = "Open-source PS5 emulator in active development. Some games run; many don't yet." },
 
         new() { Name = "Eden", Id = "Utopia.Eden.MSVC", Match = "Eden", Category = "Switch", Systems = "Nintendo Switch", Color = "#E60012", Blurb = "Switch emulator. Needs keys and firmware dumped from your own Switch." },
         new() { Name = "Ryujinx", Source = new("ryubing/ryujinx", [@"win_x64\.zip$", @"win.*x64.*\.zip$"], @"^ryujinx\.exe$", "https://git.ryujinx.app"), Kind = "site", Url = "https://ryujinx.app", Category = "Switch", Systems = "Nintendo Switch", Color = "#C4262E", Blurb = "Switch emulator kept alive by the community. Needs keys from your Switch." },
-        // Fork of Eden (formerly Eglantine). Not on winget; builds are zip archives on its GitHub releases.
+        // Lichii and Eglantine are separate Switch 2 forks of Eden. Neither is on winget; both publish zips on GitHub.
         new() { Name = "Lichii", Source = new("zortos293/Lichii", [@"windows.*(x64|amd64|msvc).*\.zip$", @"win.*\.zip$"], "lichii"), Kind = "site", Url = "https://github.com/zortos293/Lichii/releases", Category = "Switch 2", Systems = "Switch 2 and Switch", Color = "#7C4DFF", Blurb = "Experimental Switch 2 emulator. Few games run yet." },
+        new() { Name = "Eglantine", Source = new("Djihads80/Eglantine", [@"windows-x86_64(-pgo)?\.zip$", @"windows.*\.zip$"], @"^eglantine\.exe$"), Kind = "site", Url = "https://github.com/Djihads80/Eglantine/releases", Category = "Switch 2", Systems = "Switch 2 and Switch", Color = "#C2185B", Blurb = "Experimental Switch 2 emulator with daily builds. Few games run yet." },
 
         new() { Name = "Azahar", Source = new("azahar-emu/azahar", [@"windows-msvc\.zip$", @"windows.*\.zip$"], @"^azahar\.exe$"), Id = "AzaharEmu.Azahar", Match = "Azahar", Category = "DS & 3DS", Systems = "Nintendo 3DS", Color = "#D12228", Blurb = "3DS emulator, the successor to Citra." },
         new() { Name = "melonDS", Source = new("melonDS-emu/melonDS", [@"windows.*x86_64.*\.zip$", @"windows.*\.zip$", @"win.*\.zip$"], "melonds"), Id = "melonDS.melonDS", Match = "melonDS", Category = "DS & 3DS", Systems = "Nintendo DS", Color = "#E0484F", Blurb = "Accurate Nintendo DS emulator with local wireless." },
@@ -409,7 +412,6 @@ public static class AppHub
 
     public static string Install(AppOffer app)
     {
-        if (app.Kind == "none") return app.Blurb;
         if (app.Kind == "site")
         {
             Process.Start(new ProcessStartInfo(app.Url) { UseShellExecute = true })?.Dispose();
@@ -467,7 +469,7 @@ public static class AppHub
         Systems = app.Systems,
         Source = app.Source,
         Installed = hit,
-        State = hit ? "Installed" : app.Source is not null ? "Not installed" : app.Kind switch { "site" => "Download page", "none" => "None exists", _ => "Not installed" }
+        State = hit ? "Installed" : app.Source is not null ? "Not installed" : app.Kind == "site" ? "Download page" : "Not installed"
     };
 
     private static string[] ContentManagerPaths()
