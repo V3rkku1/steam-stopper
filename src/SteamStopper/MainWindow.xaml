@@ -15,7 +15,8 @@
                  RenderOptions.BitmapScalingMode="HighQuality"/>
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="Steam Stopper" FontSize="14" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
-            <TextBlock x:Name="VersionText" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,1,0,0"/>
+            <TextBlock x:Name="VersionText" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,1,0,0" Cursor="Hand"
+                       ToolTip="Click to check for updates" MouseLeftButtonUp="VersionText_Click"/>
           </StackPanel>
         </DockPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,16">
@@ -139,6 +140,23 @@
         </Button>
       </StackPanel>
     </Grid>
+
+    <Border x:Name="UpdateBanner" DockPanel.Dock="Top" Visibility="Collapsed" Margin="28,0,28,12" CornerRadius="12" Padding="16,10"
+            Background="{StaticResource Selected}" BorderBrush="{StaticResource Accent}" BorderThickness="1">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <Button x:Name="UpdateNotesButton" Content="What's new" Style="{StaticResource LinkButton}" Margin="0,0,4,0" Click="UpdateNotes_Click"/>
+          <Button x:Name="UpdateSkipButton" Content="Skip this version" Style="{StaticResource LinkButton}" Margin="0,0,4,0" Click="UpdateSkip_Click"/>
+          <Button x:Name="UpdateLaterButton" Content="Later" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="UpdateLater_Click"/>
+          <Button x:Name="UpdateNowButton" Content="Update now" Style="{StaticResource SmallPrimary}" Margin="0" Click="UpdateNow_Click"/>
+        </StackPanel>
+        <TextBlock Text="&#xE895;" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource AccentText}" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="16"/>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock x:Name="UpdateTitle" FontWeight="SemiBold"/>
+          <TextBlock x:Name="UpdateDetail" Foreground="{StaticResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+      </DockPanel>
+    </Border>
 
     <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="28,9">
       <DockPanel>

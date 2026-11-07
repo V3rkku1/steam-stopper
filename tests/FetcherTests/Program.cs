@@ -224,6 +224,51 @@ Check("every console tile's emulators exist in the catalog",
     AppHub.Consoles.SelectMany(c => c.Emulators).All(n => AppHub.Emulators.Any(e => e.Name == n)));
 Check("every launchable emulator exists in the catalog", RomLibrary.LaunchArgs.Keys.All(n => AppHub.Emulators.Any(e => e.Name == n)));
 
+Console.WriteLine("12) updater: release picking, checksum, file swap and rollback");
+var rel = """
+{"tag_name":"v2.5.0","html_url":"https://gh/rel","body":"## New\n- **Games** tab","assets":[
+ {"name":"SteamStopper.msi","browser_download_url":"https://gh/msi"},
+ {"name":"SteamStopper-portable.zip","browser_download_url":"https://gh/portable"},
+ {"name":"SteamStopper.zip","browser_download_url":"https://gh/app"},
+ {"name":"SteamStopper.zip.sha256","browser_download_url":"https://gh/app.sha"}]}
+""";
+var up = Updater.Pick(rel, new Version(2, 4, 0), installed: true);
+Check("installed copy takes app zip and its checksum", up?.ZipUrl == "https://gh/app" && up.ShaUrl == "https://gh/app.sha" && up.Version == new Version(2, 5, 0));
+var upPortable = Updater.Pick(rel, new Version(2, 4, 0), installed: false);
+Check("portable copy takes portable zip, no checksum listed", upPortable?.ZipUrl == "https://gh/portable" && upPortable.ShaUrl is null);
+Check("same or older version is no update", Updater.Pick(rel, new Version(2, 5, 0), true) is null && Updater.Pick(rel, new Version(3, 0, 0), true) is null);
+
+var sumFile = Path.Combine(dir, "sum.bin");
+File.WriteAllText(sumFile, "hello");
+Check("checksum: matches 'hash  name', rejects other",
+    Updater.Verify(sumFile, "2CF24DBA5FB0A30E26E83B2AC5B9E29E1B161E5C1FA7425E73043362938B9824  sum.bin")
+    && !Updater.Verify(sumFile, "00f24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"));
+
+var src = Path.Combine(dir, "new"); var dst = Path.Combine(dir, "app");
+Directory.CreateDirectory(Path.Combine(src, "runtimes")); Directory.CreateDirectory(dst);
+File.WriteAllText(Path.Combine(src, "SteamStopper.exe"), "new exe");
+File.WriteAllText(Path.Combine(src, "README.txt"), "new readme");
+File.WriteAllText(Path.Combine(src, "runtimes", "x.dll"), "new dll");
+File.WriteAllText(Path.Combine(dst, "SteamStopper.exe"), "old exe");
+File.WriteAllText(Path.Combine(dst, "README.txt"), "the user's own readme");
+File.WriteAllText(Path.Combine(dst, "settings-ish.txt"), "keep me");
+var err = Updater.Install(999999, src, dst, start: false);
+Check($"swap: new files in, user files kept, backup cleared (err={err})",
+    err is null && File.ReadAllText(Path.Combine(dst, "SteamStopper.exe")) == "new exe"
+    && File.ReadAllText(Path.Combine(dst, "runtimes", "x.dll")) == "new dll"
+    && File.ReadAllText(Path.Combine(dst, "README.txt")) == "the user's own readme"
+    && File.Exists(Path.Combine(dst, "settings-ish.txt")) && !Directory.Exists(Path.Combine(dst, ".update-backup")));
+
+// A target that can't be written (a folder where a file should go) must roll everything back.
+File.WriteAllText(Path.Combine(src, "SteamStopper.exe"), "newer exe");
+Directory.CreateDirectory(Path.Combine(src, "zz")); File.WriteAllText(Path.Combine(src, "zz", "blocked.dll"), "x");
+Directory.CreateDirectory(Path.Combine(dst, "zz", "blocked.dll"));
+File.WriteAllText(Path.Combine(src, "runtimes", "added.dll"), "added");
+err = Updater.Install(999999, src, dst, start: false);
+Check($"rollback: failure restores old files and removes added ones (err={err})",
+    err is not null && File.ReadAllText(Path.Combine(dst, "SteamStopper.exe")) == "new exe"
+    && !File.Exists(Path.Combine(dst, "runtimes", "added.dll")));
+
 Directory.Delete(dir, true);
 Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");
 return fails;

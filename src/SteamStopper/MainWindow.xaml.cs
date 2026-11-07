@@ -116,7 +116,7 @@ public partial class MainWindow : Window
         SteamPathText.ToolTip = _steamRoot;
         ShowPageHeader("control");
         VersionText.Text = "Version " + Updater.Version;
-        Loaded += (_, _) => _ = CheckForAppUpdates();
+        Loaded += (_, _) => StartUpdateChecks();
         FillComboBoxes();
         FillAppCategories();
         LoadUiFromSettings();
@@ -162,19 +162,6 @@ public partial class MainWindow : Window
                 try { if (rule.Exe is not null) AppRoutes.Restart(rule.App, rule.Exe, null); } catch { }
             }
         };
-    }
-
-    private async Task CheckForAppUpdates()
-    {
-        try
-        {
-            var (message, script) = await Updater.CheckAsync(text => Dispatcher.Invoke(() => StatusText.Text = text));
-            StatusText.Text = message;
-            if (string.IsNullOrWhiteSpace(script)) return;
-            Process.Start(new ProcessStartInfo(script) { UseShellExecute = true });
-            Quit();
-        }
-        catch { }
     }
 
     private void FillComboBoxes()

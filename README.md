@@ -48,7 +48,7 @@ It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s ow
 2. Run the installer
 3. Open **Steam Stopper** from the Start menu or Desktop
 
-Installs to Program Files, creates shortcuts, and installs the .NET 8 Desktop Runtime if needed. Installed copies check for updates on launch.
+Installs to Program Files, creates shortcuts, and installs the .NET 8 Desktop Runtime if needed. Checks for updates at launch and every few hours, and asks before installing (click the version number to check now).
 
 Windows will ask for **Administrator** — firewall and DNS changes require it.
 
@@ -58,7 +58,7 @@ Windows will ask for **Administrator** — firewall and DNS changes require it.
 2. Unzip anywhere
 3. Run `SteamStopper.exe`
 
-No install and no auto-update. Includes the .NET runtime, so it runs on a clean Windows PC.
+No install. Includes the .NET runtime, so it runs on a clean Windows PC. It offers updates too and replaces only its own exe.
 
 ## Features
 
@@ -150,6 +150,7 @@ Output in `dist\`:
 | `SteamStopper.msi` | Installer |
 | `SteamStopper-portable.zip` | Portable app |
 | `SteamStopper.zip` | Auto-update package for installed copies |
+| `*.sha256` | Checksums; the updater refuses a download that doesn't match |
 
 ## Making a release
 
@@ -163,7 +164,7 @@ Releases are built by GitHub Actions ([`.github/workflows/release.yml`](.github/
    git push origin v2.3.0
    ```
 
-The workflow builds the MSI, the portable zip and the auto-update zip, and publishes them as a GitHub release. Installed copies pick it up on their next launch. You can also start it from the **Actions** tab with **Run workflow**.
+The workflow builds the MSI, the portable zip and the auto-update zip, and publishes them as a GitHub release. Running copies offer it within a few hours, or right away on their next launch. You can also start it from the **Actions** tab with **Run workflow**.
 
 ## License
 
