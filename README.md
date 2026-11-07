@@ -27,6 +27,13 @@ Steam Stopper is a local Windows utility for managing your Steam client: cut or 
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.1
+
+- **PS5**: KytyPS5 on the Emulators tab, and PS5 game folders and `.zar` dumps in the Games tab.
+- **Switch 2**: Eglantine joins Lichii, and `.nup` game archives open in either.
+- **Emulators update themselves** when a new build comes out (while closed), with a **PGO builds** switch for faster builds.
+- **Add to Steam**: one button puts your games in Steam as non-Steam games, with box art.
+
 ## What's new in 2.5
 
 - **Games**: a Steam-style library for your own game files. Pick a game on the left, press the big green Play button on the right, and it opens in the right emulator. Box art, last played and play time included.

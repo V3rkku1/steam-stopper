@@ -1,20 +1,14 @@
 ## New
 
-- **Games**: a Steam-style library for your own game files. The left side lists your games by console; the right shows box art, a big green **Play** button, last played and play time. Add a folder (or drop files), and each game opens in the matching emulator.
-- **Emulators**: a page of console tiles (PlayStation, Switch, Switch 2, 3DS, Wii U, Wii, Xbox and more). Click one to see its emulators and install with one click. Downloads go through Fetch, so bonding speeds them up, and installed emulators get **Play** and **Remove**. Games, BIOS, keys and firmware are not included.
-- **Better updater**: Steam Stopper now asks before updating (What's new, Skip, Later, Update now), checks the download against a checksum, and restores the old version if anything fails. Click the version number to check any time. Portable copies get updates too.
-- **Fetch**: a "Use all my connections" switch with your connections listed right on the page.
+- **PS5 with KytyPS5**: the actively developed open-source PS5 emulator is on the PS5 tile. In the Games tab, PS5 game folders (with their own name and icon) and `.zar` dumps start straight in it. Many PS5 games don't run yet.
+- **Switch 2**: Eglantine, a second Switch 2 emulator with daily builds, next to Lichii. Switch 2 `.nup` game archives show up in the Games tab and open in either.
+- **Emulators update themselves**: when a new build of an installed emulator comes out, it installs in the background while the emulator is closed; keys, firmware and saves are kept. Turn **Auto-update** off on the Emulators page to press **Update** yourself.
+- **PGO builds** switch: takes an emulator's faster profile-guided build when it has one, like Eglantine's.
+- **Add to Steam**: the **Steam** button on the Games tab adds your games to Steam as non-Steam games with their box art, so they start from your Steam library and Big Picture. Your own non-Steam games are kept. Steam closes and reopens if it is running.
 
 ## Fixed
 
-- If Steam Stopper crashed or was ended from Task Manager while bonding or routes were on, browsers and Discord lost the internet until it was reopened. A watchdog now puts everything back right away.
-- Downloads from GitHub and similar sites failed with 403 when their temporary link expired mid-download; they now pick up a fresh link and continue.
-- Helper processes (watchdog, admin restart) crashed on exit.
-- The Fetch file list hid the file name column, and opening Fetch could show "Request not supported."
-
-## Note
-
-Updating from 2.4 happens the old way, once: it restarts right away. From 2.5 on, you'll be asked first.
+- Downloads from release pages could fail when a game or emulator file had no match; background updates now stay quiet instead of opening web pages.
 
 ## Downloads
 
