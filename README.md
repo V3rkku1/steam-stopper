@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Windows desktop app for your Steam client</strong><br>
-  Firewall kill switch · download watcher · DNS jumper · link bonding · download manager · per-app routes · cleaner · Downloads organizer · app installer
+  Firewall kill switch · download watcher · DNS jumper · link bonding · download manager · emulators · per-app routes · cleaner · Downloads organizer · app installer
 </p>
 
 <p align="center">
@@ -74,6 +74,7 @@ No install and no auto-update. Includes the .NET runtime, so it runs on a clean 
 | **Clean** | Remove temp files, caches, Recycle Bin, and leftover Steam junk. |
 | **Organize** | Sort a messy Downloads folder into Installers, Archives, Documents, Images and more. One-click undo. |
 | **Apps** | Install or remove 56 common apps (Discord, Brave, OBS, 7-Zip, and more), then clear the folders they leave behind in AppData and Program Files. |
+| **Emulators** | Install console emulators by system: PlayStation 1 to 4, PSP and Vita, Switch, DS and 3DS, Wii U, Wii and GameCube, Xbox and Xbox 360, retro consoles, and all-in-one apps like RetroArch. PS5 and Switch 2 have no working emulator, and the page says so instead of linking a fake one. Games, BIOS, keys and firmware are not included. |
 
 **System tray**: pressing **X** asks whether to minimize to the tray or quit (tick *Remember my choice* to stop asking). Right-click the tray icon to block or allow Steam's internet, turn bonding on or off, or quit.
 

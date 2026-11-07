@@ -90,6 +90,12 @@
               <TextBlock Style="{StaticResource NavText}" Text="Apps"/>
             </StackPanel>
           </RadioButton>
+          <RadioButton Style="{StaticResource NavItem}" Tag="emulators" Click="Nav_Click">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE7FC;"/>
+              <TextBlock Style="{StaticResource NavText}" Text="Emulators"/>
+            </StackPanel>
+          </RadioButton>
         </StackPanel>
       </DockPanel>
     </Border>
@@ -920,7 +926,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <Border Style="{StaticResource AppCard}">
+                <Border Style="{StaticResource AppCard}" ToolTip="{Binding Blurb}">
                   <DockPanel>
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                       <Grid Width="44" Height="44" Margin="0,0,12,0">
@@ -941,10 +947,10 @@
                         </Border>
                       </Grid>
                       <TextBlock DockPanel.Dock="Top" Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                      <TextBlock Text="{Binding Category}" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,2,0,0"/>
+                      <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
                     </DockPanel>
                     <DockPanel DockPanel.Dock="Bottom">
-                      <Button DockPanel.Dock="Right" Click="AppCardAction_Click" Content="{Binding ActionLabel}">
+                      <Button DockPanel.Dock="Right" Click="AppCardAction_Click" Content="{Binding ActionLabel}" IsEnabled="{Binding CanAct}">
                         <Button.Style>
                           <Style TargetType="Button" BasedOn="{StaticResource SmallPrimary}">
                             <Setter Property="Margin" Value="0"/>

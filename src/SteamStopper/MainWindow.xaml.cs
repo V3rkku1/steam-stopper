@@ -33,7 +33,8 @@ public partial class MainWindow : Window
         ["routes"] = ("Routes", "Choose which internet connection each app uses"),
         ["clean"] = ("Clean", "Free space from temp files and caches"),
         ["organize"] = ("Organize", "Sort a messy Downloads folder into tidy subfolders"),
-        ["apps"] = ("Apps", "Install and remove common tools")
+        ["apps"] = ("Apps", "Install and remove common tools"),
+        ["emulators"] = ("Emulators", "Console emulators for PlayStation, Switch, 3DS, Wii U, Wii, Xbox and more")
     };
 
     private static readonly (string Name, string[] Parts)[] CacheTargets =
@@ -69,6 +70,7 @@ public partial class MainWindow : Window
     private List<OrganizeItem> _orgPlan = [];
     private bool _orgWorking;
     private string _appCategory = "All";
+    private bool _emuMode;
     private bool _dnsWorking;
     private bool _toolsWorking;
     private DownloadSnapshot? _lastSnapshot;
@@ -95,7 +97,8 @@ public partial class MainWindow : Window
             ["routes"] = PageRoutes,
             ["clean"] = PageClean,
             ["organize"] = PageOrganize,
-            ["apps"] = PageApps
+            ["apps"] = PageApps,
+            ["emulators"] = PageApps
         };
 
         if (_steamRoot is not null)
@@ -295,7 +298,8 @@ public partial class MainWindow : Window
     {
         if (sender is not RadioButton { Tag: string key }) return;
         foreach (var (name, page) in _pages)
-            page.Visibility = name == key ? Visibility.Visible : Visibility.Collapsed;
+            // Apps and Emulators share one page, so compare pages rather than keys.
+            page.Visibility = page == _pages[key] ? Visibility.Visible : Visibility.Collapsed;
         ShowPageHeader(key);
         if (key == "control") RefreshProcesses();
         if (key == "dns") RefreshDnsUi();
@@ -303,7 +307,7 @@ public partial class MainWindow : Window
         if (key == "fetch") RefreshFetchUi();
         if (key == "routes") RefreshRoutesUi();
         if (key == "clean") _ = ScanCleanerAsync();
-        if (key == "apps") RefreshApps();
+        if (key is "apps" or "emulators") SetAppMode(key == "emulators");
         if (key == "organize") _ = ScanOrganizeAsync();
         if (key == "downloads")
         {
@@ -1473,9 +1477,23 @@ public partial class MainWindow : Window
         await ScanCleanerAsync();
     }
 
+    private void SetAppMode(bool emulators)
+    {
+        if (_emuMode != emulators || AppCatBar.Children.Count == 0)
+        {
+            _emuMode = emulators;
+            _appCategory = "All";
+            AppCatBar.Children.Clear();
+            FillAppCategories();
+            AppSearchHint.Text = emulators ? "Search emulators or consoles" : "Search apps";
+        }
+        if (emulators) StatusText.Text = "Emulators come without games, BIOS, keys or firmware. Dump them from consoles you own.";
+        RefreshApps();
+    }
+
     private void RefreshApps()
     {
-        _appRows = AppHub.Snapshot();
+        _appRows = AppHub.Snapshot(_emuMode ? AppHub.Emulators : null);
         BindApps();
     }
 
@@ -1489,6 +1507,7 @@ public partial class MainWindow : Window
             rows = rows.Where(a =>
                 a.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                 a.Blurb.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                a.Systems.Contains(query, StringComparison.OrdinalIgnoreCase) ||
                 a.Category.Contains(query, StringComparison.OrdinalIgnoreCase));
         var list = rows.ToList();
         AppsList.ItemsSource = list;
@@ -1497,7 +1516,7 @@ public partial class MainWindow : Window
 
     private void FillAppCategories()
     {
-        foreach (var name in AppHub.Categories)
+        foreach (var name in _emuMode ? AppHub.EmulatorCategories : AppHub.Categories)
         {
             var button = new RadioButton
             {

@@ -20,6 +20,8 @@ public sealed class AppOffer
     public string Kind { get; init; } = "winget";
     public string Color { get; init; } = "#3A3A3A";
     public string[] Detect { get; init; } = [];
+    // Consoles an emulator runs, shown on its card instead of the category.
+    public string Systems { get; init; } = "";
     public bool Installed { get; set; }
     public string State { get; set; } = "Not installed";
     public string Initial
@@ -31,7 +33,9 @@ public sealed class AppOffer
             return Name.Length > 0 ? Name[..1].ToUpperInvariant() : "";
         }
     }
-    public string ActionLabel => Installed ? "Uninstall" : "Install";
+    public string ActionLabel => Kind switch { "site" => "Get", "none" => "None", _ => Installed ? "Uninstall" : "Install" };
+    public bool CanAct => Kind != "none";
+    public string Subtitle => Systems.Length > 0 ? Systems : Category;
     // Bundled logo (Assets/apps/<Icon>.png); cards fall back to the coloured initial when empty.
     public string? IconUri => Icon.Length > 0 ? $"pack://application:,,,/Assets/apps/{Icon}.png" : null;
 }
@@ -261,10 +265,48 @@ public static class AppHub
         return app.Detect.Any(File.Exists) || installed.Any(name => NameMatches(name, app.Match));
     }
 
-    public static List<AppOffer> Snapshot()
+    public static readonly string[] EmulatorCategories =
+        ["All", "PlayStation", "PS5", "Switch", "Switch 2", "DS & 3DS", "Wii U", "Wii", "Xbox", "Retro", "All-in-one"];
+
+    // Ids checked against microsoft/winget-pkgs. "site" opens the official download page (no winget package),
+    // "none" marks consoles with no working emulator, because fake ones for them are a common malware lure.
+    public static readonly AppOffer[] Emulators =
+    [
+        new() { Name = "DuckStation", Id = "Stenzek.DuckStation", Match = "DuckStation", Category = "PlayStation", Systems = "PlayStation 1", Color = "#2E6FD8", Blurb = "Fast, accurate PS1 emulator. Needs a PS1 BIOS from your console." },
+        new() { Name = "PCSX2", Id = "PCSX2Team.PCSX2", Match = "PCSX2", Category = "PlayStation", Systems = "PlayStation 2", Color = "#1C5DB8", Blurb = "PS2 emulator. Needs a PS2 BIOS from your console." },
+        new() { Name = "RPCS3", Kind = "site", Url = "https://rpcs3.net/download", Category = "PlayStation", Systems = "PlayStation 3", Color = "#3B3B98", Blurb = "PS3 emulator. Needs PS3 firmware from Sony. Opens its download page." },
+        new() { Name = "shadPS4", Id = "shadps4-emu.shadPS4", Match = "shadPS4", Category = "PlayStation", Systems = "PlayStation 4", Color = "#0B3D91", Blurb = "Early PS4 emulator. Some games run, many don't yet." },
+        new() { Name = "PPSSPP", Id = "PPSSPPTeam.PPSSPP", Match = "PPSSPP", Category = "PlayStation", Systems = "PSP", Color = "#33A1DE", Blurb = "PSP emulator that runs most games well." },
+        new() { Name = "Vita3K", Id = "Vita3K.Vita3K", Match = "Vita3K", Category = "PlayStation", Systems = "PS Vita", Color = "#1F4E9C", Blurb = "Experimental PS Vita emulator." },
+        new() { Name = "PS5 emulator", Kind = "none", Category = "PS5", Systems = "PlayStation 5", Color = "#555555", Blurb = "No working PS5 emulator exists. Sites and videos offering one are scams or malware." },
+
+        new() { Name = "Eden", Id = "Utopia.Eden.MSVC", Match = "Eden", Category = "Switch", Systems = "Nintendo Switch", Color = "#E60012", Blurb = "Switch emulator. Needs keys and firmware dumped from your own Switch." },
+        new() { Name = "Ryujinx", Kind = "site", Url = "https://ryujinx.app", Category = "Switch", Systems = "Nintendo Switch", Color = "#C4262E", Blurb = "Switch emulator kept alive by the community. Needs keys from your Switch. Opens its site." },
+        new() { Name = "Switch 2 emulator", Kind = "none", Category = "Switch 2", Systems = "Nintendo Switch 2", Color = "#555555", Blurb = "No working Switch 2 emulator exists. Sites and videos offering one are scams or malware." },
+
+        new() { Name = "Azahar", Id = "AzaharEmu.Azahar", Match = "Azahar", Category = "DS & 3DS", Systems = "Nintendo 3DS", Color = "#D12228", Blurb = "3DS emulator, the successor to Citra." },
+        new() { Name = "melonDS", Id = "melonDS.melonDS", Match = "melonDS", Category = "DS & 3DS", Systems = "Nintendo DS", Color = "#E0484F", Blurb = "Accurate Nintendo DS emulator with local wireless." },
+        new() { Name = "Cemu", Id = "Cemu.Cemu", Match = "Cemu", Category = "Wii U", Systems = "Wii U", Color = "#1A9BD7", Blurb = "Wii U emulator. Needs keys from your own Wii U." },
+        new() { Name = "Dolphin", Id = "DolphinEmulator.Dolphin", Match = "Dolphin Emulator", Category = "Wii", Systems = "Wii and GameCube", Color = "#3CA3E0", Blurb = "Wii and GameCube emulator." },
+
+        new() { Name = "xemu", Id = "xemu-project.xemu", Match = "xemu", Category = "Xbox", Systems = "Original Xbox", Color = "#107C10", Blurb = "Original Xbox emulator. Needs BIOS files from your own Xbox." },
+        new() { Name = "Xenia Canary", Id = "Xenia.XeniaCanary", Match = "Xenia", Category = "Xbox", Systems = "Xbox 360", Color = "#5DC21E", Blurb = "Xbox 360 emulator, the faster-moving Canary build." },
+
+        new() { Name = "mGBA", Id = "JeffreyPfau.mGBA", Match = "mGBA", Category = "Retro", Systems = "Game Boy, GBC, GBA", Color = "#6A5ACD", Blurb = "Game Boy family emulator." },
+        new() { Name = "Mesen", Id = "SourMesen.Mesen2", Match = "Mesen", Category = "Retro", Systems = "NES, SNES, Game Boy, PC Engine", Color = "#C0392B", Blurb = "Accurate multi-system emulator for 8 and 16-bit consoles." },
+        new() { Name = "Project64", Id = "Project64.Project64", Match = "Project64", Category = "Retro", Systems = "Nintendo 64", Color = "#2D8C3C", Blurb = "Nintendo 64 emulator." },
+        new() { Name = "redream", Id = "redream.redream", Match = "redream", Category = "Retro", Systems = "Dreamcast", Color = "#F08A24", Blurb = "Dreamcast emulator." },
+        new() { Name = "MAME", Id = "MAMEdev.MAME", Match = "MAME", Category = "Retro", Systems = "Arcade", Color = "#8E44AD", Blurb = "Arcade machine emulator." },
+
+        new() { Name = "RetroArch", Id = "Libretro.RetroArch", Match = "RetroArch", Category = "All-in-one", Systems = "Dozens of consoles", Color = "#444444", Blurb = "One app for many consoles through downloadable cores." },
+        new() { Name = "ares", Id = "ares-emulator.ares", Match = "ares", Category = "All-in-one", Systems = "N64, SNES, Mega Drive and more", Color = "#5B2C83", Blurb = "Accuracy-focused multi-system emulator." },
+        new() { Name = "ES-DE", Id = "ES-DE.EmulationStation-DE", Match = "ES-DE", Category = "All-in-one", Systems = "Game library frontend", Color = "#B03A2E", Blurb = "Console-style menu that launches your emulators and games." }
+    ];
+
+    public static List<AppOffer> Snapshot(IEnumerable<AppOffer>? catalog = null)
     {
         var installed = InstalledNames();
-        return Catalog.Select(app =>
+        return (catalog ?? Catalog).Select(app =>
         {
             var hit = app.Detect.Any(File.Exists)
                 || installed.Any(name => NameMatches(name, app.Match));
@@ -274,6 +316,12 @@ public static class AppHub
 
     public static string Install(AppOffer app)
     {
+        if (app.Kind == "none") return app.Blurb;
+        if (app.Kind == "site")
+        {
+            Process.Start(new ProcessStartInfo(app.Url) { UseShellExecute = true })?.Dispose();
+            return $"Opened the {app.Name} download page.";
+        }
         if (app.Kind == "zip")
             return InstallZip(app);
         var winget = FindWinget();
@@ -323,8 +371,9 @@ public static class AppHub
         Kind = app.Kind,
         Color = app.Color,
         Detect = app.Detect,
+        Systems = app.Systems,
         Installed = hit,
-        State = hit ? "Installed" : "Not installed"
+        State = hit ? "Installed" : app.Kind switch { "site" => "Download page", "none" => "None exists", _ => "Not installed" }
     };
 
     private static string[] ContentManagerPaths()
