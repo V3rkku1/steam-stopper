@@ -27,6 +27,14 @@ Steam Stopper is a local Windows utility for managing your Steam client: cut or 
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5
+
+- **Games**: a Steam-style library for your own game files. Pick a game on the left, press the big green Play button on the right, and it opens in the right emulator. Box art, last played and play time included.
+- **Emulators**: pick a console from the tiles and install its emulator in one click. Downloads go through Fetch, so bonding speeds them up, and installed emulators get a Play button.
+- **Better updater**: asks before updating, checks the download, and puts the old version back if anything goes wrong. Portable copies update too.
+- **Safer bonding**: if Steam Stopper crashes or is closed from Task Manager while bonding or routes are on, your internet is put back automatically.
+- **Fetch**: turn bonding on and pick connections right on the page; downloads from GitHub no longer fail when their link expires.
+
 ## What's new in 2.4
 
 - **Fetch**: a download manager. Paste links and each file downloads in pieces over all your bonded connections at once, with pause, queue and resume after a restart.
