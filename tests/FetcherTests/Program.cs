@@ -207,7 +207,10 @@ File.WriteAllText(Path.Combine(roms, "ps1", "Crash.bin"), "");
 File.WriteAllText(Path.Combine(roms, "ps1", "FF7", "FF7 (Disc 1).cue"), "");
 File.WriteAllText(Path.Combine(roms, "ps1", "FF7", "FF7 (Disc 2).cue"), "");
 File.WriteAllText(Path.Combine(roms, "ps1", "FF7", "FF7.m3u"), "FF7 (Disc 1).cue\nFF7 (Disc 2).cue\n");
+File.WriteAllBytes(Path.Combine(roms, "Mario Kart World.nup"), [(byte)'N', (byte)'U', (byte)'P', 1, 0, 0]);
+File.WriteAllBytes(Path.Combine(roms, "router-firmware.nup"), [(byte)'P', (byte)'K', 3, 4]);
 string? Con(string n) => RomLibrary.ConsoleOf(Path.Combine(roms, n));
+Check("Switch 2 .nup: Lichii archive yes, other .nup no", Con("Mario Kart World.nup") == "SWITCH 2" && Con("router-firmware.nup") is null);
 Check("iso headers: Wii, GameCube, PS2, PSP, Xbox",
     Con("Wii Sports (USA).iso") == "WII" && Con("Melee (USA) (Rev 2).iso") == "GAMECUBE" && Con("GTA SA.iso") == "PS2"
     && Con("Crisis Core.iso") == "PSP" && Con("Halo.iso") == "XBOX");
@@ -218,7 +221,7 @@ Check("multi-disc: discs listed in .m3u are hidden", Con("ps1/FF7/FF7 (Disc 1).c
 Check("titles drop region and dump tags", RomLibrary.TitleOf("Super Mario 64 (USA) [!].z64") == "Super Mario 64" && RomLibrary.TitleOf("Zelda_TOTK.nsp") == "Zelda TOTK");
 var store = new RomLibrary.Store { Folders = [roms] };
 var found = RomLibrary.Scan(store);
-Check($"scan finds 10 games, second scan finds none (got {found})", found == 10 && RomLibrary.Scan(store) == 0);
+Check($"scan finds 11 games, second scan finds none (got {found})", found == 11 && RomLibrary.Scan(store) == 0);
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile's emulators exist in the catalog",
     AppHub.Consoles.SelectMany(c => c.Emulators).All(n => AppHub.Emulators.Any(e => e.Name == n)));
