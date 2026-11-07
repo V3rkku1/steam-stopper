@@ -1165,6 +1165,11 @@
           <Button x:Name="EmuBackButton" DockPanel.Dock="Left" Content="&#x2190;  All consoles" Style="{StaticResource GhostButton}"
                   Margin="0,0,14,0" Click="EmuBack_Click" Visibility="Collapsed"/>
           <TextBlock x:Name="EmuTitle" DockPanel.Dock="Left" Foreground="{StaticResource Muted}" FontSize="13" VerticalAlignment="Center"/>
+          <StackPanel x:Name="EmuAutoPanel" DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0" Visibility="Collapsed"
+                      ToolTip="When a new build of an installed emulator comes out, install it in the background while the emulator is closed">
+            <TextBlock Text="Auto-update" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <ToggleButton x:Name="EmuAutoBox" Style="{StaticResource Switch}" Click="EmuAuto_Click"/>
+          </StackPanel>
           <TextBlock x:Name="AppCount" DockPanel.Dock="Right" Text="" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="12,0,0,0"/>
           <TextBlock x:Name="AppBusy" Text="" Foreground="{StaticResource AccentText}" VerticalAlignment="Center" Margin="16,0,0,0" TextTrimming="CharacterEllipsis"/>
         </DockPanel>
@@ -1276,7 +1281,7 @@
                           </Style>
                         </Button.Style>
                       </Button>
-                      <Button DockPanel.Dock="Right" Click="AppCardRemove_Click" Content="Remove" Margin="0,0,6,0" ToolTip="Uninstall or delete this emulator">
+                      <Button DockPanel.Dock="Right" Click="AppCardRemove_Click" Content="{Binding SecondaryLabel}" Margin="0,0,6,0" ToolTip="Update, uninstall or delete this emulator">
                         <Button.Style>
                           <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
                             <Setter Property="Visibility" Value="Collapsed"/>

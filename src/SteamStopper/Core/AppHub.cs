@@ -43,6 +43,9 @@ public sealed class AppOffer
         : Kind switch { "site" => "Get", "none" => "None", _ => "Install" };
     public bool CanAct => Kind != "none";
     public bool CanRemove => LaunchPath is not null;
+    // Newer portable build found online; the card's second button turns into Update.
+    public string? UpdateTo { get; set; }
+    public string SecondaryLabel => UpdateTo is not null ? "Update" : "Remove";
     public string Subtitle => Systems.Length > 0 ? Systems : Category;
     // Bundled logo (Assets/apps/<Icon>.png); cards fall back to the coloured initial when empty.
     public string? IconUri => Icon.Length > 0 ? $"pack://application:,,,/Assets/apps/{Icon}.png" : null;

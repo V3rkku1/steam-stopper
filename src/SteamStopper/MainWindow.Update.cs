@@ -17,6 +17,7 @@ public partial class MainWindow
     {
         Updater.CleanTemp();
         _updateTimer.Tick += (_, _) => _ = CheckForUpdates(manual: false);
+        _updateTimer.Tick += (_, _) => _ = CheckEmulatorUpdates(force: true);
         _updateTimer.Start();
         // Give the window a moment; the check is not urgent.
         _ = Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ => Dispatcher.Invoke(() => CheckForUpdates(manual: false)));

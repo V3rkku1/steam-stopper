@@ -143,6 +143,8 @@ public sealed class AppSettings
     public bool FetchBond { get; set; } = true;
     // Release the user chose to skip; the banner stays quiet for it.
     public string SkippedVersion { get; set; } = "";
+    // Update portable emulators (Lichii, Cemu...) in the background when a new build is out and they aren't running.
+    public bool AutoUpdateEmulators { get; set; } = true;
     // Unfinished downloads: their progress file, or the link when they never started.
     public List<FetchEntry> FetchJobs { get; set; } = [];
 

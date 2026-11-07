@@ -36,6 +36,7 @@ public partial class MainWindow
         }
         // Emulators may have been installed or removed on the Emulators tab since last time.
         _emuInstalled = AppHub.Snapshot(AppHub.Emulators).Where(e => e.LaunchPath is not null).ToList();
+        _ = CheckEmulatorUpdates();
         PaintGames();
         ShowGame(GamesList.SelectedItem as Rom);
     }
