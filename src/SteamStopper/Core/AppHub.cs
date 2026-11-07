@@ -293,8 +293,8 @@ public static class AppHub
         new("PS1", "PlayStation", "#6B7A90", ["DuckStation", "RetroArch"]),
         new("PS2", "PlayStation 2", "#1D3A8A", ["PCSX2"]),
         new("PS3", "PlayStation 3", "#2A2A30", ["RPCS3"]),
-        new("PS4", "PlayStation 4", "#003791", ["shadPS4", "Kyty"]),
-        new("PS5", "PlayStation 5", "#2D64E6", ["Kyty"]),
+        new("PS4", "PlayStation 4", "#003791", ["shadPS4"]),
+        new("PS5", "PlayStation 5", "#2D64E6", ["KytyPS5"]),
         new("PSP", "PlayStation Portable", "#3A3A40", ["PPSSPP", "RetroArch"]),
         new("VITA", "PlayStation Vita", "#1E5BB8", ["Vita3K"]),
         new("SWITCH", "Nintendo Switch", "#E60012", ["Eden", "Ryujinx", "Lichii", "Eglantine"]),
@@ -323,8 +323,8 @@ public static class AppHub
         new() { Name = "shadPS4", Source = new("shadps4-emu/shadPS4", [@"win64-qt.*\.zip$", @"win64.*\.zip$"], "shadps4"), Id = "shadps4-emu.shadPS4", Match = "shadPS4", Category = "PlayStation", Systems = "PlayStation 4", Color = "#0B3D91", Blurb = "Early PS4 emulator. Some games run, many don't yet." },
         new() { Name = "PPSSPP", Id = "PPSSPPTeam.PPSSPP", Match = "PPSSPP", Category = "PlayStation", Systems = "PSP", Color = "#33A1DE", Blurb = "PSP emulator that runs most games well." },
         new() { Name = "Vita3K", Source = new("Vita3K/Vita3K", [@"^windows-latest\.zip$", @"windows.*\.zip$"], "vita3k"), Id = "Vita3K.Vita3K", Match = "Vita3K", Category = "PlayStation", Systems = "PS Vita", Color = "#1F4E9C", Blurb = "Experimental PS Vita emulator." },
-        // Last built in 2022. Games are added inside its own launcher, so the Games tab can't start them.
-        new() { Name = "Kyty", Source = new("InoriRus/Kyty", [@"win.*\.(zip|7z)$", @"\.(zip|7z)$"], "launcher|kyty"), Kind = "site", Url = "https://github.com/InoriRus/Kyty/releases", Category = "PS5", Systems = "PS4 and PS5 (homebrew)", Color = "#1F3A93", Blurb = "Early PS4/PS5 emulator. Runs PS5 homebrew, not PS5 retail games." },
+        // Releases are KytyPS5-<date>-<sha>-Windows-x64.zip. Play opens kyty_launcher; the Games tab starts kyty_emulator --game.
+        new() { Name = "KytyPS5", Source = new("KytyPS5/KytyPS5", [@"Windows-x64\.zip$"], @"^kyty_launcher\.exe$"), Kind = "site", Url = "https://github.com/KytyPS5/KytyPS5/releases", Category = "PS5", Systems = "PlayStation 5", Color = "#1F3A93", Blurb = "Open-source PS5 emulator in active development. Some games run; many don't yet." },
 
         new() { Name = "Eden", Id = "Utopia.Eden.MSVC", Match = "Eden", Category = "Switch", Systems = "Nintendo Switch", Color = "#E60012", Blurb = "Switch emulator. Needs keys and firmware dumped from your own Switch." },
         new() { Name = "Ryujinx", Source = new("ryubing/ryujinx", [@"win_x64\.zip$", @"win.*x64.*\.zip$"], @"^ryujinx\.exe$", "https://git.ryujinx.app"), Kind = "site", Url = "https://ryujinx.app", Category = "Switch", Systems = "Nintendo Switch", Color = "#C4262E", Blurb = "Switch emulator kept alive by the community. Needs keys from your Switch." },

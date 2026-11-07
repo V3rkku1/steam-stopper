@@ -89,8 +89,8 @@ public partial class MainWindow
         var running = _playing.Contains(rom);
         var hasEmu = EmulatorsFor(rom).Count > 0;
         GamePlayButton.Content = running ? "RUNNING" : hasEmu ? "PLAY" : "GET EMULATOR";
-        GamePlayButton.IsEnabled = !running && File.Exists(rom.Path) && rom.Tile is not null;
-        GameHint.Text = !File.Exists(rom.Path) ? "The game file is gone. Remove it or rescan."
+        GamePlayButton.IsEnabled = !running && rom.Exists && rom.Tile is not null;
+        GameHint.Text = !rom.Exists ? "The game file is gone. Remove it or rescan."
             : rom.Tile is null ? "Pick the console this game is for below."
             : !hasEmu ? $"No emulator for {rom.ConsoleName} is installed yet. Get Emulator opens the Emulators tab."
             : "";
@@ -105,6 +105,9 @@ public partial class MainWindow
             OpenEmulatorsFor(rom.Tile);
             return;
         }
+        // KytyPS5's Play button opens its launcher; games start in its emulator exe next to it.
+        if (RomLibrary.GameExe.TryGetValue(emu.Name, out var gameExe) && Path.Combine(Path.GetDirectoryName(exe)!, gameExe) is var direct && File.Exists(direct))
+            exe = direct;
         Process process;
         try
         {
@@ -242,7 +245,7 @@ public partial class MainWindow
 
     private void GameOpenFolder_Click(object sender, RoutedEventArgs e)
     {
-        if (GameDetail.DataContext is Rom rom && File.Exists(rom.Path))
+        if (GameDetail.DataContext is Rom rom && rom.Exists)
             Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{rom.Path}\"") { UseShellExecute = true });
     }
 

@@ -209,6 +209,16 @@ File.WriteAllText(Path.Combine(roms, "ps1", "FF7", "FF7 (Disc 2).cue"), "");
 File.WriteAllText(Path.Combine(roms, "ps1", "FF7", "FF7.m3u"), "FF7 (Disc 1).cue\nFF7 (Disc 2).cue\n");
 File.WriteAllBytes(Path.Combine(roms, "Mario Kart World.nup"), [(byte)'N', (byte)'U', (byte)'P', 1, 0, 0]);
 File.WriteAllBytes(Path.Combine(roms, "router-firmware.nup"), [(byte)'P', (byte)'K', 3, 4]);
+var astro = Path.Combine(roms, "ps5", "PPSA01325-app");
+Directory.CreateDirectory(Path.Combine(astro, "sce_sys"));
+File.WriteAllText(Path.Combine(astro, "eboot.bin"), "");
+File.WriteAllText(Path.Combine(astro, "sce_sys", "param.json"),
+    """{"localizedParameters":{"defaultLanguage":"en-US","en-US":{"titleName":"ASTRO BOT"}}}""");
+var ps4 = Path.Combine(roms, "ps4", "CUSA00001");
+Directory.CreateDirectory(Path.Combine(ps4, "sce_sys"));
+File.WriteAllText(Path.Combine(ps4, "eboot.bin"), "");
+File.WriteAllText(Path.Combine(ps4, "sce_sys", "param.sfo"), "");
+File.WriteAllText(Path.Combine(roms, "Demon's Souls.zar"), "");
 string? Con(string n) => RomLibrary.ConsoleOf(Path.Combine(roms, n));
 Check("Switch 2 .nup: Lichii archive yes, other .nup no", Con("Mario Kart World.nup") == "SWITCH 2" && Con("router-firmware.nup") is null);
 Check("iso headers: Wii, GameCube, PS2, PSP, Xbox",
@@ -221,7 +231,12 @@ Check("multi-disc: discs listed in .m3u are hidden", Con("ps1/FF7/FF7 (Disc 1).c
 Check("titles drop region and dump tags", RomLibrary.TitleOf("Super Mario 64 (USA) [!].z64") == "Super Mario 64" && RomLibrary.TitleOf("Zelda_TOTK.nsp") == "Zelda TOTK");
 var store = new RomLibrary.Store { Folders = [roms] };
 var found = RomLibrary.Scan(store);
-Check($"scan finds 11 games, second scan finds none (got {found})", found == 11 && RomLibrary.Scan(store) == 0);
+Check("PS5 folder dump: titled from param.json; PS4 folder and its eboot not added",
+    store.Games.Any(g => g.Path == astro && g.Title == "ASTRO BOT" && g.Console == "PS5")
+    && !store.Games.Any(g => g.Path.StartsWith(ps4)) && !store.Games.Any(g => g.Path.EndsWith("eboot.bin")));
+Check(".zar is PS5", store.Games.Any(g => g.Title == "Demon's Souls" && g.Console == "PS5"));
+Check($"scan finds 13 games, second scan finds none (got {found})", found == 13 && RomLibrary.Scan(store) == 0);
+Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",
     AppHub.Consoles.All(c => c.Emulators.Length > 0) && AppHub.Consoles.SelectMany(c => c.Emulators).All(n => AppHub.Emulators.Any(e => e.Name == n)));
