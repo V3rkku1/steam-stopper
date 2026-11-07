@@ -911,13 +911,78 @@
           </Grid>
         </DockPanel>
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
-          <Border DockPanel.Dock="Left" Background="{StaticResource Raised}" CornerRadius="12" Padding="3">
+          <Border x:Name="AppCatBorder" DockPanel.Dock="Left" Background="{StaticResource Raised}" CornerRadius="12" Padding="3">
             <StackPanel Orientation="Horizontal" x:Name="AppCatBar"/>
           </Border>
+          <Button x:Name="EmuBackButton" DockPanel.Dock="Left" Content="&#x2190;  All consoles" Style="{StaticResource GhostButton}"
+                  Margin="0,0,14,0" Click="EmuBack_Click" Visibility="Collapsed"/>
+          <TextBlock x:Name="EmuTitle" DockPanel.Dock="Left" Foreground="{StaticResource Muted}" FontSize="13" VerticalAlignment="Center"/>
           <TextBlock x:Name="AppCount" DockPanel.Dock="Right" Text="" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="12,0,0,0"/>
           <TextBlock x:Name="AppBusy" Text="" Foreground="{StaticResource AccentText}" VerticalAlignment="Center" Margin="16,0,0,0" TextTrimming="CharacterEllipsis"/>
         </DockPanel>
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Grid>
+        <ScrollViewer x:Name="ConsoleView" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed">
+          <ItemsControl x:Name="ConsoleGrid" Margin="0,0,4,0">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <UniformGrid Columns="5" VerticalAlignment="Top"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Button Click="ConsoleTile_Click" Cursor="Hand" Margin="0,0,12,12" Height="118" ToolTip="{Binding Maker}">
+                  <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                      <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5" ClipToBounds="True">
+                        <Grid.RenderTransform>
+                          <ScaleTransform/>
+                        </Grid.RenderTransform>
+                        <Border CornerRadius="16" Background="{Binding Color, Converter={StaticResource HexBrush}}"/>
+                        <!-- Light from the top left, shade to the bottom right. -->
+                        <Border CornerRadius="16">
+                          <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                              <GradientStop Color="#33FFFFFF" Offset="0"/>
+                              <GradientStop Color="#00000000" Offset="0.45"/>
+                              <GradientStop Color="#66000000" Offset="1"/>
+                            </LinearGradientBrush>
+                          </Border.Background>
+                        </Border>
+                        <Ellipse Width="130" Height="130" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-46,-58" Fill="#14FFFFFF"/>
+                        <Border x:Name="Ring" CornerRadius="16" BorderBrush="#40FFFFFF" BorderThickness="1"/>
+                        <DockPanel Margin="16,14">
+                          <TextBlock DockPanel.Dock="Bottom" Text="{Binding CountText}" Foreground="#D8FFFFFF" FontSize="11" FontWeight="SemiBold"/>
+                          <TextBlock DockPanel.Dock="Bottom" Text="{Binding Maker}" Foreground="#B0FFFFFF" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,0,0,2"/>
+                          <Viewbox HorizontalAlignment="Left" VerticalAlignment="Top" StretchDirection="DownOnly" MaxHeight="40">
+                            <TextBlock Text="{Binding Name}" Foreground="White" FontFamily="{StaticResource DisplayFont}" FontSize="30" FontWeight="Black">
+                              <TextBlock.Effect>
+                                <DropShadowEffect BlurRadius="10" ShadowDepth="1" Opacity="0.35"/>
+                              </TextBlock.Effect>
+                            </TextBlock>
+                          </Viewbox>
+                        </DockPanel>
+                      </Grid>
+                      <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                          <Setter TargetName="Ring" Property="BorderBrush" Value="#CCFFFFFF"/>
+                          <Setter TargetName="Ring" Property="BorderThickness" Value="2"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                          <Setter TargetName="Root" Property="RenderTransform">
+                            <Setter.Value>
+                              <ScaleTransform ScaleX="0.97" ScaleY="0.97"/>
+                            </Setter.Value>
+                          </Setter>
+                        </Trigger>
+                      </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                  </Button.Template>
+                </Button>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+        <ScrollViewer x:Name="AppsView" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <ItemsControl x:Name="AppsList" Margin="0,0,4,0">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -986,6 +1051,7 @@
             </ItemsControl.ItemTemplate>
           </ItemsControl>
         </ScrollViewer>
+        </Grid>
       </DockPanel>
     </Grid>
   </DockPanel>

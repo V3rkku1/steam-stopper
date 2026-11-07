@@ -71,6 +71,8 @@ public partial class MainWindow : Window
     private bool _orgWorking;
     private string _appCategory = "All";
     private bool _emuMode;
+    // Console picked on the Emulators front page; null shows the console tiles.
+    private ConsoleTile? _emuConsole;
     private bool _dnsWorking;
     private bool _toolsWorking;
     private DownloadSnapshot? _lastSnapshot;
@@ -1486,7 +1488,9 @@ public partial class MainWindow : Window
             AppCatBar.Children.Clear();
             FillAppCategories();
             AppSearchHint.Text = emulators ? "Search emulators or consoles" : "Search apps";
+            ConsoleGrid.ItemsSource = AppHub.Consoles;
         }
+        _emuConsole = null;
         if (emulators) StatusText.Text = "Emulators come without games, BIOS, keys or firmware. Dump them from consoles you own.";
         RefreshApps();
     }
@@ -1500,9 +1504,18 @@ public partial class MainWindow : Window
     private void BindApps()
     {
         IEnumerable<AppOffer> rows = _appRows;
-        if (_appCategory != "All")
-            rows = rows.Where(a => a.Category == _appCategory);
         var query = AppSearchBox.Text?.Trim() ?? "";
+        // Emulators: console tiles until one is picked or something is typed in search.
+        var tiles = _emuMode && _emuConsole is null && query.Length == 0;
+        ConsoleView.Visibility = tiles ? Visibility.Visible : Visibility.Collapsed;
+        AppsView.Visibility = tiles ? Visibility.Collapsed : Visibility.Visible;
+        AppCatBorder.Visibility = _emuMode ? Visibility.Collapsed : Visibility.Visible;
+        EmuBackButton.Visibility = _emuMode && !tiles ? Visibility.Visible : Visibility.Collapsed;
+        EmuTitle.Text = !_emuMode ? "" : tiles ? "Pick a console" : _emuConsole is { } c && query.Length == 0 ? $"{c.Maker}  ·  {c.CountText}" : "Search results";
+        if (_emuConsole is { } console && query.Length == 0)
+            rows = rows.Where(a => console.Emulators.Contains(a.Name)).OrderBy(a => Array.IndexOf(console.Emulators, a.Name));
+        else if (_appCategory != "All")
+            rows = rows.Where(a => a.Category == _appCategory);
         if (query.Length > 0)
             rows = rows.Where(a =>
                 a.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
@@ -1511,12 +1524,14 @@ public partial class MainWindow : Window
                 a.Category.Contains(query, StringComparison.OrdinalIgnoreCase));
         var list = rows.ToList();
         AppsList.ItemsSource = list;
-        AppCount.Text = $"{_appRows.Count(a => a.Installed)} installed  ·  {list.Count} shown";
+        AppCount.Text = tiles
+            ? $"{_appRows.Count(a => a.Installed)} installed  ·  {AppHub.Consoles.Length} consoles"
+            : $"{_appRows.Count(a => a.Installed)} installed  ·  {list.Count} shown";
     }
 
     private void FillAppCategories()
     {
-        foreach (var name in _emuMode ? AppHub.EmulatorCategories : AppHub.Categories)
+        foreach (var name in AppHub.Categories)
         {
             var button = new RadioButton
             {
@@ -1529,6 +1544,20 @@ public partial class MainWindow : Window
             button.Click += AppCategory_Click;
             AppCatBar.Children.Add(button);
         }
+    }
+
+    private void ConsoleTile_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: ConsoleTile console }) return;
+        _emuConsole = console;
+        BindApps();
+    }
+
+    private void EmuBack_Click(object sender, RoutedEventArgs e)
+    {
+        _emuConsole = null;
+        AppSearchBox.Clear();
+        BindApps();
     }
 
     private void AppCategory_Click(object sender, RoutedEventArgs e)

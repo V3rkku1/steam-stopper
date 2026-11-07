@@ -40,6 +40,18 @@ public sealed class AppOffer
     public string? IconUri => Icon.Length > 0 ? $"pack://application:,,,/Assets/apps/{Icon}.png" : null;
 }
 
+public sealed record ConsoleTile(string Name, string Maker, string Color, string[] Emulators)
+{
+    public string CountText
+    {
+        get
+        {
+            var real = AppHub.Emulators.Count(e => e.Kind != "none" && Emulators.Contains(e.Name));
+            return real == 0 ? "No emulator yet" : real == 1 ? "1 emulator" : $"{real} emulators";
+        }
+    }
+}
+
 public sealed class LeftoverItem : System.ComponentModel.INotifyPropertyChanged
 {
     private bool _selected = true;
@@ -265,8 +277,32 @@ public static class AppHub
         return app.Detect.Any(File.Exists) || installed.Any(name => NameMatches(name, app.Match));
     }
 
-    public static readonly string[] EmulatorCategories =
-        ["All", "PlayStation", "PS5", "Switch", "Switch 2", "DS & 3DS", "Wii U", "Wii", "Xbox", "Retro", "All-in-one"];
+    // Front page of the Emulators tab. Styled names in brand-like colours, not the makers' trademarked logos.
+    public static readonly ConsoleTile[] Consoles =
+    [
+        new("PS1", "PlayStation", "#6B7A90", ["DuckStation", "RetroArch"]),
+        new("PS2", "PlayStation 2", "#1D3A8A", ["PCSX2"]),
+        new("PS3", "PlayStation 3", "#2A2A30", ["RPCS3"]),
+        new("PS4", "PlayStation 4", "#003791", ["shadPS4"]),
+        new("PS5", "PlayStation 5", "#2D64E6", ["PS5 emulator"]),
+        new("PSP", "PlayStation Portable", "#3A3A40", ["PPSSPP", "RetroArch"]),
+        new("VITA", "PlayStation Vita", "#1E5BB8", ["Vita3K"]),
+        new("SWITCH", "Nintendo Switch", "#E60012", ["Eden", "Ryujinx", "Lichii"]),
+        new("SWITCH 2", "Nintendo Switch 2", "#B0102A", ["Lichii"]),
+        new("3DS", "Nintendo 3DS", "#CE181E", ["Azahar"]),
+        new("DS", "Nintendo DS", "#8A8D96", ["melonDS"]),
+        new("WII U", "Nintendo Wii U", "#009AC7", ["Cemu"]),
+        new("WII", "Nintendo Wii", "#5E8FBF", ["Dolphin"]),
+        new("GAMECUBE", "Nintendo GameCube", "#5B4DB8", ["Dolphin"]),
+        new("N64", "Nintendo 64", "#2E8B57", ["Project64", "ares", "RetroArch"]),
+        new("GAME BOY", "Game Boy, Color, Advance", "#5F7F2A", ["mGBA", "Mesen", "RetroArch"]),
+        new("NES · SNES", "Nintendo 8 and 16-bit", "#6C5B7B", ["Mesen", "ares", "RetroArch"]),
+        new("XBOX", "Original Xbox", "#107C10", ["xemu"]),
+        new("XBOX 360", "Xbox 360", "#4FA82A", ["Xenia Canary"]),
+        new("DREAMCAST", "Sega Dreamcast", "#E07A1F", ["redream", "RetroArch"]),
+        new("ARCADE", "Arcade machines", "#8E44AD", ["MAME", "RetroArch"]),
+        new("ALL-IN-ONE", "Many consoles in one app", "#4A4A55", ["RetroArch", "ares", "ES-DE"])
+    ];
 
     // Ids checked against microsoft/winget-pkgs. "site" opens the official download page (no winget package),
     // "none" marks consoles with no working emulator, because fake ones for them are a common malware lure.
