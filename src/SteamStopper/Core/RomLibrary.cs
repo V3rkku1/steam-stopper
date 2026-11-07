@@ -56,7 +56,7 @@ public static class RomLibrary
     private static readonly Dictionary<string, string> ByExtension = new(StringComparer.OrdinalIgnoreCase)
     {
         [".nsp"] = "SWITCH", [".xci"] = "SWITCH",
-        // Lichii's Switch 2 archive: base game plus updates in one file (magic "NUP\x01").
+        // Switch 2 archive used by Lichii and Eglantine: base game plus updates in one file (magic "NUP\x01").
         [".nup"] = "SWITCH 2",
         [".3ds"] = "3DS", [".cci"] = "3DS", [".3dsx"] = "3DS",
         [".nds"] = "DS",
@@ -81,6 +81,7 @@ public static class RomLibrary
         ["PPSSPP"] = "\"{rom}\"",
         ["Eden"] = "-g \"{rom}\"",
         ["Lichii"] = "-g \"{rom}\"",
+        ["Eglantine"] = "-g \"{rom}\"",
         ["Ryujinx"] = "\"{rom}\"",
         ["Azahar"] = "\"{rom}\"",
         ["melonDS"] = "\"{rom}\"",
@@ -163,7 +164,7 @@ public static class RomLibrary
     public static string? ConsoleOf(string file)
     {
         if (!ByExtension.TryGetValue(System.IO.Path.GetExtension(file), out var console)) return null;
-        // .nup is also used by unrelated firmware updaters; only Lichii archives are games.
+        // .nup is also used by unrelated firmware updaters; only NUP-format archives are games.
         if (console == "SWITCH 2") return HasMagic(file, "NUP\x01"u8) ? console : null;
         // Multi-disc .m3u lists and loose .cue sheets: one entry per game, not per disc track.
         if (console == "PS1" && !file.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) && InM3u(file)) return null;

@@ -223,8 +223,8 @@ var store = new RomLibrary.Store { Folders = [roms] };
 var found = RomLibrary.Scan(store);
 Check($"scan finds 11 games, second scan finds none (got {found})", found == 11 && RomLibrary.Scan(store) == 0);
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
-Check("every console tile's emulators exist in the catalog",
-    AppHub.Consoles.SelectMany(c => c.Emulators).All(n => AppHub.Emulators.Any(e => e.Name == n)));
+Check("every console tile has emulators, all in the catalog",
+    AppHub.Consoles.All(c => c.Emulators.Length > 0) && AppHub.Consoles.SelectMany(c => c.Emulators).All(n => AppHub.Emulators.Any(e => e.Name == n)));
 Check("every launchable emulator exists in the catalog", RomLibrary.LaunchArgs.Keys.All(n => AppHub.Emulators.Any(e => e.Name == n)));
 
 Console.WriteLine("12) updater: release picking, checksum, file swap and rollback");

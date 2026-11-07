@@ -1268,7 +1268,7 @@
                       <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
                     </DockPanel>
                     <DockPanel DockPanel.Dock="Bottom">
-                      <Button DockPanel.Dock="Right" Click="AppCardAction_Click" Content="{Binding ActionLabel}" IsEnabled="{Binding CanAct}">
+                      <Button DockPanel.Dock="Right" Click="AppCardAction_Click" Content="{Binding ActionLabel}">
                         <Button.Style>
                           <Style TargetType="Button" BasedOn="{StaticResource SmallPrimary}">
                             <Setter Property="Margin" Value="0"/>
