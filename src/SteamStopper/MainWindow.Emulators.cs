@@ -60,7 +60,7 @@ public partial class MainWindow
             AppBusy.Text = $"Looking for the latest {app.Name}…";
             EmuRelease? release = null;
             string? lookupError = null;
-            try { release = await EmuStore.FindLatest(source, CancellationToken.None); }
+            try { release = await EmuStore.FindLatest(source, _settings.PreferPgo, CancellationToken.None); }
             catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode is System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.TooManyRequests)
             {
                 lookupError = "the release server refused the lookup, usually its hourly limit; try again later";
@@ -101,7 +101,7 @@ public partial class MainWindow
             try { File.Delete(archive); } catch { }
             var exe = EmuStore.FindExe(folder, source.Exe)
                 ?? throw new IOException("It unpacked, but no program was found inside.");
-            EmuStore.Record(app.Name, new EmuStore.Entry(exe, release.Version));
+            EmuStore.Record(app.Name, new EmuStore.Entry(exe, release.Version, release.File));
             StatusText.Text = $"{app.Name} {release.Version} is ready. Press Play.";
             AppBusy.Text = "";
         }
@@ -138,7 +138,7 @@ public partial class MainWindow
                 // One failed lookup (rate limit, server down) shouldn't stop the others.
                 try
                 {
-                    if (await EmuStore.FindLatest(emu.Source!, CancellationToken.None) is { } latest) _emuLatest[emu.Name] = latest;
+                    if (await EmuStore.FindLatest(emu.Source!, _settings.PreferPgo, CancellationToken.None) is { } latest) _emuLatest[emu.Name] = latest;
                 }
                 catch { }
             }
@@ -162,7 +162,9 @@ public partial class MainWindow
     }
 
     private EmuRelease? UpdateFor(string name) =>
-        EmuStore.Find(name) is { } have && _emuLatest.TryGetValue(name, out var latest) && latest.Version != have.Version ? latest : null;
+        EmuStore.Find(name) is { } have && _emuLatest.TryGetValue(name, out var latest)
+        // A different release file of the same version is the PGO switch being flipped.
+        && (latest.Version != have.Version || have.File.Length > 0 && latest.File != have.File) ? latest : null;
 
     private void MarkEmulatorUpdates(List<AppOffer> rows)
     {
@@ -191,6 +193,14 @@ public partial class MainWindow
             }
         }
         return false;
+    }
+
+    private void EmuPgo_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.PreferPgo = EmuPgoBox.IsChecked == true;
+        _settings.Save();
+        // The installed copies may now be the other build; the check flags (or auto-installs) the switch.
+        _ = CheckEmulatorUpdates(force: true);
     }
 
     private void EmuAuto_Click(object sender, RoutedEventArgs e)

@@ -1484,6 +1484,7 @@ public partial class MainWindow : Window
         if (emulators) StatusText.Text = "Emulators come without games, BIOS, keys or firmware. Dump them from consoles you own.";
         EmuAutoPanel.Visibility = emulators ? Visibility.Visible : Visibility.Collapsed;
         EmuAutoBox.IsChecked = _settings.AutoUpdateEmulators;
+        EmuPgoBox.IsChecked = _settings.PreferPgo;
         RefreshApps();
         if (emulators) _ = CheckEmulatorUpdates();
     }

@@ -155,6 +155,17 @@ Check("github: skips draft, symbols, installer, arm64", pick?.Url == "https://x/
 Check("github: second pattern used when first misses",
     EmuStore.PickGitHub(gh, pcsx2 with { Assets = [@"nomatch", @"x64-Qt\.7z$"] })?.Url == "https://x/good.7z");
 Check("github: nothing matches gives null", EmuStore.PickGitHub(gh, pcsx2 with { Assets = [@"\.dmg$"] }) is null);
+var egl = """
+[{"tag_name":"daily-20261107","assets":[
+   {"name":"eglantine-windows-x86_64-pgo.zip","browser_download_url":"https://e/pgo"},
+   {"name":"eglantine-linux-x86_64.AppImage","browser_download_url":"https://e/linux"},
+   {"name":"eglantine-windows-x86_64.zip","browser_download_url":"https://e/std"}]}]
+""";
+var eglSrc = new EmuSource("Djihads80/Eglantine", [@"windows-x86_64(-pgo)?\.zip$", @"windows.*\.zip$"], @"^eglantine\.exe$");
+Check("pgo on: takes the PGO build", EmuStore.PickGitHub(egl, eglSrc, pgo: true)?.Url == "https://e/pgo");
+Check("pgo off: takes the standard build", EmuStore.PickGitHub(egl, eglSrc, pgo: false)?.Url == "https://e/std");
+Check("pgo on, none published: standard build", EmuStore.PickGitHub(gh, pcsx2, pgo: true)?.Url == "https://x/good.7z");
+Check("'pgo' only as its own word", EmuStore.IsPgo("x-windows-pgo.zip") && EmuStore.IsPgo("x_PGO.zip") && !EmuStore.IsPgo("pgoat.zip"));
 var gl = """
 [{"tag_name":"1.3.2","assets":{"links":[
    {"name":"ryujinx-1.3.2-linux_x64.tar.gz","url":"https://g/l"},
