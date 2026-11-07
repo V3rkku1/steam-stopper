@@ -1020,9 +1020,21 @@
                           <Style TargetType="Button" BasedOn="{StaticResource SmallPrimary}">
                             <Setter Property="Margin" Value="0"/>
                             <Style.Triggers>
-                              <DataTrigger Binding="{Binding Installed}" Value="True">
+                              <DataTrigger Binding="{Binding ActionLabel}" Value="Uninstall">
                                 <Setter Property="Background" Value="{StaticResource Raised}"/>
                                 <Setter Property="Foreground" Value="{StaticResource Text}"/>
+                              </DataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </Button.Style>
+                      </Button>
+                      <Button DockPanel.Dock="Right" Click="AppCardRemove_Click" Content="Remove" Margin="0,0,6,0" ToolTip="Uninstall or delete this emulator">
+                        <Button.Style>
+                          <Style TargetType="Button" BasedOn="{StaticResource SmallButton}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                              <DataTrigger Binding="{Binding CanRemove}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
                               </DataTrigger>
                             </Style.Triggers>
                           </Style>

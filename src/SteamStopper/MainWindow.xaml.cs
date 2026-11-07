@@ -1581,7 +1581,9 @@ public partial class MainWindow : Window
     {
         if (sender is Button { DataContext: AppOffer app })
         {
-            if (app.Installed) _ = UninstallApp(app);
+            if (app.LaunchPath is { } exe) LaunchEmulator(app, exe);
+            else if (app.Installed) _ = UninstallApp(app);
+            else if (app.Source is not null) _ = InstallEmulator(app);
             else _ = InstallApp(app);
         }
     }

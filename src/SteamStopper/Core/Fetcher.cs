@@ -358,7 +358,9 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
     {
         long start, end;
         lock (job.Gate) (start, end) = (segment.Pos, segment.End);
-        using var request = new HttpRequestMessage(HttpMethod.Get, job.ResolvedUrl);
+        string address;
+        lock (job.Gate) address = job.ResolvedUrl;
+        using var request = new HttpRequestMessage(HttpMethod.Get, address);
         if (job.Ranged)
         {
             request.Headers.Range = new RangeHeaderValue(start, end - 1);
@@ -372,6 +374,17 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
         stall.CancelAfter(Stall);
         using var response = await ClientFor(link).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, stall.Token);
         var code = (int)response.StatusCode;
+        if (code is 401 or 403 or 410)
+        {
+            // GitHub and most CDNs redirect to signed links that expire after minutes. If this request used such
+            // a link, go back to the one the user gave and let its redirect hand out a fresh address. A refusal
+            // of the original link itself is final.
+            if (address != job.Url)
+            {
+                lock (job.Gate) job.ResolvedUrl = job.Url;
+                throw new HttpRequestException($"Server answered {code}; asking the original link for a fresh address.");
+            }
+        }
         if (code is 401 or 403 or 404 or 410 or 416)
             throw new FatalFetchException($"Server answered {code} {response.ReasonPhrase}. The link may have expired.");
         if (job.Ranged)

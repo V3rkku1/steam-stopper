@@ -25,6 +25,15 @@ _ = Task.Run(async () =>
             {
                 hits.AddOrUpdate(ctx.Request.RemoteEndPoint.Address.ToString(), 1, (_, n) => n + 1);
                 if (ctx.Request.Url!.AbsolutePath == "/gone" && ctx.Request.Headers["Range"] != "bytes=0-") { res.StatusCode = 403; res.Close(); return; }
+                if (ctx.Request.Url!.AbsolutePath == "/signed")
+                {
+                    // Like GitHub release downloads: a redirect to a link that only works for a short while.
+                    res.Redirect($"http://127.0.0.1:{port}/blob?t={DateTime.UtcNow.Ticks}"); res.Close(); return;
+                }
+                if (ctx.Request.Url!.AbsolutePath == "/blob" && DateTime.UtcNow.Ticks - long.Parse(ctx.Request.QueryString["t"]!) > TimeSpan.FromSeconds(1).Ticks)
+                {
+                    res.StatusCode = 403; res.Close(); return;
+                }
                 if (ctx.Request.Url!.AbsolutePath == "/redir") { res.Redirect($"http://127.0.0.1:{port}/files/test%20file.bin"); res.Close(); return; }
                 long start = 0, end = data.Length - 1;
                 var range = ctx.Request.Headers["Range"];
@@ -125,6 +134,56 @@ Check("distinct names, both ok", ja.FileName != jb.FileName && Same(ja) && Same(
 Console.WriteLine("8) 403 mid-download keeps real error");
 var j8 = await RunJob(new FetchJob { Url = $"http://127.0.0.1:{port}/gone", Folder = dir }, 8);
 Check("403 reported", j8.State == FetchState.Failed && j8.Error.Contains("403"));
+Console.WriteLine("10) signed redirect link expires mid-download");
+slow = 40;
+var j10 = await RunJob(new FetchJob { Url = $"http://127.0.0.1:{port}/signed", Folder = dir }, 4);
+Check("re-follows redirect after 403", Same(j10));
+slow = 5;
+
+Console.WriteLine("9) emulator release picking, exe finding, unzip");
+var gh = """
+[{"tag_name":"v2.5.0-draft","draft":true,"assets":[{"name":"pcsx2-v2.5.0-windows-x64-Qt.7z","browser_download_url":"https://x/draft.7z"}]},
+ {"tag_name":"v2.4.1","draft":false,"assets":[
+   {"name":"pcsx2-v2.4.1-windows-x64-Qt-symbols.7z","browser_download_url":"https://x/sym.7z"},
+   {"name":"pcsx2-v2.4.1-windows-x64-installer.exe","browser_download_url":"https://x/inst.exe"},
+   {"name":"pcsx2-v2.4.1-windows-arm64-Qt.7z","browser_download_url":"https://x/arm.7z"},
+   {"name":"pcsx2-v2.4.1-windows-x64-Qt.7z","browser_download_url":"https://x/good.7z"}]}]
+""";
+var pcsx2 = new EmuSource("PCSX2/pcsx2", [@"windows-x64-Qt\.7z$"], "pcsx2");
+var pick = EmuStore.PickGitHub(gh, pcsx2);
+Check("github: skips draft, symbols, installer, arm64", pick?.Url == "https://x/good.7z" && pick.Version == "v2.4.1");
+Check("github: second pattern used when first misses",
+    EmuStore.PickGitHub(gh, pcsx2 with { Assets = [@"nomatch", @"x64-Qt\.7z$"] })?.Url == "https://x/good.7z");
+Check("github: nothing matches gives null", EmuStore.PickGitHub(gh, pcsx2 with { Assets = [@"\.dmg$"] }) is null);
+var gl = """
+[{"tag_name":"1.3.2","assets":{"links":[
+   {"name":"ryujinx-1.3.2-linux_x64.tar.gz","url":"https://g/l"},
+   {"name":"ryujinx-1.3.2-win_x64.zip","url":"https://g/w","direct_asset_url":"https://g/direct-w"}]}}]
+""";
+var ryu = new EmuSource("ryubing/ryujinx", [@"win_x64\.zip$"], @"^ryujinx\.exe$", "https://git.example");
+Check("gitlab: prefers direct asset url", EmuStore.PickGitLab(gl, ryu)?.Url == "https://g/direct-w");
+
+var emuDir = Path.Combine(dir, "emu");
+Directory.CreateDirectory(Path.Combine(emuDir, "Cemu_2.6"));
+File.WriteAllBytes(Path.Combine(emuDir, "Cemu_2.6", "Cemu.exe"), new byte[2000]);
+File.WriteAllBytes(Path.Combine(emuDir, "Cemu_2.6", "updater.exe"), new byte[9000]);
+File.WriteAllBytes(Path.Combine(emuDir, "Cemu_2.6", "unins000.exe"), new byte[9000]);
+Check("exe: hint wins over bigger helper exes", Path.GetFileName(EmuStore.FindExe(emuDir, "cemu")!) == "Cemu.exe");
+Check("exe: no hint match falls back to non-helper", Path.GetFileName(EmuStore.FindExe(emuDir, "zzz")!) == "Cemu.exe");
+
+var zipSrc = Path.Combine(dir, "zipsrc", "melonDS");
+Directory.CreateDirectory(zipSrc);
+File.WriteAllText(Path.Combine(zipSrc, "melonDS.exe"), "v2");
+var zip = Path.Combine(dir, "melonDS-windows.zip");
+System.IO.Compression.ZipFile.CreateFromDirectory(Path.GetDirectoryName(zipSrc)!, zip);
+var dest = Path.Combine(dir, "melon");
+Directory.CreateDirectory(Path.Combine(dest, "melonDS"));
+File.WriteAllText(Path.Combine(dest, "melonDS", "melonDS.exe"), "v1");
+File.WriteAllText(Path.Combine(dest, "melonDS", "keys.txt"), "mine");
+EmuStore.Extract(zip, dest);
+Check("unzip: overwrites program, keeps user files",
+    File.ReadAllText(Path.Combine(dest, "melonDS", "melonDS.exe")) == "v2" && File.Exists(Path.Combine(dest, "melonDS", "keys.txt")));
+
 Directory.Delete(dir, true);
 Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");
 return fails;

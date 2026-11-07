@@ -22,6 +22,10 @@ public sealed class AppOffer
     public string[] Detect { get; init; } = [];
     // Consoles an emulator runs, shown on its card instead of the category.
     public string Systems { get; init; } = "";
+    // Emulators with a portable build: downloaded and unpacked by EmuStore instead of winget.
+    public EmuSource? Source { get; init; }
+    // Exe the Play button starts; set for installed emulators whose program was found.
+    public string? LaunchPath { get; set; }
     public bool Installed { get; set; }
     public string State { get; set; } = "Not installed";
     public string Initial
@@ -33,8 +37,12 @@ public sealed class AppOffer
             return Name.Length > 0 ? Name[..1].ToUpperInvariant() : "";
         }
     }
-    public string ActionLabel => Kind switch { "site" => "Get", "none" => "None", _ => Installed ? "Uninstall" : "Install" };
+    public string ActionLabel => LaunchPath is not null ? "Play"
+        : Installed ? "Uninstall"
+        : Source is not null ? "Install"
+        : Kind switch { "site" => "Get", "none" => "None", _ => "Install" };
     public bool CanAct => Kind != "none";
+    public bool CanRemove => LaunchPath is not null;
     public string Subtitle => Systems.Length > 0 ? Systems : Category;
     // Bundled logo (Assets/apps/<Icon>.png); cards fall back to the coloured initial when empty.
     public string? IconUri => Icon.Length > 0 ? $"pack://application:,,,/Assets/apps/{Icon}.png" : null;
@@ -308,47 +316,95 @@ public static class AppHub
     // "none" marks consoles with no working emulator, because fake ones for them are a common malware lure.
     public static readonly AppOffer[] Emulators =
     [
-        new() { Name = "DuckStation", Id = "Stenzek.DuckStation", Match = "DuckStation", Category = "PlayStation", Systems = "PlayStation 1", Color = "#2E6FD8", Blurb = "Fast, accurate PS1 emulator. Needs a PS1 BIOS from your console." },
-        new() { Name = "PCSX2", Id = "PCSX2Team.PCSX2", Match = "PCSX2", Category = "PlayStation", Systems = "PlayStation 2", Color = "#1C5DB8", Blurb = "PS2 emulator. Needs a PS2 BIOS from your console." },
-        new() { Name = "RPCS3", Kind = "site", Url = "https://rpcs3.net/download", Category = "PlayStation", Systems = "PlayStation 3", Color = "#3B3B98", Blurb = "PS3 emulator. Needs PS3 firmware from Sony. Opens its download page." },
-        new() { Name = "shadPS4", Id = "shadps4-emu.shadPS4", Match = "shadPS4", Category = "PlayStation", Systems = "PlayStation 4", Color = "#0B3D91", Blurb = "Early PS4 emulator. Some games run, many don't yet." },
+        new() { Name = "DuckStation", Source = new("stenzek/duckstation", [@"windows-x64-release\.zip$", @"windows.*x64.*\.zip$"], "duckstation"), Id = "Stenzek.DuckStation", Match = "DuckStation", Category = "PlayStation", Systems = "PlayStation 1", Color = "#2E6FD8", Blurb = "Fast, accurate PS1 emulator. Needs a PS1 BIOS from your console." },
+        new() { Name = "PCSX2", Source = new("PCSX2/pcsx2", [@"windows-x64-Qt\.7z$", @"windows.*x64.*\.7z$"], "pcsx2"), Id = "PCSX2Team.PCSX2", Match = "PCSX2", Category = "PlayStation", Systems = "PlayStation 2", Color = "#1C5DB8", Blurb = "PS2 emulator. Needs a PS2 BIOS from your console." },
+        new() { Name = "RPCS3", Source = new("RPCS3/rpcs3-binaries-win", [@"_win64\.7z$", @"win64.*\.(7z|zip)$"], @"^rpcs3\.exe$"), Kind = "site", Url = "https://rpcs3.net/download", Category = "PlayStation", Systems = "PlayStation 3", Color = "#3B3B98", Blurb = "PS3 emulator. Needs the PS3 firmware from Sony's site." },
+        new() { Name = "shadPS4", Source = new("shadps4-emu/shadPS4", [@"win64-qt.*\.zip$", @"win64.*\.zip$"], "shadps4"), Id = "shadps4-emu.shadPS4", Match = "shadPS4", Category = "PlayStation", Systems = "PlayStation 4", Color = "#0B3D91", Blurb = "Early PS4 emulator. Some games run, many don't yet." },
         new() { Name = "PPSSPP", Id = "PPSSPPTeam.PPSSPP", Match = "PPSSPP", Category = "PlayStation", Systems = "PSP", Color = "#33A1DE", Blurb = "PSP emulator that runs most games well." },
-        new() { Name = "Vita3K", Id = "Vita3K.Vita3K", Match = "Vita3K", Category = "PlayStation", Systems = "PS Vita", Color = "#1F4E9C", Blurb = "Experimental PS Vita emulator." },
+        new() { Name = "Vita3K", Source = new("Vita3K/Vita3K", [@"^windows-latest\.zip$", @"windows.*\.zip$"], "vita3k"), Id = "Vita3K.Vita3K", Match = "Vita3K", Category = "PlayStation", Systems = "PS Vita", Color = "#1F4E9C", Blurb = "Experimental PS Vita emulator." },
         new() { Name = "PS5 emulator", Kind = "none", Category = "PS5", Systems = "PlayStation 5", Color = "#555555", Blurb = "No working PS5 emulator exists. Sites and videos offering one are scams or malware." },
 
         new() { Name = "Eden", Id = "Utopia.Eden.MSVC", Match = "Eden", Category = "Switch", Systems = "Nintendo Switch", Color = "#E60012", Blurb = "Switch emulator. Needs keys and firmware dumped from your own Switch." },
-        new() { Name = "Ryujinx", Kind = "site", Url = "https://ryujinx.app", Category = "Switch", Systems = "Nintendo Switch", Color = "#C4262E", Blurb = "Switch emulator kept alive by the community. Needs keys from your Switch. Opens its site." },
+        new() { Name = "Ryujinx", Source = new("ryubing/ryujinx", [@"win_x64\.zip$", @"win.*x64.*\.zip$"], @"^ryujinx\.exe$", "https://git.ryujinx.app"), Kind = "site", Url = "https://ryujinx.app", Category = "Switch", Systems = "Nintendo Switch", Color = "#C4262E", Blurb = "Switch emulator kept alive by the community. Needs keys from your Switch." },
         // Fork of Eden (formerly Eglantine). Not on winget; builds are zip archives on its GitHub releases.
-        new() { Name = "Lichii", Kind = "site", Url = "https://github.com/zortos293/Lichii/releases", Category = "Switch 2", Systems = "Switch 2 and Switch", Color = "#7C4DFF", Blurb = "Experimental Switch 2 emulator. Few games run. Opens its GitHub releases." },
+        new() { Name = "Lichii", Source = new("zortos293/Lichii", [@"windows.*(x64|amd64|msvc).*\.zip$", @"win.*\.zip$"], "lichii"), Kind = "site", Url = "https://github.com/zortos293/Lichii/releases", Category = "Switch 2", Systems = "Switch 2 and Switch", Color = "#7C4DFF", Blurb = "Experimental Switch 2 emulator. Few games run yet." },
 
-        new() { Name = "Azahar", Id = "AzaharEmu.Azahar", Match = "Azahar", Category = "DS & 3DS", Systems = "Nintendo 3DS", Color = "#D12228", Blurb = "3DS emulator, the successor to Citra." },
-        new() { Name = "melonDS", Id = "melonDS.melonDS", Match = "melonDS", Category = "DS & 3DS", Systems = "Nintendo DS", Color = "#E0484F", Blurb = "Accurate Nintendo DS emulator with local wireless." },
-        new() { Name = "Cemu", Id = "Cemu.Cemu", Match = "Cemu", Category = "Wii U", Systems = "Wii U", Color = "#1A9BD7", Blurb = "Wii U emulator. Needs keys from your own Wii U." },
+        new() { Name = "Azahar", Source = new("azahar-emu/azahar", [@"windows-msvc\.zip$", @"windows.*\.zip$"], @"^azahar\.exe$"), Id = "AzaharEmu.Azahar", Match = "Azahar", Category = "DS & 3DS", Systems = "Nintendo 3DS", Color = "#D12228", Blurb = "3DS emulator, the successor to Citra." },
+        new() { Name = "melonDS", Source = new("melonDS-emu/melonDS", [@"windows.*x86_64.*\.zip$", @"windows.*\.zip$", @"win.*\.zip$"], "melonds"), Id = "melonDS.melonDS", Match = "melonDS", Category = "DS & 3DS", Systems = "Nintendo DS", Color = "#E0484F", Blurb = "Accurate Nintendo DS emulator with local wireless." },
+        new() { Name = "Cemu", Source = new("cemu-project/Cemu", [@"windows-x64\.zip$", @"windows.*\.zip$"], "cemu"), Id = "Cemu.Cemu", Match = "Cemu", Category = "Wii U", Systems = "Wii U", Color = "#1A9BD7", Blurb = "Wii U emulator. Needs keys from your own Wii U." },
         new() { Name = "Dolphin", Id = "DolphinEmulator.Dolphin", Match = "Dolphin Emulator", Category = "Wii", Systems = "Wii and GameCube", Color = "#3CA3E0", Blurb = "Wii and GameCube emulator." },
 
-        new() { Name = "xemu", Id = "xemu-project.xemu", Match = "xemu", Category = "Xbox", Systems = "Original Xbox", Color = "#107C10", Blurb = "Original Xbox emulator. Needs BIOS files from your own Xbox." },
-        new() { Name = "Xenia Canary", Id = "Xenia.XeniaCanary", Match = "Xenia", Category = "Xbox", Systems = "Xbox 360", Color = "#5DC21E", Blurb = "Xbox 360 emulator, the faster-moving Canary build." },
+        new() { Name = "xemu", Source = new("xemu-project/xemu", [@"win.*x86_64.*release.*\.zip$", @"win.*x86_64.*\.zip$", @"win.*\.zip$"], "xemu"), Id = "xemu-project.xemu", Match = "xemu", Category = "Xbox", Systems = "Original Xbox", Color = "#107C10", Blurb = "Original Xbox emulator. Needs BIOS files from your own Xbox." },
+        new() { Name = "Xenia Canary", Source = new("xenia-canary/xenia-canary-releases", [@"xenia_canary_windows\.zip$", @"windows.*\.zip$"], "xenia_canary"), Id = "Xenia.XeniaCanary", Match = "Xenia", Category = "Xbox", Systems = "Xbox 360", Color = "#5DC21E", Blurb = "Xbox 360 emulator, the faster-moving Canary build." },
 
-        new() { Name = "mGBA", Id = "JeffreyPfau.mGBA", Match = "mGBA", Category = "Retro", Systems = "Game Boy, GBC, GBA", Color = "#6A5ACD", Blurb = "Game Boy family emulator." },
-        new() { Name = "Mesen", Id = "SourMesen.Mesen2", Match = "Mesen", Category = "Retro", Systems = "NES, SNES, Game Boy, PC Engine", Color = "#C0392B", Blurb = "Accurate multi-system emulator for 8 and 16-bit consoles." },
+        new() { Name = "mGBA", Source = new("mgba-emu/mgba", [@"win64\.7z$", @"win64.*\.zip$"], @"^mgba\.exe$"), Id = "JeffreyPfau.mGBA", Match = "mGBA", Category = "Retro", Systems = "Game Boy, GBC, GBA", Color = "#6A5ACD", Blurb = "Game Boy family emulator." },
+        new() { Name = "Mesen", Source = new("SourMesen/Mesen2", [@"windows.*\.zip$", @"win.*\.zip$"], "mesen"), Id = "SourMesen.Mesen2", Match = "Mesen", Category = "Retro", Systems = "NES, SNES, Game Boy, PC Engine", Color = "#C0392B", Blurb = "Accurate multi-system emulator for 8 and 16-bit consoles." },
         new() { Name = "Project64", Id = "Project64.Project64", Match = "Project64", Category = "Retro", Systems = "Nintendo 64", Color = "#2D8C3C", Blurb = "Nintendo 64 emulator." },
         new() { Name = "redream", Id = "redream.redream", Match = "redream", Category = "Retro", Systems = "Dreamcast", Color = "#F08A24", Blurb = "Dreamcast emulator." },
         new() { Name = "MAME", Id = "MAMEdev.MAME", Match = "MAME", Category = "Retro", Systems = "Arcade", Color = "#8E44AD", Blurb = "Arcade machine emulator." },
 
         new() { Name = "RetroArch", Id = "Libretro.RetroArch", Match = "RetroArch", Category = "All-in-one", Systems = "Dozens of consoles", Color = "#444444", Blurb = "One app for many consoles through downloadable cores." },
-        new() { Name = "ares", Id = "ares-emulator.ares", Match = "ares", Category = "All-in-one", Systems = "N64, SNES, Mega Drive and more", Color = "#5B2C83", Blurb = "Accuracy-focused multi-system emulator." },
+        new() { Name = "ares", Source = new("ares-emulator/ares", [@"windows.*\.zip$", @"win.*\.zip$"], @"^ares\.exe$"), Id = "ares-emulator.ares", Match = "ares", Category = "All-in-one", Systems = "N64, SNES, Mega Drive and more", Color = "#5B2C83", Blurb = "Accuracy-focused multi-system emulator." },
         new() { Name = "ES-DE", Id = "ES-DE.EmulationStation-DE", Match = "ES-DE", Category = "All-in-one", Systems = "Game library frontend", Color = "#B03A2E", Blurb = "Console-style menu that launches your emulators and games." }
     ];
 
     public static List<AppOffer> Snapshot(IEnumerable<AppOffer>? catalog = null)
     {
         var installed = InstalledNames();
+        var emulators = catalog == Emulators;
         return (catalog ?? Catalog).Select(app =>
         {
+            // A portable copy from EmuStore wins: it is what Play starts and Remove deletes.
+            if (emulators && EmuStore.Find(app.Name) is { } portable)
+            {
+                var copy = Copy(app, true);
+                copy.LaunchPath = portable.Exe;
+                copy.State = portable.Version;
+                return copy;
+            }
             var hit = app.Detect.Any(File.Exists)
                 || installed.Any(name => NameMatches(name, app.Match));
-            return Copy(app, hit);
+            var row = Copy(app, hit);
+            if (emulators && hit) row.LaunchPath = InstalledExe(app);
+            return row;
         }).ToList();
+    }
+
+    /// <summary>The program of an emulator installed by winget or its own installer, for the Play button.</summary>
+    public static string? InstalledExe(AppOffer app)
+    {
+        var hint = app.Source?.Exe ?? Regex.Escape(app.Match);
+        string[] roots =
+        [
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+            @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
+        ];
+        foreach (var hive in new[] { Registry.LocalMachine, Registry.CurrentUser })
+        {
+            foreach (var root in roots)
+            {
+                using var key = hive.OpenSubKey(root);
+                if (key is null) continue;
+                foreach (var name in key.GetSubKeyNames())
+                {
+                    using var sub = key.OpenSubKey(name);
+                    if (sub?.GetValue("DisplayName") is not string display || !NameMatches(display, app.Match)) continue;
+                    // DisplayIcon is usually the program itself, written as "C:\path\app.exe",0.
+                    var icon = (sub.GetValue("DisplayIcon") as string)?.Split(',')[0].Trim('"', ' ');
+                    if (icon is not null && icon.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) && File.Exists(icon)
+                        && !Regex.IsMatch(Path.GetFileName(icon), "unins", RegexOptions.IgnoreCase))
+                        return icon;
+                    if (sub.GetValue("InstallLocation") is string dir && EmuStore.FindExe(dir.Trim('"'), hint) is { } found)
+                        return found;
+                }
+            }
+        }
+        // winget portable packages unpack under WinGet\Packages\<Id>_<source>.
+        var packages = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Microsoft", "WinGet", "Packages");
+        if (app.Id.Length > 0 && Directory.Exists(packages))
+            foreach (var dir in Directory.EnumerateDirectories(packages, app.Id + "_*"))
+                if (EmuStore.FindExe(dir, hint) is { } found) return found;
+        return null;
     }
 
     public static string Install(AppOffer app)
@@ -409,8 +465,9 @@ public static class AppHub
         Color = app.Color,
         Detect = app.Detect,
         Systems = app.Systems,
+        Source = app.Source,
         Installed = hit,
-        State = hit ? "Installed" : app.Kind switch { "site" => "Download page", "none" => "None exists", _ => "Not installed" }
+        State = hit ? "Installed" : app.Source is not null ? "Not installed" : app.Kind switch { "site" => "Download page", "none" => "None exists", _ => "Not installed" }
     };
 
     private static string[] ContentManagerPaths()
