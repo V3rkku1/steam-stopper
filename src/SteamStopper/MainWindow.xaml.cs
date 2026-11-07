@@ -34,6 +34,7 @@ public partial class MainWindow : Window
         ["clean"] = ("Clean", "Free space from temp files and caches"),
         ["organize"] = ("Organize", "Sort a messy Downloads folder into tidy subfolders"),
         ["apps"] = ("Apps", "Install and remove common tools"),
+        ["games"] = ("Games", "Your game library: pick a game and press Play"),
         ["emulators"] = ("Emulators", "Console emulators for PlayStation, Switch, 3DS, Wii U, Wii, Xbox and more")
     };
 
@@ -100,7 +101,8 @@ public partial class MainWindow : Window
             ["clean"] = PageClean,
             ["organize"] = PageOrganize,
             ["apps"] = PageApps,
-            ["emulators"] = PageApps
+            ["emulators"] = PageApps,
+            ["games"] = PageGames
         };
 
         if (_steamRoot is not null)
@@ -310,6 +312,7 @@ public partial class MainWindow : Window
         if (key == "routes") RefreshRoutesUi();
         if (key == "clean") _ = ScanCleanerAsync();
         if (key is "apps" or "emulators") SetAppMode(key == "emulators");
+        if (key == "games") RefreshGamesUi();
         if (key == "organize") _ = ScanOrganizeAsync();
         if (key == "downloads")
         {
