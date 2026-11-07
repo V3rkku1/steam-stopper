@@ -7,6 +7,12 @@ public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (e.Args is [Watchdog.Arg, var pid] && int.TryParse(pid, out var appPid))
+        {
+            Watchdog.Run(appPid);
+            Shutdown();
+            return;
+        }
         if (!SteamClient.IsAdmin())
         {
             try { SteamClient.RelaunchAsAdmin(); }

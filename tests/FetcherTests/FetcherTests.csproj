@@ -10,5 +10,6 @@
   <ItemGroup>
     <Compile Include="../../src/SteamStopper/Core/Fetcher.cs" />
     <Compile Include="../../src/SteamStopper/Core/LinkBond.cs" />
+    <Compile Include="../../src/SteamStopper/Core/EmuStore.cs" />
   </ItemGroup>
 </Project>

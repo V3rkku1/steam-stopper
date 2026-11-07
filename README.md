@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Windows desktop app for your Steam client</strong><br>
-  Firewall kill switch · download watcher · DNS jumper · link bonding · download manager · per-app routes · cleaner · Downloads organizer · app installer
+  Firewall kill switch · download watcher · DNS jumper · link bonding · download manager · emulators · per-app routes · cleaner · Downloads organizer · app installer
 </p>
 
 <p align="center">
@@ -74,6 +74,7 @@ No install and no auto-update. Includes the .NET runtime, so it runs on a clean 
 | **Clean** | Remove temp files, caches, Recycle Bin, and leftover Steam junk. |
 | **Organize** | Sort a messy Downloads folder into Installers, Archives, Documents, Images and more. One-click undo. |
 | **Apps** | Install or remove 56 common apps (Discord, Brave, OBS, 7-Zip, and more), then clear the folders they leave behind in AppData and Program Files. |
+| **Emulators** | Install console emulators by system: PlayStation 1 to 4, PSP and Vita, Switch, DS and 3DS, Wii U, Wii and GameCube, Xbox and Xbox 360, retro consoles, and all-in-one apps like RetroArch. Switch 2 has the experimental Lichii. PS5 has no working emulator, and the page says so instead of linking a fake one. Most emulators install as portable builds, downloaded through Fetch (so bonding speeds them up) into `%LOCALAPPDATA%\SteamStopper\Emulators`; the rest use winget. Installed emulators get a **Play** button. Games, BIOS, keys and firmware are not included. |
 
 **System tray**: pressing **X** asks whether to minimize to the tray or quit (tick *Remember my choice* to stop asking). Right-click the tray icon to block or allow Steam's internet, turn bonding on or off, or quit.
 
@@ -94,7 +95,7 @@ Stopping bonding or closing the app puts your old proxy setting back. If the app
 
 ## Fetch (download manager)
 
-The **Fetch** page downloads any file, not just Steam games, over every connection ticked on the **Bond** page. Bonding itself does not need to be on.
+The **Fetch** page downloads any file, not just Steam games, over all your internet connections at once. Turn on **Use all my connections** and tick the ones to combine right on the page (the same list as the **Bond** page). Bonding itself does not need to be on.
 
 1. Paste one or more `http://` or `https://` links (one per line). A link on the clipboard is filled in for you.
 2. Pick the folder, the **connections per file** (8 is a good start) and how many **files at once**.
