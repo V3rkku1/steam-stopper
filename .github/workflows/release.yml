@@ -66,6 +66,15 @@ jobs:
           Compress-Archive -Path dist/app/* -DestinationPath dist/SteamStopper.zip -Force
           Compress-Archive -Path dist/portable/* -DestinationPath dist/SteamStopper-portable.zip -Force
 
+      # Installed copies check the zip against this before replacing any file.
+      - name: Checksums
+        shell: pwsh
+        run: |
+          foreach ($f in "dist/SteamStopper.zip", "dist/SteamStopper-portable.zip", "dist/SteamStopper.msi") {
+            $hash = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
+            Set-Content -NoNewline -Path "$f.sha256" -Value "$hash  $(Split-Path $f -Leaf)"
+          }
+
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
@@ -77,3 +86,6 @@ jobs:
             dist/SteamStopper.msi
             dist/SteamStopper-portable.zip
             dist/SteamStopper.zip
+            dist/SteamStopper.zip.sha256
+            dist/SteamStopper-portable.zip.sha256
+            dist/SteamStopper.msi.sha256

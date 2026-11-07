@@ -184,6 +184,91 @@ EmuStore.Extract(zip, dest);
 Check("unzip: overwrites program, keeps user files",
     File.ReadAllText(Path.Combine(dest, "melonDS", "melonDS.exe")) == "v2" && File.Exists(Path.Combine(dest, "melonDS", "keys.txt")));
 
+Console.WriteLine("11) game library: detection, titles, scan, launch args");
+var roms = Path.Combine(dir, "roms");
+Directory.CreateDirectory(Path.Combine(roms, "ps1", "FF7"));
+void Disc(string name, params (long At, byte[] Bytes)[] marks)
+{
+    using var f = File.Create(Path.Combine(roms, name));
+    f.SetLength(0x10000 + 64);
+    foreach (var (at, bytes) in marks) { f.Position = at; f.Write(bytes); }
+}
+Disc("Wii Sports (USA).iso", (0x18, new byte[] { 0x5D, 0x1C, 0x9E, 0xA3 }));
+Disc("Melee (USA) (Rev 2).iso", (0x1C, new byte[] { 0xC2, 0x33, 0x9F, 0x3D }));
+Disc("GTA SA.iso", (0x8008, System.Text.Encoding.ASCII.GetBytes("PLAYSTATION")));
+Disc("Crisis Core.iso", (0x8008, System.Text.Encoding.ASCII.GetBytes("PSP GAME")));
+Disc("Halo.iso", (0x10000, System.Text.Encoding.ASCII.GetBytes("MICROSOFT*XBOX*MEDIA")));
+Disc("mystery.iso");
+File.WriteAllText(Path.Combine(roms, "Super Mario 64 (USA) [!].z64"), "");
+File.WriteAllText(Path.Combine(roms, "Zelda_TOTK.nsp"), "");
+File.WriteAllText(Path.Combine(roms, "readme.txt"), "");
+File.WriteAllText(Path.Combine(roms, "ps1", "Crash.cue"), "");
+File.WriteAllText(Path.Combine(roms, "ps1", "Crash.bin"), "");
+File.WriteAllText(Path.Combine(roms, "ps1", "FF7", "FF7 (Disc 1).cue"), "");
+File.WriteAllText(Path.Combine(roms, "ps1", "FF7", "FF7 (Disc 2).cue"), "");
+File.WriteAllText(Path.Combine(roms, "ps1", "FF7", "FF7.m3u"), "FF7 (Disc 1).cue\nFF7 (Disc 2).cue\n");
+string? Con(string n) => RomLibrary.ConsoleOf(Path.Combine(roms, n));
+Check("iso headers: Wii, GameCube, PS2, PSP, Xbox",
+    Con("Wii Sports (USA).iso") == "WII" && Con("Melee (USA) (Rev 2).iso") == "GAMECUBE" && Con("GTA SA.iso") == "PS2"
+    && Con("Crisis Core.iso") == "PSP" && Con("Halo.iso") == "XBOX");
+Check("unknown iso is a game with no console", Con("mystery.iso") == "");
+Check("extensions: N64, Switch; .txt and .bin ignored",
+    Con("Super Mario 64 (USA) [!].z64") == "N64" && Con("Zelda_TOTK.nsp") == "SWITCH" && Con("readme.txt") is null && Con("ps1/Crash.bin") is null);
+Check("multi-disc: discs listed in .m3u are hidden", Con("ps1/FF7/FF7 (Disc 1).cue") is null && Con("ps1/FF7/FF7.m3u") == "PS1");
+Check("titles drop region and dump tags", RomLibrary.TitleOf("Super Mario 64 (USA) [!].z64") == "Super Mario 64" && RomLibrary.TitleOf("Zelda_TOTK.nsp") == "Zelda TOTK");
+var store = new RomLibrary.Store { Folders = [roms] };
+var found = RomLibrary.Scan(store);
+Check($"scan finds 10 games, second scan finds none (got {found})", found == 10 && RomLibrary.Scan(store) == 0);
+Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
+Check("every console tile's emulators exist in the catalog",
+    AppHub.Consoles.SelectMany(c => c.Emulators).All(n => AppHub.Emulators.Any(e => e.Name == n)));
+Check("every launchable emulator exists in the catalog", RomLibrary.LaunchArgs.Keys.All(n => AppHub.Emulators.Any(e => e.Name == n)));
+
+Console.WriteLine("12) updater: release picking, checksum, file swap and rollback");
+var rel = """
+{"tag_name":"v2.5.0","html_url":"https://gh/rel","body":"## New\n- **Games** tab","assets":[
+ {"name":"SteamStopper.msi","browser_download_url":"https://gh/msi"},
+ {"name":"SteamStopper-portable.zip","browser_download_url":"https://gh/portable"},
+ {"name":"SteamStopper.zip","browser_download_url":"https://gh/app"},
+ {"name":"SteamStopper.zip.sha256","browser_download_url":"https://gh/app.sha"}]}
+""";
+var up = Updater.Pick(rel, new Version(2, 4, 0), installed: true);
+Check("installed copy takes app zip and its checksum", up?.ZipUrl == "https://gh/app" && up.ShaUrl == "https://gh/app.sha" && up.Version == new Version(2, 5, 0));
+var upPortable = Updater.Pick(rel, new Version(2, 4, 0), installed: false);
+Check("portable copy takes portable zip, no checksum listed", upPortable?.ZipUrl == "https://gh/portable" && upPortable.ShaUrl is null);
+Check("same or older version is no update", Updater.Pick(rel, new Version(2, 5, 0), true) is null && Updater.Pick(rel, new Version(3, 0, 0), true) is null);
+
+var sumFile = Path.Combine(dir, "sum.bin");
+File.WriteAllText(sumFile, "hello");
+Check("checksum: matches 'hash  name', rejects other",
+    Updater.Verify(sumFile, "2CF24DBA5FB0A30E26E83B2AC5B9E29E1B161E5C1FA7425E73043362938B9824  sum.bin")
+    && !Updater.Verify(sumFile, "00f24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"));
+
+var src = Path.Combine(dir, "new"); var dst = Path.Combine(dir, "app");
+Directory.CreateDirectory(Path.Combine(src, "runtimes")); Directory.CreateDirectory(dst);
+File.WriteAllText(Path.Combine(src, "SteamStopper.exe"), "new exe");
+File.WriteAllText(Path.Combine(src, "README.txt"), "new readme");
+File.WriteAllText(Path.Combine(src, "runtimes", "x.dll"), "new dll");
+File.WriteAllText(Path.Combine(dst, "SteamStopper.exe"), "old exe");
+File.WriteAllText(Path.Combine(dst, "README.txt"), "the user's own readme");
+File.WriteAllText(Path.Combine(dst, "settings-ish.txt"), "keep me");
+var err = Updater.Install(999999, src, dst, start: false);
+Check($"swap: new files in, user files kept, backup cleared (err={err})",
+    err is null && File.ReadAllText(Path.Combine(dst, "SteamStopper.exe")) == "new exe"
+    && File.ReadAllText(Path.Combine(dst, "runtimes", "x.dll")) == "new dll"
+    && File.ReadAllText(Path.Combine(dst, "README.txt")) == "the user's own readme"
+    && File.Exists(Path.Combine(dst, "settings-ish.txt")) && !Directory.Exists(Path.Combine(dst, ".update-backup")));
+
+// A target that can't be written (a folder where a file should go) must roll everything back.
+File.WriteAllText(Path.Combine(src, "SteamStopper.exe"), "newer exe");
+Directory.CreateDirectory(Path.Combine(src, "zz")); File.WriteAllText(Path.Combine(src, "zz", "blocked.dll"), "x");
+Directory.CreateDirectory(Path.Combine(dst, "zz", "blocked.dll"));
+File.WriteAllText(Path.Combine(src, "runtimes", "added.dll"), "added");
+err = Updater.Install(999999, src, dst, start: false);
+Check($"rollback: failure restores old files and removes added ones (err={err})",
+    err is not null && File.ReadAllText(Path.Combine(dst, "SteamStopper.exe")) == "new exe"
+    && !File.Exists(Path.Combine(dst, "runtimes", "added.dll")));
+
 Directory.Delete(dir, true);
 Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");
 return fails;

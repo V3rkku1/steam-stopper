@@ -27,6 +27,14 @@ Steam Stopper is a local Windows utility for managing your Steam client: cut or 
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5
+
+- **Games**: a Steam-style library for your own game files. Pick a game on the left, press the big green Play button on the right, and it opens in the right emulator. Box art, last played and play time included.
+- **Emulators**: pick a console from the tiles and install its emulator in one click. Downloads go through Fetch, so bonding speeds them up, and installed emulators get a Play button.
+- **Better updater**: asks before updating, checks the download, and puts the old version back if anything goes wrong. Portable copies update too.
+- **Safer bonding**: if Steam Stopper crashes or is closed from Task Manager while bonding or routes are on, your internet is put back automatically.
+- **Fetch**: turn bonding on and pick connections right on the page; downloads from GitHub no longer fail when their link expires.
+
 ## What's new in 2.4
 
 - **Fetch**: a download manager. Paste links and each file downloads in pieces over all your bonded connections at once, with pause, queue and resume after a restart.
@@ -48,7 +56,7 @@ It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s ow
 2. Run the installer
 3. Open **Steam Stopper** from the Start menu or Desktop
 
-Installs to Program Files, creates shortcuts, and installs the .NET 8 Desktop Runtime if needed. Installed copies check for updates on launch.
+Installs to Program Files, creates shortcuts, and installs the .NET 8 Desktop Runtime if needed. Checks for updates at launch and every few hours, and asks before installing (click the version number to check now).
 
 Windows will ask for **Administrator** — firewall and DNS changes require it.
 
@@ -58,7 +66,7 @@ Windows will ask for **Administrator** — firewall and DNS changes require it.
 2. Unzip anywhere
 3. Run `SteamStopper.exe`
 
-No install and no auto-update. Includes the .NET runtime, so it runs on a clean Windows PC.
+No install. Includes the .NET runtime, so it runs on a clean Windows PC. It offers updates too and replaces only its own exe.
 
 ## Features
 
@@ -74,6 +82,7 @@ No install and no auto-update. Includes the .NET runtime, so it runs on a clean 
 | **Clean** | Remove temp files, caches, Recycle Bin, and leftover Steam junk. |
 | **Organize** | Sort a messy Downloads folder into Installers, Archives, Documents, Images and more. One-click undo. |
 | **Apps** | Install or remove 56 common apps (Discord, Brave, OBS, 7-Zip, and more), then clear the folders they leave behind in AppData and Program Files. |
+| **Games** | A Steam-style library of your own game files: the list on the left is grouped by console, the right shows box art, a big **Play** button, last played and play time. Add folders (or drop files), and each game opens in the matching emulator from the Emulators tab. Box art comes from libretro-thumbnails when the file is named like the official release; you can set your own. |
 | **Emulators** | Install console emulators by system: PlayStation 1 to 4, PSP and Vita, Switch, DS and 3DS, Wii U, Wii and GameCube, Xbox and Xbox 360, retro consoles, and all-in-one apps like RetroArch. Switch 2 has the experimental Lichii. PS5 has no working emulator, and the page says so instead of linking a fake one. Most emulators install as portable builds, downloaded through Fetch (so bonding speeds them up) into `%LOCALAPPDATA%\SteamStopper\Emulators`; the rest use winget. Installed emulators get a **Play** button. Games, BIOS, keys and firmware are not included. |
 
 **System tray**: pressing **X** asks whether to minimize to the tray or quit (tick *Remember my choice* to stop asking). Right-click the tray icon to block or allow Steam's internet, turn bonding on or off, or quit.
@@ -149,6 +158,7 @@ Output in `dist\`:
 | `SteamStopper.msi` | Installer |
 | `SteamStopper-portable.zip` | Portable app |
 | `SteamStopper.zip` | Auto-update package for installed copies |
+| `*.sha256` | Checksums; the updater refuses a download that doesn't match |
 
 ## Making a release
 
@@ -162,7 +172,7 @@ Releases are built by GitHub Actions ([`.github/workflows/release.yml`](.github/
    git push origin v2.3.0
    ```
 
-The workflow builds the MSI, the portable zip and the auto-update zip, and publishes them as a GitHub release. Installed copies pick it up on their next launch. You can also start it from the **Actions** tab with **Run workflow**.
+The workflow builds the MSI, the portable zip and the auto-update zip, and publishes them as a GitHub release. Running copies offer it within a few hours, or right away on their next launch. You can also start it from the **Actions** tab with **Run workflow**.
 
 ## License
 
