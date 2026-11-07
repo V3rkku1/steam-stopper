@@ -99,20 +99,17 @@ public partial class MainWindow
     private async void GamePlay_Click(object sender, RoutedEventArgs e)
     {
         if (GameDetail.DataContext is not Rom rom || _library is null) return;
-        var emu = EmulatorsFor(rom).FirstOrDefault();
-        if (emu?.LaunchPath is not { } exe)
+        if (LaunchFor(rom) is not { } launch)
         {
             OpenEmulatorsFor(rom.Tile);
             return;
         }
-        // KytyPS5's Play button opens its launcher; games start in its emulator exe next to it.
-        if (RomLibrary.GameExe.TryGetValue(emu.Name, out var gameExe) && Path.Combine(Path.GetDirectoryName(exe)!, gameExe) is var direct && File.Exists(direct))
-            exe = direct;
+        var (emu, exe, args) = launch;
         Process process;
         try
         {
             // Started directly (not through explorer) so play time can follow the process; it inherits admin from this app.
-            process = Process.Start(new ProcessStartInfo(exe, RomLibrary.Arguments(emu.Name, rom.Path))
+            process = Process.Start(new ProcessStartInfo(exe, args)
             {
                 UseShellExecute = false,
                 WorkingDirectory = Path.GetDirectoryName(exe)!
@@ -137,6 +134,69 @@ public partial class MainWindow
         rom.Refresh();
         if (GameDetail.DataContext == rom) PaintPlay(rom);
         StatusText.Text = $"Played {rom.Title} for {Format.Duration((DateTime.Now - started).TotalSeconds)}.";
+    }
+
+    /// <summary>The emulator, exe and arguments that start this game, or null when no emulator for it is installed.</summary>
+    private (AppOffer Emu, string Exe, string Args)? LaunchFor(Rom rom)
+    {
+        var emu = EmulatorsFor(rom).FirstOrDefault();
+        if (emu?.LaunchPath is not { } exe) return null;
+        // KytyPS5's Play button opens its launcher; games start in its emulator exe next to it.
+        if (RomLibrary.GameExe.TryGetValue(emu.Name, out var gameExe) && Path.Combine(Path.GetDirectoryName(exe)!, gameExe) is var direct && File.Exists(direct))
+            exe = direct;
+        return (emu, exe, RomLibrary.Arguments(emu.Name, rom.Path));
+    }
+
+    private async void GamesToSteam_Click(object sender, RoutedEventArgs e)
+    {
+        if (_library is null) return;
+        if (_steamRoot is null || SteamShortcuts.UserConfig(_steamRoot) is not { } config)
+        {
+            StatusText.Text = "Steam or a Steam login wasn't found on this PC.";
+            return;
+        }
+        var games = _library.Games.Where(g => g.Exists && g.Tile is not null)
+            .Select(g => (Rom: g, Launch: LaunchFor(g)))
+            .Where(x => x.Launch is not null)
+            .Select(x => new SteamGame(x.Rom.Title, x.Launch!.Value.Exe, x.Launch.Value.Args, x.Rom.Cover, x.Rom.ConsoleName))
+            .ToList();
+        var skipped = _library.Games.Count - games.Count;
+        var running = SteamClient.IsRunning();
+        var message = $"Add {games.Count} game(s) to Steam as non-Steam games, with their box art?"
+            + (skipped > 0 ? $"\n\n{skipped} game(s) are skipped because no emulator for them is installed." : "")
+            + "\n\nGames added earlier by Steam Stopper are replaced, so this also removes ones you took off the library. Your other non-Steam games stay."
+            + (running ? "\n\nSteam will close and reopen to pick them up." : "");
+        if (MessageBox.Show(message, "Add to Steam", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        StatusText.Text = "Adding games to Steam…";
+        try
+        {
+            var root = _steamRoot;
+            var count = await Task.Run(() =>
+            {
+                // Steam keeps shortcuts in memory and rewrites the file on exit, so it has to be closed first.
+                if (running) CloseSteam(root);
+                var written = SteamShortcuts.Sync(config, games);
+                if (running) SteamClient.Launch(root, offline: false);
+                return written;
+            });
+            StatusText.Text = $"Added {count} game(s) to Steam. They're in your Steam library under Non-Steam.";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "Could not add games to Steam: " + ex.Message;
+        }
+    }
+
+    private static void CloseSteam(string steamRoot)
+    {
+        // Ask Steam to exit cleanly first, so it saves what it has; kill it only if it hangs.
+        try { Process.Start(new ProcessStartInfo(Path.Combine(steamRoot, "steam.exe"), "-shutdown") { UseShellExecute = true })?.Dispose(); }
+        catch { }
+        var until = DateTime.UtcNow.AddSeconds(20);
+        while (DateTime.UtcNow < until && SteamClient.IsRunning()) Thread.Sleep(300);
+        if (SteamClient.IsRunning()) SteamClient.KillSteam();
+        until = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < until && SteamClient.IsRunning()) Thread.Sleep(200);
     }
 
     private void OpenEmulatorsFor(ConsoleTile? tile)

@@ -298,6 +298,37 @@ Check($"rollback: failure restores old files and removes added ones (err={err})"
     err is not null && File.ReadAllText(Path.Combine(dst, "SteamStopper.exe")) == "new exe"
     && !File.Exists(Path.Combine(dst, "runtimes", "added.dll")));
 
+Console.WriteLine("13) Steam shortcuts: binary VDF, keep user's own, replace ours, box art");
+Check("crc32 check value", SteamShortcuts.Crc32(System.Text.Encoding.ASCII.GetBytes("123456789")) == 0xCBF43926);
+var steam = Path.Combine(dir, "steam");
+Directory.CreateDirectory(Path.Combine(steam, "config"));
+Directory.CreateDirectory(Path.Combine(steam, "userdata", "12345", "config"));
+File.WriteAllText(Path.Combine(steam, "config", "loginusers.vdf"),
+    "\"users\"\n{\n\t\"76561197960278073\"\n\t{\n\t\t\"AccountName\"\t\t\"me\"\n\t\t\"MostRecent\"\t\t\"1\"\n\t}\n}\n");
+var cfg = SteamShortcuts.UserConfig(steam);
+Check("user folder from loginusers MostRecent (account id = SteamID64 low bits)", cfg == Path.Combine(steam, "userdata", "12345", "config"));
+// A file as Steam writes it, with one shortcut of the user's own and an unusual uint64 field.
+var mine = new Dictionary<string, object> { ["shortcuts"] = new Dictionary<string, object> { ["0"] = new Dictionary<string, object>
+    { ["appid"] = -123, ["AppName"] = "My Tool", ["Exe"] = "\"C:\\tool.exe\"", ["LastPlayTime"] = 5, ["big"] = 9UL,
+      ["tags"] = new Dictionary<string, object> { ["0"] = "Utilities" } } } };
+var bytes = SteamShortcuts.Write(mine);
+Check("binary layout ends with two end markers", bytes[^1] == 8 && bytes[^2] == 8 && bytes[0] == 0);
+File.WriteAllBytes(Path.Combine(cfg!, "shortcuts.vdf"), bytes);
+var cover = Path.Combine(dir, "cover.png"); File.WriteAllText(cover, "png");
+SteamShortcuts.Sync(cfg!, [new SteamGame("Wii Sports", @"C:\emu\Dolphin.exe", "-b -e \"C:\\g\\ws.iso\"", cover, "Nintendo Wii"),
+                           new SteamGame("Mario Kart 64", @"C:\emu\ares.exe", "\"C:\\g\\mk.z64\"", null, "Nintendo 64")]);
+SteamShortcuts.Sync(cfg!, [new SteamGame("Wii Sports", @"C:\emu\Dolphin.exe", "-b -e \"C:\\g\\ws.iso\"", cover, "Nintendo Wii")]);
+var back = (Dictionary<string, object>)SteamShortcuts.Read(File.ReadAllBytes(Path.Combine(cfg!, "shortcuts.vdf")))["shortcuts"];
+var entries = back.Values.Cast<Dictionary<string, object>>().ToList();
+Check($"user's shortcut kept intact, ours replaced not duplicated (got {entries.Count})",
+    entries.Count == 2 && entries[0]["AppName"] as string == "My Tool" && (ulong)entries[0]["big"] == 9UL && (int)entries[0]["appid"] == -123
+    && entries[1]["AppName"] as string == "Wii Sports" && entries[1]["Exe"] as string == "\"C:\\emu\\Dolphin.exe\""
+    && entries[1]["StartDir"] as string == $"\"{Path.GetDirectoryName(@"C:\emu\Dolphin.exe")}\"" && back.Keys.SequenceEqual(["0", "1"]));
+var id = SteamShortcuts.AppId("\"C:\\emu\\Dolphin.exe\"", "Wii Sports");
+Check("appid has the top bit set and matches the stored int; box art named <id>p.png",
+    (id & 0x80000000) != 0 && unchecked((uint)(int)entries[1]["appid"]) == id && File.Exists(Path.Combine(cfg!, "grid", $"{id}p.png")));
+Check("backup of the previous file kept", File.Exists(Path.Combine(cfg!, "shortcuts.vdf.bak")));
+
 Directory.Delete(dir, true);
 Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");
 return fails;

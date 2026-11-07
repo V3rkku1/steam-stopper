@@ -1001,6 +1001,8 @@
           <DockPanel>
             <DockPanel DockPanel.Dock="Top" Margin="4,0,4,10">
               <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Steam" Style="{StaticResource SmallButton}" Margin="0,0,6,0" Click="GamesToSteam_Click"
+                        ToolTip="Add these games to Steam as non-Steam games, with box art, so they start from your Steam library and Big Picture"/>
                 <Button Content="Rescan" Style="{StaticResource SmallButton}" Margin="0,0,6,0" Click="GamesRescan_Click" ToolTip="Look for new games in your folders"/>
                 <Button Content="Add folder" Style="{StaticResource SmallPrimary}" Margin="0" Click="GamesAdd_Click" ToolTip="Add a folder with your game files"/>
               </StackPanel>
