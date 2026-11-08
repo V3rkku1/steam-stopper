@@ -14,7 +14,7 @@ internal sealed class TrayIcon : IDisposable
 
     public TrayIcon(
         Func<bool> isBlocked, Func<bool> isBonding, Func<bool> asksOnClose,
-        Action open, Func<Task> toggleBlock, Func<Task> toggleBond, Action toggleAsk, Action quit)
+        Action open, Func<Task> toggleBlock, Func<Task> toggleBond, Action toggleAsk, Action checkUpdates, Action quit)
     {
         var menu = new Forms.ContextMenuStrip { Renderer = new DarkRenderer(), ShowImageMargin = false, ShowCheckMargin = true };
         var openItem = new Forms.ToolStripMenuItem("Open Steam Stopper", null, (_, _) => open())
@@ -32,6 +32,7 @@ internal sealed class TrayIcon : IDisposable
             _bond,
             new Forms.ToolStripSeparator(),
             _ask,
+            new Forms.ToolStripMenuItem("Check for updates", null, (_, _) => checkUpdates()),
             new Forms.ToolStripMenuItem("Quit", null, (_, _) => quit())
         });
         foreach (Forms.ToolStripItem item in menu.Items)

@@ -142,6 +142,11 @@ public partial class MainWindow : Window
                 _settings.CloseAction = _settings.CloseAction == "ask" ? "tray" : "ask";
                 _settings.Save();
             },
+            checkUpdates: () =>
+            {
+                ShowFromTray();
+                _ = CheckEverything();
+            },
             quit: Quit);
         // Don't hold up a Windows shutdown or sign-out with the close question.
         Application.Current.SessionEnding += (_, _) => _quitting = true;

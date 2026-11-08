@@ -68,7 +68,7 @@ It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s ow
 2. Run the installer
 3. Open **Steam Stopper** from the Start menu or Desktop
 
-Installs to Program Files, creates shortcuts, and installs the .NET 8 Desktop Runtime if needed. Checks for updates at launch and every few hours, and asks before installing (click the version number to check now).
+Installs to Program Files, creates shortcuts, and installs the .NET 8 Desktop Runtime if needed. Checks for updates at launch and every few hours, and asks before installing. **Check for updates** in the sidebar (or the tray menu) checks the app and your emulators right away and shows when it last checked; **What's new** shows the release notes in the app.
 
 Windows will ask for **Administrator** — firewall and DNS changes require it.
 

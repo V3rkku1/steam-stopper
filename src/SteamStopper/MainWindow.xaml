@@ -20,6 +20,10 @@
           </StackPanel>
         </DockPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,16">
+          <TextBlock Text="UPDATES" Style="{StaticResource SectionLabel}" Foreground="{StaticResource Faint}" Margin="2,0,0,4"/>
+          <TextBlock x:Name="UpdateState" Text="Not checked yet" Foreground="{StaticResource Muted}" FontSize="11" Margin="2,0,0,6" TextWrapping="Wrap"/>
+          <Button x:Name="UpdateCheckButton" Content="Check for updates" Style="{StaticResource GhostButton}" Margin="0,0,0,14"
+                  HorizontalAlignment="Stretch" Click="UpdateCheck_Click" ToolTip="Look for a new Steam Stopper and new emulator builds now"/>
           <TextBlock Text="STEAM FOLDER" Style="{StaticResource SectionLabel}" Foreground="{StaticResource Faint}" Margin="2,0,0,4"/>
           <TextBlock x:Name="SteamPathText" Foreground="{StaticResource Muted}" FontSize="11" Margin="2,0,0,14" TextTrimming="CharacterEllipsis"/>
           <DockPanel>
@@ -29,6 +33,8 @@
           <Button x:Name="ElevateButton" Content="Relaunch as admin" Style="{StaticResource GhostButton}"
                   Margin="0,10,0,0" HorizontalAlignment="Stretch" Click="Elevate_Click"/>
         </StackPanel>
+        <!-- Scrolls only when the window is too short for the menu and the sidebar footer. -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="10,14,10,0">
           <TextBlock Text="MENU" Style="{StaticResource SectionLabel}" Foreground="{StaticResource Faint}" Margin="12,0,0,8"/>
           <RadioButton Style="{StaticResource NavItem}" Tag="control" Click="Nav_Click" IsChecked="True">
@@ -104,6 +110,7 @@
             </StackPanel>
           </RadioButton>
         </StackPanel>
+        </ScrollViewer>
       </DockPanel>
     </Border>
 
