@@ -1,12 +1,20 @@
-## Fixed
-
-- **Emulator installs**: Lichii, Eglantine and Ryujinx could fail to download and only opened a web page; Azahar picked the RetroArch core instead of the emulator. All 17 emulators now resolve to the right Windows build, checked against their real release pages.
-- When an automatic download still fails, Install now says why instead of silently opening the download page.
-
 ## New
 
-- **Install from a zip you downloaded**: Install offers to use a .zip or .7z you already have. Your file is not deleted.
-- **Manual installs are picked up**: an emulator unzipped into `%LOCALAPPDATA%\SteamStopper\Emulators\<name>` (for example `...\Emulators\Lichii`) gets Play, Update and Remove like a downloaded one.
+- **Stop button**: while a game runs, Play turns into a blue Stop button like Steam's. Stop closes the emulator normally so it can save, and force-closes it if it hasn't closed after 5 seconds. Play time is still counted.
+- **Automatic box art for more games**: covers are now matched by game title, so file names no longer have to match the No-Intro/Redump name exactly. The USA release is preferred, then World, then Europe.
+- **More consoles with covers**: Xbox 360, NES, Game Boy, Game Boy Color and 3DS digital releases.
+- **Check for updates** in the sidebar and the tray menu checks the app and every installed emulator right away and shows when it last checked.
+- **What's new** shows these release notes inside the app.
+
+## Fixed
+
+- The game page header now follows the card's rounded corners.
+- The sidebar menu scrolls when the window is too short.
+
+## Notes
+
+- Switch, Wii U and PS5 games still use the console-colour cover unless you set one; there is no free art source for them.
+- Covers downloaded by older versions are fetched once more.
 
 ## Downloads
 

@@ -102,14 +102,15 @@ public static class RomLibrary
     // Emulators whose games start from a different exe than the one Play opens.
     public static readonly Dictionary<string, string> GameExe = new() { ["KytyPS5"] = "kyty_emulator.exe" };
 
-    // libretro-thumbnails folder per console; consoles missing here get the colour cover.
-    private static readonly Dictionary<string, string> ThumbSystems = new()
+    // libretro-thumbnails folders per console, tried in order; consoles missing here (Switch, Wii U, PS5) get the colour cover.
+    private static readonly Dictionary<string, string[]> ThumbSystems = new()
     {
-        ["PS1"] = "Sony - PlayStation", ["PS2"] = "Sony - PlayStation 2", ["PSP"] = "Sony - PlayStation Portable",
-        ["GAMECUBE"] = "Nintendo - GameCube", ["WII"] = "Nintendo - Wii", ["DS"] = "Nintendo - Nintendo DS",
-        ["3DS"] = "Nintendo - Nintendo 3DS", ["N64"] = "Nintendo - Nintendo 64", ["DREAMCAST"] = "Sega - Dreamcast",
-        ["XBOX"] = "Microsoft - Xbox", ["NES · SNES"] = "Nintendo - Super Nintendo Entertainment System",
-        ["GAME BOY"] = "Nintendo - Game Boy Advance"
+        ["PS1"] = ["Sony - PlayStation"], ["PS2"] = ["Sony - PlayStation 2"], ["PSP"] = ["Sony - PlayStation Portable"],
+        ["GAMECUBE"] = ["Nintendo - GameCube"], ["WII"] = ["Nintendo - Wii"], ["DS"] = ["Nintendo - Nintendo DS"],
+        ["3DS"] = ["Nintendo - Nintendo 3DS", "Nintendo - Nintendo 3DS (Digital)"], ["N64"] = ["Nintendo - Nintendo 64"],
+        ["DREAMCAST"] = ["Sega - Dreamcast"], ["XBOX"] = ["Microsoft - Xbox"], ["XBOX 360"] = ["Microsoft - Xbox 360"],
+        ["NES · SNES"] = ["Nintendo - Super Nintendo Entertainment System", "Nintendo - Nintendo Entertainment System"],
+        ["GAME BOY"] = ["Nintendo - Game Boy Advance", "Nintendo - Game Boy Color", "Nintendo - Game Boy"]
     };
 
     private static string Dir => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SteamStopper");
@@ -273,27 +274,70 @@ public static class RomLibrary
         if (rom.CustomCover.Length > 0 && File.Exists(rom.CustomCover)) return rom.CustomCover;
         // PS5 folder dumps carry their own art.
         if (Directory.Exists(rom.Path) && System.IO.Path.Combine(rom.Path, "sce_sys", "icon0.png") is var icon && File.Exists(icon)) return icon;
-        if (!ThumbSystems.TryGetValue(rom.Console, out var system)) return null;
-        // libretro names art after the No-Intro/Redump file name, with these characters swapped for _.
-        var name = Regex.Replace(System.IO.Path.GetFileNameWithoutExtension(rom.Path), @"[&*/:`<>?\\|""]", "_");
-        var cached = System.IO.Path.Combine(CoverDir, $"{system} - {name}.png".Replace('/', '_'));
+        if (!ThumbSystems.TryGetValue(rom.Console, out var systems)) return null;
+        var file = System.IO.Path.GetFileNameWithoutExtension(rom.Path);
+        var cached = System.IO.Path.Combine(CoverDir, Safe($"{rom.Console} - {file}") + ".png");
         if (File.Exists(cached)) return cached;
         var miss = cached + ".none";
         if (File.Exists(miss)) return null;
         try
         {
             Directory.CreateDirectory(CoverDir);
-            var url = $"https://thumbnails.libretro.com/{Uri.EscapeDataString(system)}/Named_Boxarts/{Uri.EscapeDataString(name)}.png";
-            using var response = await http.GetAsync(url);
-            if (!response.IsSuccessStatusCode)
+            foreach (var system in systems)
             {
-                // Remember misses so every visit doesn't ask again.
-                if (response.StatusCode == System.Net.HttpStatusCode.NotFound) File.WriteAllText(miss, "");
-                return null;
+                if (BestMatch(file, rom.Title, await IndexOf(system, http)) is not { } name) continue;
+                var url = $"https://thumbnails.libretro.com/{Uri.EscapeDataString(system)}/Named_Boxarts/{Uri.EscapeDataString(name)}.png";
+                using var response = await http.GetAsync(url);
+                if (!response.IsSuccessStatusCode) continue;
+                await File.WriteAllBytesAsync(cached, await response.Content.ReadAsByteArrayAsync());
+                return cached;
             }
-            await File.WriteAllBytesAsync(cached, await response.Content.ReadAsByteArrayAsync());
-            return cached;
+            // Remember misses so every visit doesn't ask again.
+            File.WriteAllText(miss, "");
         }
-        catch { return null; }
+        catch { }
+        return null;
     }
+
+    private static readonly Dictionary<string, Task<ILookup<string, string>>> Indexes = [];
+
+    /// <summary>Every box art name libretro has for a system, from its folder listing, kept on disk for a week.</summary>
+    private static Task<ILookup<string, string>> IndexOf(string system, HttpClient http)
+    {
+        lock (Indexes)
+        {
+            if (!Indexes.TryGetValue(system, out var task) || task.IsFaulted) Indexes[system] = task = Fetch();
+            return task;
+        }
+
+        async Task<ILookup<string, string>> Fetch()
+        {
+            var path = System.IO.Path.Combine(CoverDir, Safe(system) + ".index");
+            if (File.Exists(path) && File.GetLastWriteTimeUtc(path) > DateTime.UtcNow.AddDays(-7)) return ByKey(await File.ReadAllLinesAsync(path));
+            var html = await http.GetStringAsync($"https://thumbnails.libretro.com/{Uri.EscapeDataString(system)}/Named_Boxarts/");
+            var names = Regex.Matches(html, @"href=""([^""?/]+)\.png""").Select(m => Uri.UnescapeDataString(m.Groups[1].Value)).ToArray();
+            await File.WriteAllLinesAsync(path, names);
+            return ByKey(names);
+        }
+    }
+
+    /// <summary>The libretro name for a game: the exact file name, else the same title with any region, the USA/Europe release first.</summary>
+    public static string? BestMatch(string file, string title, ILookup<string, string> names)
+    {
+        // libretro names art after the No-Intro/Redump file name, with these characters swapped for _.
+        var exact = Regex.Replace(file, @"[&*/:`<>?\\|""]", "_");
+        if (names[Key(exact)].Contains(exact)) return exact;
+        return names[Key(file)].Concat(names[Key(title)])
+            .OrderBy(n => n.Contains("(Beta") || n.Contains("(Proto") || n.Contains("(Demo") ? 1 : 0)
+            .ThenBy(n => n.Contains("(USA") ? 0 : n.Contains("(World") ? 1 : n.Contains("(Europe") ? 2 : 3)
+            .FirstOrDefault();
+    }
+
+    public static ILookup<string, string> ByKey(IEnumerable<string> names) => names.ToLookup(Key);
+
+    // "Legend of Zelda, The - Ocarina of Time (USA) (Rev 1)" and "The_Legend_of_Zelda_Ocarina_of_Time" both become "legendofzeldaocarinaoftime".
+    private static string Key(string name) =>
+        Regex.Replace(Regex.Replace(TitleOf(name + ".x").ToLowerInvariant().Replace("&", "and").Replace('_', ' '), @"\bthe\b", ""), @"[^a-z0-9]", "");
+
+    private static string Safe(string name) => string.Concat(name.Select(c => System.IO.Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
 }

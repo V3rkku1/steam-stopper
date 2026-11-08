@@ -275,6 +275,12 @@ Check("PS5 folder dump: titled from param.json; PS4 folder and its eboot not add
     && !store.Games.Any(g => g.Path.StartsWith(ps4)) && !store.Games.Any(g => g.Path.EndsWith("eboot.bin")));
 Check(".zar is PS5", store.Games.Any(g => g.Title == "Demon's Souls" && g.Console == "PS5"));
 Check($"scan finds 13 games, second scan finds none (got {found})", found == 13 && RomLibrary.Scan(store) == 0);
+var art = RomLibrary.ByKey(["Legend of Zelda, The - Ocarina of Time (Europe)", "Legend of Zelda, The - Ocarina of Time (USA) (Beta)",
+    "Legend of Zelda, The - Ocarina of Time (USA)", "Mario Kart 64 (USA)"]);
+Check("cover art matches loose file names, USA release first",
+    RomLibrary.BestMatch("Mario Kart 64 (USA)", "Mario Kart 64", art) == "Mario Kart 64 (USA)"
+    && RomLibrary.BestMatch("the_legend_of_zelda_ocarina_of_time", "the legend of zelda ocarina of time", art) == "Legend of Zelda, The - Ocarina of Time (USA)"
+    && RomLibrary.BestMatch("Pokemon Snap", "Pokemon Snap", art) is null);
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",

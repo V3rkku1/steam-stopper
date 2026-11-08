@@ -12,6 +12,8 @@ public partial class MainWindow
     private UpdateInfo? _update;
     private CancellationTokenSource? _updateRun;
     private readonly DispatcherTimer _updateTimer = new() { Interval = TimeSpan.FromHours(6) };
+    private DateTime? _updateChecked;
+    private string _updateResult = "Not checked yet";
 
     private void StartUpdateChecks()
     {
@@ -19,6 +21,8 @@ public partial class MainWindow
         _updateTimer.Tick += (_, _) => _ = CheckForUpdates(manual: false);
         _updateTimer.Tick += (_, _) => _ = CheckEmulatorUpdates(force: true);
         _updateTimer.Start();
+        // Keeps "checked 5 min ago" current.
+        _pollTimer.Tick += (_, _) => PaintUpdateState();
         // Give the window a moment; the check is not urgent.
         _ = Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ => Dispatcher.Invoke(() => CheckForUpdates(manual: false)));
     }
@@ -30,6 +34,8 @@ public partial class MainWindow
         try
         {
             var info = await Updater.FindAsync(CancellationToken.None);
+            _updateChecked = DateTime.Now;
+            _updateResult = info is null ? $"Up to date ({Updater.Version})" : $"{info.Version} available";
             if (info is null)
             {
                 if (manual) StatusText.Text = $"Steam Stopper {Updater.Version} is up to date.";
@@ -42,9 +48,47 @@ public partial class MainWindow
         }
         catch (Exception ex)
         {
+            _updateChecked = DateTime.Now;
+            _updateResult = "Couldn't check";
             if (manual) StatusText.Text = "Could not check for updates: " + ex.Message;
         }
+        finally { PaintUpdateState(); }
     }
+
+    private void PaintUpdateState()
+    {
+        var ago = _updateChecked is not { } at ? "" : (DateTime.Now - at).TotalMinutes switch
+        {
+            < 1 => "  ·  just now",
+            < 60 and var m => $"  ·  {(int)m} min ago",
+            var m => $"  ·  {(int)(m / 60)} h ago"
+        };
+        var text = _updateResult + ago;
+        if (UpdateState.Text != text) UpdateState.Text = text;
+    }
+
+    /// <summary>The visible "Check for updates": the app, then every installed emulator, ignoring skip and the hourly limit.</summary>
+    private async Task CheckEverything()
+    {
+        UpdateCheckButton.IsEnabled = false;
+        UpdateCheckButton.Content = "Checking…";
+        try
+        {
+            await CheckForUpdates(manual: true);
+            var appStatus = StatusText.Text;
+            await CheckEmulatorUpdates(force: true);
+            // The emulator check only speaks when it found or installed something; otherwise keep the app result.
+            if (StatusText.Text == appStatus && AppHub.Emulators.Any(em => em.Source is not null && EmuStore.Find(em.Name) is not null))
+                StatusText.Text = appStatus + " Your emulators are up to date too.";
+        }
+        finally
+        {
+            UpdateCheckButton.IsEnabled = true;
+            UpdateCheckButton.Content = "Check for updates";
+        }
+    }
+
+    private void UpdateCheck_Click(object sender, RoutedEventArgs e) => _ = CheckEverything();
 
     private void ShowUpdateBanner(string? detail = null, bool downloading = false)
     {
@@ -116,9 +160,19 @@ public partial class MainWindow
 
     private void UpdateNotes_Click(object sender, RoutedEventArgs e)
     {
-        if (_update?.PageUrl is { Length: > 0 } url)
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();
+        if (_update is not { } info) return;
+        // Release notes in plain text: markdown markers stripped, empty "Downloads" boilerplate left out.
+        var notes = string.Join("\n", info.Notes.Split('\n')
+                .TakeWhile(l => !l.TrimStart().StartsWith("## Downloads"))
+                .Select(l => l.TrimEnd().Replace("**", "").Replace("`", ""))
+                .Select(l => l.StartsWith("## ") ? "\n" + l[3..].ToUpperInvariant() : l.StartsWith("- ") ? "•  " + l[2..] : l))
+            .Trim();
+        var open = MessageBox.Show(
+            $"{notes}\n\nOpen the release page?",
+            $"What's new in Steam Stopper {info.Version}", MessageBoxButton.YesNo, MessageBoxImage.Information);
+        if (open == MessageBoxResult.Yes && info.PageUrl.Length > 0)
+            Process.Start(new ProcessStartInfo(info.PageUrl) { UseShellExecute = true })?.Dispose();
     }
 
-    private void VersionText_Click(object sender, MouseButtonEventArgs e) => _ = CheckForUpdates(manual: true);
+    private void VersionText_Click(object sender, MouseButtonEventArgs e) => _ = CheckEverything();
 }
