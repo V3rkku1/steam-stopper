@@ -27,6 +27,12 @@ Steam Stopper is a local Windows utility for managing your Steam client: cut or 
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.3
+
+- **Stop button**: while a game runs, Play turns into a blue Stop button like Steam's. It closes the emulator so it can save, and force-closes it if it hangs.
+- **Automatic box art for more games**: covers are matched by game title, so files don't need the exact No-Intro name. Xbox 360, NES, Game Boy and Game Boy Color games get art too.
+- **Check for updates** in the sidebar and tray checks the app and your emulators right away; **What's new** shows the release notes in the app.
+
 ## What's new in 2.5.2
 
 - **Emulator installs fixed**: Lichii, Eglantine, Ryujinx and Azahar download the right Windows build again; every emulator's download is now checked against its real release page on each build.
