@@ -16,8 +16,8 @@ public partial class MainWindow
     private ICollectionView? _gamesView;
     private List<AppOffer> _emuInstalled = [];
     private bool _gamesFilling;
-    private readonly HashSet<Rom> _playing = [];
-    private static readonly HttpClient CoverHttp = new() { Timeout = TimeSpan.FromSeconds(15) };
+    private readonly Dictionary<Rom, Process> _playing = [];
+    private static readonly HttpClient CoverHttp = new() { Timeout = TimeSpan.FromSeconds(60) }; // art folder listings are a few MB
 
     private void RefreshGamesUi()
     {
@@ -50,6 +50,10 @@ public partial class MainWindow
         if (GamesList.SelectedItem is null && _gamesView?.Cast<Rom>().FirstOrDefault() is { } first) GamesList.SelectedItem = first;
         GamesEmpty.Visibility = _library.Games.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    // Radius 15: the card's 16 minus its 1px border. Bottom corners round too but fade into the card colour there.
+    private void GameHero_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        ((Grid)sender).Clip = new System.Windows.Media.RectangleGeometry(new Rect(e.NewSize), 15, 15);
 
     private void GameSearch_Changed(object sender, TextChangedEventArgs e)
     {
@@ -86,10 +90,12 @@ public partial class MainWindow
 
     private void PaintPlay(Rom rom)
     {
-        var running = _playing.Contains(rom);
+        var running = _playing.ContainsKey(rom);
         var hasEmu = EmulatorsFor(rom).Count > 0;
-        GamePlayButton.Content = running ? "RUNNING" : hasEmu ? "PLAY" : "GET EMULATOR";
-        GamePlayButton.IsEnabled = !running && rom.Exists && rom.Tile is not null;
+        GamePlayButton.Content = running ? "STOP" : hasEmu ? "PLAY" : "GET EMULATOR";
+        // Tag switches the button to Steam's blue Stop look.
+        GamePlayButton.Tag = running ? "Stop" : null;
+        GamePlayButton.IsEnabled = running || (rom.Exists && rom.Tile is not null);
         GameHint.Text = !rom.Exists ? "The game file is gone. Remove it or rescan."
             : rom.Tile is null ? "Pick the console this game is for below."
             : !hasEmu ? $"No emulator for {rom.ConsoleName} is installed yet. Get Emulator opens the Emulators tab."
@@ -99,6 +105,17 @@ public partial class MainWindow
     private async void GamePlay_Click(object sender, RoutedEventArgs e)
     {
         if (GameDetail.DataContext is not Rom rom || _library is null) return;
+        if (_playing.TryGetValue(rom, out var playing))
+        {
+            StatusText.Text = $"Stopping {rom.Title}…";
+            GamePlayButton.IsEnabled = false;
+            if (!await Task.Run(() => Stop(playing)))
+            {
+                PaintPlay(rom);
+                StatusText.Text = $"Could not stop {rom.Title}. Close the emulator window yourself.";
+            }
+            return;
+        }
         if (LaunchFor(rom) is not { } launch)
         {
             OpenEmulatorsFor(rom.Tile);
@@ -122,7 +139,7 @@ public partial class MainWindow
         }
         var started = DateTime.Now;
         rom.LastPlayed = started;
-        _playing.Add(rom);
+        _playing[rom] = process;
         RomLibrary.Save(_library);
         rom.Refresh();
         PaintPlay(rom);
@@ -134,6 +151,20 @@ public partial class MainWindow
         rom.Refresh();
         if (GameDetail.DataContext == rom) PaintPlay(rom);
         StatusText.Text = $"Played {rom.Title} for {Format.Duration((DateTime.Now - started).TotalSeconds)}.";
+    }
+
+    /// <summary>Ask the emulator to close like its X button would, so it can save; kill it if it doesn't within 5 seconds.</summary>
+    private static bool Stop(Process process)
+    {
+        try
+        {
+            if (process.HasExited) return true;
+            if (process.CloseMainWindow() && process.WaitForExit(5000)) return true;
+            process.Kill(entireProcessTree: true);
+            return process.WaitForExit(5000);
+        }
+        catch (InvalidOperationException) { return true; } // exited meanwhile
+        catch { return false; }
     }
 
     /// <summary>The emulator, exe and arguments that start this game, or null when no emulator for it is installed.</summary>

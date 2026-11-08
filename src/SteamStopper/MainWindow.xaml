@@ -953,7 +953,7 @@
               </Setter.Value>
             </Setter>
           </Style>
-          <!-- Steam's green play button. -->
+          <!-- Steam's green play button; Tag="Stop" turns it into the blue Stop button while the game runs. -->
           <Style x:Key="PlayButton" TargetType="Button">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontSize" Value="17"/>
@@ -972,7 +972,7 @@
                       </LinearGradientBrush>
                     </Border.Background>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                      <Path Data="M0,0 L12,7 L0,14 Z" Fill="White" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                      <Path x:Name="Icon" Data="M0,0 L12,7 L0,14 Z" Fill="White" Margin="0,0,12,0" VerticalAlignment="Center"/>
                       <ContentPresenter VerticalAlignment="Center"/>
                     </StackPanel>
                   </Border>
@@ -987,6 +987,31 @@
                         </Setter.Value>
                       </Setter>
                     </Trigger>
+                    <Trigger Property="Tag" Value="Stop">
+                      <Setter TargetName="Icon" Property="Data" Value="M0,0 H12 V12 H0 Z"/>
+                      <Setter TargetName="Bd" Property="Background">
+                        <Setter.Value>
+                          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#1A9FFF" Offset="0"/>
+                            <GradientStop Color="#1567D6" Offset="1"/>
+                          </LinearGradientBrush>
+                        </Setter.Value>
+                      </Setter>
+                    </Trigger>
+                    <MultiTrigger>
+                      <MultiTrigger.Conditions>
+                        <Condition Property="Tag" Value="Stop"/>
+                        <Condition Property="IsMouseOver" Value="True"/>
+                      </MultiTrigger.Conditions>
+                      <Setter TargetName="Bd" Property="Background">
+                        <Setter.Value>
+                          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#47B4FF" Offset="0"/>
+                            <GradientStop Color="#2A7FEA" Offset="1"/>
+                          </LinearGradientBrush>
+                        </Setter.Value>
+                      </Setter>
+                    </MultiTrigger>
                     <Trigger Property="IsEnabled" Value="False">
                       <Setter TargetName="Bd" Property="Background" Value="{StaticResource Raised}"/>
                       <Setter Property="Foreground" Value="{StaticResource Muted}"/>
@@ -1065,7 +1090,8 @@
             </StackPanel>
 
             <DockPanel x:Name="GameDetail" Visibility="Collapsed">
-              <Grid DockPanel.Dock="Top" Height="290" ClipToBounds="True">
+              <!-- Clipped in code to the card's rounded corners; ClipToBounds alone leaves square ones. -->
+              <Grid DockPanel.Dock="Top" Height="290" SizeChanged="GameHero_SizeChanged">
                 <Border Background="{Binding Color, Converter={StaticResource HexBrush}}"/>
                 <Image Source="{Binding Cover, TargetNullValue={x:Null}}" Stretch="UniformToFill" Opacity="0.6" Margin="-40">
                   <Image.Effect>
