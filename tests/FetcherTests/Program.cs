@@ -4,6 +4,32 @@ using System.Net;
 using System.Security.Cryptography;
 using SteamStopper.Core;
 
+// dotnet run -- --live: ask every emulator's real release page which file Install would download.
+if (args is ["--live"])
+{
+    var missing = 0;
+    foreach (var emu in AppHub.Emulators.Where(e => e.Source is not null))
+    {
+        foreach (var pgo in new[] { true, false })
+        {
+            try
+            {
+                var hit = await EmuStore.FindLatest(emu.Source!, pgo, CancellationToken.None);
+                Console.WriteLine($"{(hit is null ? "MISS" : "OK  ")} {emu.Name,-14} pgo={pgo,-5} {hit?.Version} {hit?.File}");
+                if (hit is null) missing++;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"FAIL {emu.Name,-14} pgo={pgo,-5} {ex.Message}");
+                missing++;
+            }
+        }
+    }
+    Console.WriteLine(missing == 0 ? "ALL FOUND" : $"{missing} NOT FOUND");
+    return missing;
+}
+
+
 var data = RandomNumberGenerator.GetBytes(40 * 1024 * 1024 + 12345);
 var sha = Convert.ToHexString(SHA256.HashData(data));
 var rnd = new Random(1);

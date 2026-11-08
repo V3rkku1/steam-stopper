@@ -21,6 +21,14 @@ jobs:
       - name: Tests
         run: dotnet run --project tests/FetcherTests -c Release
 
+      # Which file Install would download for every emulator, from their real release pages.
+      # Upstream projects rename files now and then, so this reports without blocking the build.
+      - name: Emulator downloads (live)
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dotnet run --project tests/FetcherTests -c Release -- --live
+
       - name: Build
         run: dotnet publish src/SteamStopper/SteamStopper.csproj -c Release -o dist/app
 

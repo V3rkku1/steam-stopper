@@ -329,7 +329,7 @@ public static class AppHub
         new() { Name = "Eden", Id = "Utopia.Eden.MSVC", Match = "Eden", Category = "Switch", Systems = "Nintendo Switch", Color = "#E60012", Blurb = "Switch emulator. Needs keys and firmware dumped from your own Switch." },
         new() { Name = "Ryujinx", Source = new("ryubing/ryujinx", [@"win_x64\.zip$", @"win.*x64.*\.zip$"], @"^ryujinx\.exe$", "https://git.ryujinx.app"), Kind = "site", Url = "https://ryujinx.app", Category = "Switch", Systems = "Nintendo Switch", Color = "#C4262E", Blurb = "Switch emulator kept alive by the community. Needs keys from your Switch." },
         // Lichii and Eglantine are separate Switch 2 forks of Eden. Neither is on winget; both publish zips on GitHub.
-        new() { Name = "Lichii", Source = new("zortos293/Lichii", [@"windows.*(x64|amd64|msvc).*\.zip$", @"win.*\.zip$"], "lichii"), Kind = "site", Url = "https://github.com/zortos293/Lichii/releases", Category = "Switch 2", Systems = "Switch 2 and Switch", Color = "#7C4DFF", Blurb = "Experimental Switch 2 emulator. Few games run yet." },
+        new() { Name = "Lichii", Source = new("zortos293/Lichii", [@"windows-x86_64(-pgo)?\.zip$", @"win.*\.zip$"], @"^lichii\.exe$"), Kind = "site", Url = "https://github.com/zortos293/Lichii/releases", Category = "Switch 2", Systems = "Switch 2 and Switch", Color = "#7C4DFF", Blurb = "Experimental Switch 2 emulator. Few games run yet." },
         new() { Name = "Eglantine", Source = new("Djihads80/Eglantine", [@"windows-x86_64(-pgo)?\.zip$", @"windows.*\.zip$"], @"^eglantine\.exe$"), Kind = "site", Url = "https://github.com/Djihads80/Eglantine/releases", Category = "Switch 2", Systems = "Switch 2 and Switch", Color = "#C2185B", Blurb = "Experimental Switch 2 emulator with daily builds. Few games run yet." },
 
         new() { Name = "Azahar", Source = new("azahar-emu/azahar", [@"windows-msvc\.zip$", @"windows.*\.zip$"], @"^azahar\.exe$"), Id = "AzaharEmu.Azahar", Match = "Azahar", Category = "DS & 3DS", Systems = "Nintendo 3DS", Color = "#D12228", Blurb = "3DS emulator, the successor to Citra." },
@@ -358,6 +358,10 @@ public static class AppHub
         return (catalog ?? Catalog).Select(app =>
         {
             // A portable copy from EmuStore wins: it is what Play starts and Remove deletes.
+            // Unzipped by hand into its folder: adopt it, so Play, Update and Remove work like for a download.
+            if (emulators && app.Source is not null && EmuStore.Find(app.Name) is null
+                && EmuStore.FindExe(EmuStore.FolderFor(app.Name), app.Source.Exe) is { } manual)
+                EmuStore.Record(app.Name, new EmuStore.Entry(manual, "manual"));
             if (emulators && EmuStore.Find(app.Name) is { } portable)
             {
                 var copy = Copy(app, true);

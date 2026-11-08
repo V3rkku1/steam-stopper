@@ -38,6 +38,9 @@ public static class EmuStore
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("SteamStopper");
+        // Only set in CI, where anonymous lookups share an hourly limit with every other job on the runner.
+        if (source.Host == "github" && Environment.GetEnvironmentVariable("GITHUB_TOKEN") is { Length: > 0 } token)
+            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         if (source.Host == "github")
         {
             http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
