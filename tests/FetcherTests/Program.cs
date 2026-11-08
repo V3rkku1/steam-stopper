@@ -176,6 +176,8 @@ var gh = """
    {"name":"pcsx2-v2.4.1-windows-x64-Qt.7z","browser_download_url":"https://x/good.7z"}]}]
 """;
 var pcsx2 = new EmuSource("PCSX2/pcsx2", [@"windows-x64-Qt\.7z$"], "pcsx2");
+var aza = """[{"tag_name":"2127","assets":[{"name":"azahar-libretro-windows-x86_64-2127.zip","browser_download_url":"https://a/core"},{"name":"azahar-windows-msvc-2127.zip","browser_download_url":"https://a/app"}]}]""";
+Check("libretro cores are never picked", EmuStore.PickGitHub(aza, new EmuSource("azahar-emu/azahar", [@"windows-msvc.*\.zip$", @"windows.*\.zip$"], "azahar"))?.Url == "https://a/app");
 var pick = EmuStore.PickGitHub(gh, pcsx2);
 Check("github: skips draft, symbols, installer, arm64", pick?.Url == "https://x/good.7z" && pick.Version == "v2.4.1");
 Check("github: second pattern used when first misses",
