@@ -1,10 +1,12 @@
+## Fixed
+
+- **Emulator installs**: Lichii, Eglantine and Ryujinx could fail to download and only opened a web page; Azahar picked the RetroArch core instead of the emulator. All 17 emulators now resolve to the right Windows build, checked against their real release pages.
+- When an automatic download still fails, Install now says why instead of silently opening the download page.
+
 ## New
 
-- **PS5 with KytyPS5**: the actively developed open-source PS5 emulator is on the PS5 tile. In the Games tab, PS5 game folders (with their own name and icon) and `.zar` dumps start straight in it. Many PS5 games don't run yet.
-- **Switch 2**: Eglantine, a second Switch 2 emulator with daily builds, next to Lichii. Switch 2 `.nup` game archives show up in the Games tab and open in either.
-- **Emulators update themselves**: when a new build of an installed emulator comes out, it installs in the background while the emulator is closed; keys, firmware and saves are kept. Turn **Auto-update** off on the Emulators page to press **Update** yourself.
-- **PGO builds** switch: takes an emulator's faster profile-guided build when it has one, like Eglantine's.
-- **Add to Steam**: the **Steam** button on the Games tab adds your games to Steam as non-Steam games with their box art, so they start from your Steam library and Big Picture. Your own non-Steam games are kept. Steam closes and reopens if it is running.
+- **Install from a zip you downloaded**: Install offers to use a .zip or .7z you already have. Your file is not deleted.
+- **Manual installs are picked up**: an emulator unzipped into `%LOCALAPPDATA%\SteamStopper\Emulators\<name>` (for example `...\Emulators\Lichii`) gets Play, Update and Remove like a downloaded one.
 
 ## Downloads
 
