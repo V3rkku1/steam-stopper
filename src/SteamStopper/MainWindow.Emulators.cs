@@ -71,12 +71,33 @@ public partial class MainWindow
                 AppBusy.Text = "";
                 return;
             }
-            if (release is null)
+            if (release is null && app.Id.Length > 0)
             {
-                // No portable build found (API down, rate limit, renamed files): fall back to winget or the website.
-                var fallback = app.Id.Length > 0 || app.Url.Length > 0 ? await Task.Run(() => AppHub.Install(app)) : "";
+                // No portable build found (API down, rate limit, renamed files): winget can still install it.
+                var fallback = await Task.Run(() => AppHub.Install(app));
                 StatusText.Text = $"No portable {app.Name} build found{(lookupError is null ? "" : $" ({lookupError})")}. {fallback}".Trim();
                 AppBusy.Text = "";
+                return;
+            }
+            if (release is null)
+            {
+                // Not on winget: let the user download it by hand and hand the archive over, rather than just opening a page.
+                AppBusy.Text = "";
+                var answer = MessageBox.Show(
+                    $"{app.Name} couldn't be downloaded automatically ({lookupError ?? "no Windows build matched on its release page"}).\n\n"
+                    + $"Yes: choose a {app.Name} .zip or .7z you already downloaded, and Steam Stopper installs it.\n"
+                    + "No: open the download page first.",
+                    $"Install {app.Name}", MessageBoxButton.YesNoCancel, MessageBoxImage.Information);
+                if (answer == MessageBoxResult.No && app.Url.Length > 0)
+                {
+                    Process.Start(new ProcessStartInfo(app.Url) { UseShellExecute = true })?.Dispose();
+                    StatusText.Text = $"Download the Windows .zip, then press Install on {app.Name} again and choose Yes.";
+                }
+                if (answer != MessageBoxResult.Yes) return;
+                var dialog = new Microsoft.Win32.OpenFileDialog { Title = $"Choose the {app.Name} download", Filter = "Archives|*.zip;*.7z" };
+                if (dialog.ShowDialog(this) != true) return;
+                // The user's own file: unpacked, never deleted.
+                await Unpack(dialog.FileName, "manual", Path.GetFileName(dialog.FileName));
                 return;
             }
 
@@ -95,15 +116,8 @@ public partial class MainWindow
                 File.Move(archive, renamed, true);
                 archive = renamed;
             }
-            AppBusy.Text = $"Unpacking {app.Name}…";
-            var folder = EmuStore.FolderFor(app.Name);
-            await Task.Run(() => EmuStore.Extract(archive, folder));
+            await Unpack(archive, release.Version, release.File);
             try { File.Delete(archive); } catch { }
-            var exe = EmuStore.FindExe(folder, source.Exe)
-                ?? throw new IOException("It unpacked, but no program was found inside.");
-            EmuStore.Record(app.Name, new EmuStore.Entry(exe, release.Version, release.File));
-            StatusText.Text = $"{app.Name} {release.Version} is ready. Press Play.";
-            AppBusy.Text = "";
         }
         catch (Exception ex)
         {
@@ -119,6 +133,18 @@ public partial class MainWindow
             ticker.Stop();
             _toolsWorking = false;
             RefreshApps();
+        }
+
+        async Task Unpack(string file, string version, string releaseFile)
+        {
+            AppBusy.Text = $"Unpacking {app.Name}…";
+            var folder = EmuStore.FolderFor(app.Name);
+            await Task.Run(() => EmuStore.Extract(file, folder));
+            var exe = EmuStore.FindExe(folder, source.Exe)
+                ?? throw new IOException("It unpacked, but no program was found inside.");
+            EmuStore.Record(app.Name, new EmuStore.Entry(exe, version, releaseFile));
+            StatusText.Text = $"{app.Name} {(version == "manual" ? "" : version + " ")}is ready. Press Play.";
+            AppBusy.Text = "";
         }
     }
 

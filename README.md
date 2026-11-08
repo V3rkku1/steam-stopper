@@ -27,6 +27,11 @@ Steam Stopper is a local Windows utility for managing your Steam client: cut or 
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.2
+
+- **Emulator installs fixed**: Lichii, Eglantine, Ryujinx and Azahar download the right Windows build again; every emulator's download is now checked against its real release page on each build.
+- **Install from a zip**: if a download can't be fetched, pick the .zip you downloaded yourself. Emulators unzipped by hand into `%LOCALAPPDATA%\SteamStopper\Emulators\<name>` are picked up too.
+
 ## What's new in 2.5.1
 
 - **PS5**: KytyPS5 on the Emulators tab, and PS5 game folders and `.zar` dumps in the Games tab.
@@ -90,7 +95,7 @@ No install. Includes the .NET runtime, so it runs on a clean Windows PC. It offe
 | **Organize** | Sort a messy Downloads folder into Installers, Archives, Documents, Images and more. One-click undo. |
 | **Apps** | Install or remove 56 common apps (Discord, Brave, OBS, 7-Zip, and more), then clear the folders they leave behind in AppData and Program Files. |
 | **Games** | A Steam-style library of your own game files: the list on the left is grouped by console, the right shows box art, a big **Play** button, last played and play time. Add folders (or drop files), and each game opens in the matching emulator from the Emulators tab. Switch 2 `.nup` archives open in Lichii or Eglantine, and PS5 game folders and `.zar` dumps in KytyPS5. Box art comes from libretro-thumbnails when the file is named like the official release; you can set your own. |
-| **Emulators** | Install console emulators by system: PlayStation 1 to 4, PSP and Vita, Switch, DS and 3DS, Wii U, Wii and GameCube, Xbox and Xbox 360, retro consoles, and all-in-one apps like RetroArch. Switch 2 has the experimental Lichii and Eglantine. PS5 has KytyPS5, an experimental emulator in active development. Most emulators install as portable builds, downloaded through Fetch (so bonding speeds them up) into `%LOCALAPPDATA%\SteamStopper\Emulators`; the rest use winget. Installed emulators get a **Play** button, and new builds (like a new Lichii) install by themselves while the emulator is closed; switch Auto-update off to press **Update** yourself. **PGO builds** (on by default) takes an emulator's profile-guided build, like Eglantine's, when it publishes one. Games, BIOS, keys and firmware are not included. |
+| **Emulators** | Install console emulators by system: PlayStation 1 to 4, PSP and Vita, Switch, DS and 3DS, Wii U, Wii and GameCube, Xbox and Xbox 360, retro consoles, and all-in-one apps like RetroArch. Switch 2 has the experimental Lichii and Eglantine. PS5 has KytyPS5, an experimental emulator in active development. Most emulators install as portable builds, downloaded through Fetch (so bonding speeds them up) into `%LOCALAPPDATA%\SteamStopper\Emulators`; the rest use winget. Installed emulators get a **Play** button, and new builds (like a new Lichii) install by themselves while the emulator is closed; switch Auto-update off to press **Update** yourself. **PGO builds** (on by default) takes an emulator's profile-guided build, like Eglantine's, when it publishes one. If a download can't be fetched, Install offers to use a .zip you downloaded yourself; an emulator unzipped by hand into `%LOCALAPPDATA%\SteamStopper\Emulators\<name>` is picked up too. Games, BIOS, keys and firmware are not included. |
 
 **System tray**: pressing **X** asks whether to minimize to the tray or quit (tick *Remember my choice* to stop asking). Right-click the tray icon to block or allow Steam's internet, turn bonding on or off, or quit.
 

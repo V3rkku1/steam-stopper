@@ -20,7 +20,8 @@ public sealed record EmuRelease(string Url, string File, string Version);
 public static class EmuStore
 {
     // Debug symbols, ARM builds and installers sit next to the portable archives on most release pages.
-    private static readonly Regex SkipAsset = new(@"pdb|symbols|debug|dbg|arm64|aarch64|installer|setup|\.sig$|\.sha", RegexOptions.IgnoreCase);
+    // libretro: RetroArch cores (Azahar ships one next to its own app), not standalone emulators.
+    private static readonly Regex SkipAsset = new(@"pdb|symbols|debug|dbg|arm64|aarch64|installer|setup|libretro|\.sig$|\.sha", RegexOptions.IgnoreCase);
     // Helper programs that ship beside the real emulator exe.
     private static readonly Regex SkipExe = new(@"unins|updat|crash|setup|redist|helper|dxwebsetup|elevat|7z|createdump", RegexOptions.IgnoreCase);
     private static readonly object Gate = new();
@@ -38,14 +39,29 @@ public static class EmuStore
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("SteamStopper");
+        // Only set in CI, where anonymous lookups share an hourly limit with every other job on the runner.
+        if (source.Host == "github" && Environment.GetEnvironmentVariable("GITHUB_TOKEN") is { Length: > 0 } token)
+            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
         if (source.Host == "github")
         {
             http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
-            var json = await http.GetStringAsync($"https://api.github.com/repos/{source.Repo}/releases?per_page=15", cancel);
+            var api = $"https://api.github.com/repos/{source.Repo}/releases?per_page=";
+            string json;
+            // Repos with many big daily releases (Eglantine) can time out on GitHub's side; a smaller page usually works.
+            try { json = await http.GetStringAsync(api + 15, cancel); }
+            catch (HttpRequestException ex) when ((int?)ex.StatusCode >= 500) { json = await http.GetStringAsync(api + 3, cancel); }
             return PickGitHub(json, source, pgo);
         }
-        var url = $"{source.Host.TrimEnd('/')}/api/v4/projects/{Uri.EscapeDataString(source.Repo)}/releases?per_page=15";
-        return PickGitLab(await http.GetStringAsync(url, cancel), source, pgo);
+        var host = source.Host.TrimEnd('/');
+        try
+        {
+            return PickGitLab(await http.GetStringAsync($"{host}/api/v4/projects/{Uri.EscapeDataString(source.Repo)}/releases?per_page=15", cancel), source, pgo);
+        }
+        catch (HttpRequestException)
+        {
+            // Not GitLab after all: Forgejo/Gitea serve GitHub-shaped release JSON under /api/v1.
+            return PickGitHub(await http.GetStringAsync($"{host}/api/v1/repos/{source.Repo}/releases?limit=15", cancel), source, pgo);
+        }
     }
 
     public static EmuRelease? PickGitHub(string json, EmuSource source, bool pgo = true)

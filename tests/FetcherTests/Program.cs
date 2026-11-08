@@ -4,6 +4,32 @@ using System.Net;
 using System.Security.Cryptography;
 using SteamStopper.Core;
 
+// dotnet run -- --live: ask every emulator's real release page which file Install would download.
+if (args is ["--live"])
+{
+    var missing = 0;
+    foreach (var emu in AppHub.Emulators.Where(e => e.Source is not null))
+    {
+        foreach (var pgo in new[] { true, false })
+        {
+            try
+            {
+                var hit = await EmuStore.FindLatest(emu.Source!, pgo, CancellationToken.None);
+                Console.WriteLine($"{(hit is null ? "MISS" : "OK  ")} {emu.Name,-14} pgo={pgo,-5} {hit?.Version} {hit?.File}");
+                if (hit is null) missing++;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"FAIL {emu.Name,-14} pgo={pgo,-5} {ex.Message}");
+                missing++;
+            }
+        }
+    }
+    Console.WriteLine(missing == 0 ? "ALL FOUND" : $"{missing} NOT FOUND");
+    return missing;
+}
+
+
 var data = RandomNumberGenerator.GetBytes(40 * 1024 * 1024 + 12345);
 var sha = Convert.ToHexString(SHA256.HashData(data));
 var rnd = new Random(1);
@@ -150,6 +176,8 @@ var gh = """
    {"name":"pcsx2-v2.4.1-windows-x64-Qt.7z","browser_download_url":"https://x/good.7z"}]}]
 """;
 var pcsx2 = new EmuSource("PCSX2/pcsx2", [@"windows-x64-Qt\.7z$"], "pcsx2");
+var aza = """[{"tag_name":"2127","assets":[{"name":"azahar-libretro-windows-x86_64-2127.zip","browser_download_url":"https://a/core"},{"name":"azahar-windows-msvc-2127.zip","browser_download_url":"https://a/app"}]}]""";
+Check("libretro cores are never picked", EmuStore.PickGitHub(aza, new EmuSource("azahar-emu/azahar", [@"windows-msvc.*\.zip$", @"windows.*\.zip$"], "azahar"))?.Url == "https://a/app");
 var pick = EmuStore.PickGitHub(gh, pcsx2);
 Check("github: skips draft, symbols, installer, arm64", pick?.Url == "https://x/good.7z" && pick.Version == "v2.4.1");
 Check("github: second pattern used when first misses",
