@@ -31,7 +31,7 @@ public partial class MainWindow
             _gamesView.Filter = o => o is Rom r && (GameSearchBox.Text.Trim() is not { Length: > 0 } q
                 || r.Title.Contains(q, StringComparison.OrdinalIgnoreCase) || r.ConsoleName.Contains(q, StringComparison.OrdinalIgnoreCase));
             GamesList.ItemsSource = _gamesView;
-            GameConsoleBox.ItemsSource = AppHub.Consoles.Where(c => c.Name != "ALL-IN-ONE").Select(c => c.Maker).ToList();
+            GameConsoleBox.ItemsSource = AppHub.Consoles.Where(c => c.Name is not ("ALL-IN-ONE" or "RECOMP")).Select(c => c.Maker).ToList();
             _ = LoadCoversAsync(_library.Games.ToList());
         }
         // Emulators may have been installed or removed on the Emulators tab since last time.

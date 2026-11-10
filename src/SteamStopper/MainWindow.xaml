@@ -1202,6 +1202,8 @@
           <TextBlock x:Name="EmuTitle" DockPanel.Dock="Left" Foreground="{StaticResource Muted}" FontSize="13" VerticalAlignment="Center"/>
           <StackPanel x:Name="EmuAutoPanel" DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0" Visibility="Collapsed"
                       ToolTip="When a new build of an installed emulator comes out, install it in the background while the emulator is closed">
+            <Button x:Name="EmuCheckButton" Content="Check for updates" Style="{StaticResource SmallButton}" Margin="0,0,16,0" Click="EmuCheck_Click"
+                    ToolTip="Look for new builds of your installed emulators and ports now"/>
             <TextBlock Text="PGO builds" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"
                        ToolTip="Download the PGO (profile-guided optimisation) build when an emulator offers one, such as Eglantine. Usually faster; turn off for the standard build."/>
             <ToggleButton x:Name="EmuPgoBox" Style="{StaticResource Switch}" Click="EmuPgo_Click" Margin="0,0,16,0"/>

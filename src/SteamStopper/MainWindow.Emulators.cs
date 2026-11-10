@@ -13,6 +13,8 @@ public partial class MainWindow
     private readonly Dictionary<string, EmuRelease> _emuLatest = [];
     private DateTime _emuChecked = DateTime.MinValue;
     private bool _emuChecking;
+    // Emulators whose last lookup failed (rate limit, server down), so a manual check doesn't claim they are current.
+    private readonly List<string> _emuFailed = [];
 
     private void AppCardRemove_Click(object sender, RoutedEventArgs e)
     {
@@ -159,6 +161,7 @@ public partial class MainWindow
         try
         {
             var installed = AppHub.Emulators.Where(e => e.Source is not null && EmuStore.Find(e.Name) is not null).ToList();
+            _emuFailed.Clear();
             foreach (var emu in installed)
             {
                 // One failed lookup (rate limit, server down) shouldn't stop the others.
@@ -166,7 +169,7 @@ public partial class MainWindow
                 {
                     if (await EmuStore.FindLatest(emu.Source!, _settings.PreferPgo, CancellationToken.None) is { } latest) _emuLatest[emu.Name] = latest;
                 }
-                catch { }
+                catch { _emuFailed.Add(emu.Name); }
             }
             _emuChecked = DateTime.UtcNow;
             if (_settings.AutoUpdateEmulators)
@@ -219,6 +222,29 @@ public partial class MainWindow
             }
         }
         return false;
+    }
+
+    private async void EmuCheck_Click(object sender, RoutedEventArgs e)
+    {
+        EmuCheckButton.IsEnabled = false;
+        EmuCheckButton.Content = "Checking…";
+        StatusText.Text = "Checking your emulators for new builds…";
+        var before = StatusText.Text;
+        // A background check may be running; wait for it so this one really runs.
+        while (_emuChecking) await Task.Delay(200);
+        try { await CheckEmulatorUpdates(force: true); }
+        finally
+        {
+            EmuCheckButton.IsEnabled = true;
+            EmuCheckButton.Content = "Check for updates";
+        }
+        // CheckEmulatorUpdates only speaks when it found or installed something.
+        if (StatusText.Text != before) return;
+        StatusText.Text = _emuFailed.Count > 0
+            ? $"Couldn't check {string.Join(", ", _emuFailed)} (the release server may be busy or at its hourly limit). Try again later."
+            : AppHub.Emulators.Any(em => em.Source is not null && EmuStore.Find(em.Name) is not null)
+                ? $"Your emulators are up to date (checked {DateTime.Now:HH:mm})."
+                : "No downloaded emulators to check. Emulators installed through winget update with winget.";
     }
 
     private void EmuPgo_Click(object sender, RoutedEventArgs e)

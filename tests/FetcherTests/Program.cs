@@ -193,6 +193,25 @@ var eglSrc = new EmuSource("Djihads80/Eglantine", [@"windows-x86_64(-pgo)?\.zip$
 Check("pgo on: takes the PGO build", EmuStore.PickGitHub(egl, eglSrc, pgo: true)?.Url == "https://e/pgo");
 Check("pgo off: takes the standard build", EmuStore.PickGitHub(egl, eglSrc, pgo: false)?.Url == "https://e/std");
 Check("pgo on, none published: standard build", EmuStore.PickGitHub(gh, pcsx2, pgo: true)?.Url == "https://x/good.7z");
+// Asset lists as the real Hookshot v2.0.14 and Dusklight v2.0.3 release pages show them.
+var hook = AppHub.Emulators.First(e => e.Name == "Hookshot").Source!;
+var hookJson = """
+[{"tag_name":"v2.0.14","assets":[{"name":"hookshot-linux.txt","browser_download_url":"https://h/t"},{"name":"hookshot-setup.txt","browser_download_url":"https://h/s"},
+  {"name":"Hookshot-v2.0.14-x86_64.AppImage","browser_download_url":"https://h/a"},{"name":"HookshotBuilder.exe","browser_download_url":"https://h/exe"}]}]
+""";
+Check("Hookshot: takes the bare builder exe", EmuStore.PickGitHub(hookJson, hook)?.Url == "https://h/exe");
+var dusk = AppHub.Emulators.First(e => e.Name == "Dusklight").Source!;
+var duskJson = """
+[{"tag_name":"v2.0.3","assets":[{"name":"Dusklight-v2.0.3-win32-arm64.zip","browser_download_url":"https://d/arm"},
+  {"name":"Dusklight-v2.0.3-macos-x86_64.zip","browser_download_url":"https://d/mac"},{"name":"Dusklight-v2.0.3-win32-x86_64.zip","browser_download_url":"https://d/win"}]}]
+""";
+Check("Dusklight: takes the x64 Windows zip", EmuStore.PickGitHub(duskJson, dusk)?.Url == "https://d/win");
+var bare = Path.Combine(Path.GetTempPath(), "ss-bare-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(bare);
+File.WriteAllText(Path.Combine(bare, "HookshotBuilder.exe"), "MZ");
+EmuStore.Extract(Path.Combine(bare, "HookshotBuilder.exe"), Path.Combine(bare, "out"));
+Check("a bare exe release is copied in and found", EmuStore.FindExe(Path.Combine(bare, "out"), hook.Exe)?.EndsWith("HookshotBuilder.exe") == true);
+Directory.Delete(bare, true);
 Check("'pgo' only as its own word", EmuStore.IsPgo("x-windows-pgo.zip") && EmuStore.IsPgo("x_PGO.zip") && !EmuStore.IsPgo("pgoat.zip"));
 var gl = """
 [{"tag_name":"1.3.2","assets":{"links":[
@@ -281,6 +300,26 @@ Check("cover art matches loose file names, USA release first",
     RomLibrary.BestMatch("Mario Kart 64 (USA)", "Mario Kart 64", art) == "Mario Kart 64 (USA)"
     && RomLibrary.BestMatch("the_legend_of_zelda_ocarina_of_time", "the legend of zelda ocarina of time", art) == "Legend of Zelda, The - Ocarina of Time (USA)"
     && RomLibrary.BestMatch("Pokemon Snap", "Pokemon Snap", art) is null);
+var tdb = RomLibrary.TdbLines("""
+<game name="Super Mario Odyssey (JA)">
+		<id>AAACB</id>
+		<type>Switch</type>
+		<region>JPN</region></game>
+<game name="Super Mario Odyssey [Starter Pack] (EN,FR)">
+		<id>AAACA</id>
+		<type>Switch</type>
+		<region>USA</region></game>
+<game name="Mario &amp; Sonic (EN)">
+		<id>AT4AB</id>
+		<type>Switch</type>
+		<region>EUR</region></game>
+""").ToList();
+var tdbGames = RomLibrary.TdbByKey(tdb);
+Check("gametdb lines: decoded name, id, art region", tdb.Count == 3 && tdb[2] == "Mario & Sonic (EN)|AT4AB|EN");
+Check("switch covers: scene file name finds the US release",
+    RomLibrary.TdbPick("Super Mario Odyssey [0100000000010000][v0]", "Super Mario Odyssey", tdbGames) == ("AAACA", "US")
+    && RomLibrary.TdbPick("Mario and Sonic", "Mario and Sonic", tdbGames) == ("AT4AB", "EN")
+    && RomLibrary.TdbPick("Unknown Game", "Unknown Game", tdbGames) is null);
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",

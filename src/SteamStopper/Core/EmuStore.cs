@@ -113,6 +113,12 @@ public static class EmuStore
     public static void Extract(string archive, string dest)
     {
         Directory.CreateDirectory(dest);
+        // Some recomps ship one bare exe instead of an archive.
+        if (archive.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            File.Copy(archive, Path.Combine(dest, Path.GetFileName(archive)), true);
+            return;
+        }
         if (archive.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
         {
             ZipFile.ExtractToDirectory(archive, dest, overwriteFiles: true);
