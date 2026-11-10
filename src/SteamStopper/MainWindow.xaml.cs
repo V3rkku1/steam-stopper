@@ -1483,7 +1483,7 @@ public partial class MainWindow : Window
             AppCatBar.Children.Clear();
             FillAppCategories();
             AppSearchHint.Text = emulators ? "Search emulators or consoles" : "Search apps";
-            ConsoleGrid.ItemsSource = AppHub.Consoles;
+            ConsoleGrid.ItemsSource = AppHub.Consoles.Where(c => c != AppHub.Recomp).ToList();
         }
         _emuConsole = null;
         if (emulators) StatusText.Text = "Emulators come without games, BIOS, keys or firmware. Dump them from consoles you own.";
@@ -1510,8 +1510,13 @@ public partial class MainWindow : Window
         ConsoleView.Visibility = tiles ? Visibility.Visible : Visibility.Collapsed;
         AppsView.Visibility = tiles ? Visibility.Collapsed : Visibility.Visible;
         AppCatBorder.Visibility = _emuMode ? Visibility.Collapsed : Visibility.Visible;
-        EmuBackButton.Visibility = _emuMode && !tiles ? Visibility.Visible : Visibility.Collapsed;
-        EmuTitle.Text = !_emuMode ? "" : tiles ? "Pick a console" : _emuConsole is { } c && query.Length == 0 ? $"{c.Maker}  ·  {c.CountText}" : "Search results";
+        var ports = _emuMode && _emuConsole == AppHub.Recomp && query.Length == 0;
+        EmuTabsBorder.Visibility = tiles || ports ? Visibility.Visible : Visibility.Collapsed;
+        EmuTabPorts.IsChecked = ports;
+        EmuTabConsoles.IsChecked = !ports;
+        EmuBackButton.Visibility = _emuMode && !tiles && !ports ? Visibility.Visible : Visibility.Collapsed;
+        EmuTitle.Text = !_emuMode ? "" : tiles ? "Pick a console" : ports ? "Native PC versions"
+            : _emuConsole is { } c && query.Length == 0 ? $"{c.Maker}  ·  {c.CountText}" : "Search results";
         if (_emuConsole is { } console && query.Length == 0)
             rows = rows.Where(a => console.Emulators.Contains(a.Name)).OrderBy(a => Array.IndexOf(console.Emulators, a.Name));
         else if (_appCategory != "All")
@@ -1525,7 +1530,7 @@ public partial class MainWindow : Window
         var list = rows.ToList();
         AppsList.ItemsSource = list;
         AppCount.Text = tiles
-            ? $"{_appRows.Count(a => a.Installed)} installed  ·  {AppHub.Consoles.Length} consoles"
+            ? $"{_appRows.Count(a => a.Installed)} installed  ·  {AppHub.Consoles.Length - 1} consoles"
             : $"{_appRows.Count(a => a.Installed)} installed  ·  {list.Count} shown";
     }
 
@@ -1550,6 +1555,13 @@ public partial class MainWindow : Window
     {
         if (sender is not Button { DataContext: ConsoleTile console }) return;
         _emuConsole = console;
+        BindApps();
+    }
+
+    private void EmuTab_Click(object sender, RoutedEventArgs e)
+    {
+        _emuConsole = sender == EmuTabPorts ? AppHub.Recomp : null;
+        AppSearchBox.Clear();
         BindApps();
     }
 

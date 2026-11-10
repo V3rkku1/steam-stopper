@@ -31,7 +31,7 @@ public partial class MainWindow
             _gamesView.Filter = o => o is Rom r && (GameSearchBox.Text.Trim() is not { Length: > 0 } q
                 || r.Title.Contains(q, StringComparison.OrdinalIgnoreCase) || r.ConsoleName.Contains(q, StringComparison.OrdinalIgnoreCase));
             GamesList.ItemsSource = _gamesView;
-            GameConsoleBox.ItemsSource = AppHub.Consoles.Where(c => c.Name != "ALL-IN-ONE").Select(c => c.Maker).ToList();
+            GameConsoleBox.ItemsSource = AppHub.Consoles.Where(c => c.Name is not ("ALL-IN-ONE" or "RECOMP")).Select(c => c.Maker).ToList();
             _ = LoadCoversAsync(_library.Games.ToList());
         }
         // Emulators may have been installed or removed on the Emulators tab since last time.
@@ -74,6 +74,7 @@ public partial class MainWindow
         GameEmuBox.ItemsSource = choices.Select(e => e.Name).ToList();
         GameEmuBox.SelectedItem = choices.FirstOrDefault()?.Name;
         GameEmuBox.IsEnabled = choices.Count > 1;
+        GameEmuPanel.Visibility = choices.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         _gamesFilling = false;
         PaintPlay(rom);
     }
@@ -93,8 +94,8 @@ public partial class MainWindow
         var running = _playing.ContainsKey(rom);
         var hasEmu = EmulatorsFor(rom).Count > 0;
         GamePlayButton.Content = running ? "STOP" : hasEmu ? "PLAY" : "GET EMULATOR";
-        // Tag switches the button to Steam's blue Stop look.
-        GamePlayButton.Tag = running ? "Stop" : null;
+        // Tag switches the button to Steam's blue Stop look, or blue with a download arrow for Get Emulator.
+        GamePlayButton.Tag = running ? "Stop" : hasEmu ? null : "Get";
         GamePlayButton.IsEnabled = running || (rom.Exists && rom.Tile is not null);
         GameHint.Text = !rom.Exists ? "The game file is gone. Remove it or rescan."
             : rom.Tile is null ? "Pick the console this game is for below."

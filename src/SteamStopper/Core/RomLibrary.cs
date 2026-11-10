@@ -102,7 +102,7 @@ public static class RomLibrary
     // Emulators whose games start from a different exe than the one Play opens.
     public static readonly Dictionary<string, string> GameExe = new() { ["KytyPS5"] = "kyty_emulator.exe" };
 
-    // libretro-thumbnails folders per console, tried in order; consoles missing here (Switch, Wii U, PS5) get the colour cover.
+    // libretro-thumbnails folders per console, tried in order; Switch and Wii U use GameTDB below.
     private static readonly Dictionary<string, string[]> ThumbSystems = new()
     {
         ["PS1"] = ["Sony - PlayStation"], ["PS2"] = ["Sony - PlayStation 2"], ["PSP"] = ["Sony - PlayStation Portable"],
@@ -111,6 +111,12 @@ public static class RomLibrary
         ["DREAMCAST"] = ["Sega - Dreamcast"], ["XBOX"] = ["Microsoft - Xbox"], ["XBOX 360"] = ["Microsoft - Xbox 360"],
         ["NES · SNES"] = ["Nintendo - Super Nintendo Entertainment System", "Nintendo - Nintendo Entertainment System"],
         ["GAME BOY"] = ["Nintendo - Game Boy Advance", "Nintendo - Game Boy Color", "Nintendo - Game Boy"]
+    };
+
+    // GameTDB (database zip, art folder) for consoles libretro has no box art for. Art is named by GameTDB's own game id.
+    private static readonly Dictionary<string, (string Db, string Art)> TdbSystems = new()
+    {
+        ["SWITCH"] = ("switchtdb", "switch"), ["WII U"] = ("wiiutdb", "wiiu")
     };
 
     private static string Dir => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SteamStopper");
@@ -262,33 +268,42 @@ public static class RomLibrary
     {
         var name = System.IO.Path.GetFileNameWithoutExtension(file);
         var clean = Regex.Replace(name, @"\s*[\(\[][^\)\]]*[\)\]]", "").Replace('_', ' ').Trim();
+        // No-Intro moves articles back: "Legend of Zelda, The - Ocarina of Time" reads "The Legend of Zelda - Ocarina of Time".
+        clean = Regex.Replace(clean, @"^(.+?), (The|A|An)\b(.*)$", "$2 $1$3");
         return clean.Length > 0 ? clean : name;
     }
 
     public static string Arguments(string emulator, string rom) =>
         LaunchArgs.TryGetValue(emulator, out var template) ? template.Replace("{rom}", rom) : $"\"{rom}\"";
 
-    /// <summary>Local box art for a game, downloading it from libretro-thumbnails the first time.</summary>
+    /// <summary>Local box art for a game, downloading it from libretro-thumbnails or GameTDB the first time.</summary>
     public static async Task<string?> CoverFor(Rom rom, HttpClient http)
     {
         if (rom.CustomCover.Length > 0 && File.Exists(rom.CustomCover)) return rom.CustomCover;
         // PS5 folder dumps carry their own art.
         if (Directory.Exists(rom.Path) && System.IO.Path.Combine(rom.Path, "sce_sys", "icon0.png") is var icon && File.Exists(icon)) return icon;
-        if (!ThumbSystems.TryGetValue(rom.Console, out var systems)) return null;
+        var hasThumbs = ThumbSystems.TryGetValue(rom.Console, out var systems);
+        var hasTdb = TdbSystems.TryGetValue(rom.Console, out var tdb);
+        if (!hasThumbs && !hasTdb) return null;
         var file = System.IO.Path.GetFileNameWithoutExtension(rom.Path);
-        var cached = System.IO.Path.Combine(CoverDir, Safe($"{rom.Console} - {file}") + ".png");
-        if (File.Exists(cached)) return cached;
-        var miss = cached + ".none";
+        var cachedBase = System.IO.Path.Combine(CoverDir, Safe($"{rom.Console} - {file}"));
+        if (new[] { ".png", ".jpg" }.Select(e => cachedBase + e).FirstOrDefault(File.Exists) is { } hit) return hit;
+        var miss = cachedBase + ".png.none";
         if (File.Exists(miss)) return null;
         try
         {
             Directory.CreateDirectory(CoverDir);
-            foreach (var system in systems)
+            var urls = new List<string>();
+            foreach (var system in systems ?? [])
+                if (BestMatch(file, rom.Title, await IndexOf(system, http)) is { } name)
+                    urls.Add($"https://thumbnails.libretro.com/{Uri.EscapeDataString(system)}/Named_Boxarts/{Uri.EscapeDataString(name)}.png");
+            if (hasTdb && TdbPick(file, rom.Title, await TdbIndexOf(tdb.Db, http)) is { } game)
+                urls.Add($"https://art.gametdb.com/{tdb.Art}/coverM/{game.Region}/{game.Id}.jpg");
+            foreach (var url in urls)
             {
-                if (BestMatch(file, rom.Title, await IndexOf(system, http)) is not { } name) continue;
-                var url = $"https://thumbnails.libretro.com/{Uri.EscapeDataString(system)}/Named_Boxarts/{Uri.EscapeDataString(name)}.png";
                 using var response = await http.GetAsync(url);
                 if (!response.IsSuccessStatusCode) continue;
+                var cached = cachedBase + System.IO.Path.GetExtension(url);
                 await File.WriteAllBytesAsync(cached, await response.Content.ReadAsByteArrayAsync());
                 return cached;
             }
@@ -298,6 +313,49 @@ public static class RomLibrary
         catch { }
         return null;
     }
+
+    private static readonly Dictionary<string, Task<ILookup<string, string>>> TdbIndexes = [];
+
+    /// <summary>GameTDB's games for a console as "name|id|art region" lines, keyed by title, kept on disk for a month.</summary>
+    private static Task<ILookup<string, string>> TdbIndexOf(string db, HttpClient http)
+    {
+        lock (TdbIndexes)
+        {
+            if (!TdbIndexes.TryGetValue(db, out var task) || task.IsFaulted) TdbIndexes[db] = task = Fetch();
+            return task;
+        }
+
+        async Task<ILookup<string, string>> Fetch()
+        {
+            var path = System.IO.Path.Combine(CoverDir, db + ".index");
+            if (!File.Exists(path) || File.GetLastWriteTimeUtc(path) < DateTime.UtcNow.AddDays(-30))
+            {
+                using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(await http.GetByteArrayAsync($"https://www.gametdb.com/{db}.zip?LANG=EN")));
+                using var reader = new StreamReader(zip.Entries[0].Open());
+                await File.WriteAllLinesAsync(path, TdbLines(await reader.ReadToEndAsync()));
+            }
+            return TdbByKey(await File.ReadAllLinesAsync(path));
+        }
+    }
+
+    /// <summary>"name|id|art region" for every game in a GameTDB xml.</summary>
+    public static IEnumerable<string> TdbLines(string xml) =>
+        Regex.Matches(xml, @"<game name=""([^""]+)"">\s*<id>([^<]+)</id>\s*<type>[^<]*</type>\s*<region>([^<]+)</region>")
+            .Select(m => $"{System.Net.WebUtility.HtmlDecode(m.Groups[1].Value).Replace('|', ' ')}|{m.Groups[2].Value}|{ArtRegion(m.Groups[3].Value)}");
+
+    // Regions are lists like "USA,EUR" or "ALL"; art folders are US, EN (Europe and worldwide) and JA.
+    private static string ArtRegion(string regions) =>
+        regions.Contains("USA") ? "US" : regions.Contains("ALL") || regions.Contains("EUR") || !regions.StartsWith("JPN") ? "EN" : "JA";
+
+    public static ILookup<string, string> TdbByKey(IEnumerable<string> lines) => lines.ToLookup(l => Key(l.Split('|')[0]));
+
+    /// <summary>The GameTDB game for a file, the US release first.</summary>
+    public static (string Id, string Region)? TdbPick(string file, string title, ILookup<string, string> games) =>
+        games[Key(file)].Concat(games[Key(title)])
+            .Select(l => l.Split('|'))
+            .OrderBy(p => p[2] == "US" ? 0 : p[2] == "EN" ? 1 : 2)
+            .Select(p => ((string, string)?)(p[1], p[2]))
+            .FirstOrDefault();
 
     private static readonly Dictionary<string, Task<ILookup<string, string>>> Indexes = [];
 

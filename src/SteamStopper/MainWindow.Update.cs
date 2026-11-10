@@ -78,7 +78,7 @@ public partial class MainWindow
             var appStatus = StatusText.Text;
             await CheckEmulatorUpdates(force: true);
             // The emulator check only speaks when it found or installed something; otherwise keep the app result.
-            if (StatusText.Text == appStatus && AppHub.Emulators.Any(em => em.Source is not null && EmuStore.Find(em.Name) is not null))
+            if (StatusText.Text == appStatus && _emuFailed.Count == 0 && AppHub.Emulators.Any(em => em.Source is not null && EmuStore.Find(em.Name) is not null))
                 StatusText.Text = appStatus + " Your emulators are up to date too.";
         }
         finally
