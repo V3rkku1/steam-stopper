@@ -1,20 +1,16 @@
 ## New
 
-- **Stop button**: while a game runs, Play turns into a blue Stop button like Steam's. Stop closes the emulator normally so it can save, and force-closes it if it hasn't closed after 5 seconds. Play time is still counted.
-- **Automatic box art for more games**: covers are now matched by game title, so file names no longer have to match the No-Intro/Redump name exactly. The USA release is preferred, then World, then Europe.
-- **More consoles with covers**: Xbox 360, NES, Game Boy, Game Boy Color and 3DS digital releases.
-- **Check for updates** in the sidebar and the tray menu checks the app and every installed emulator right away and shows when it last checked.
-- **What's new** shows these release notes inside the app.
+- **Switch and Wii U box art**: covers download automatically from GameTDB, matched by game title. File names with title IDs like `Game [0100…][v0].nsp` work too. The US cover is preferred.
+- **PC ports tab** on the Emulators page, next to Consoles:
+  - **Hookshot**: native PC port of Ocarina of Time (Switch 2 remake). Builds the game from your own `.nup`. Needs a Vulkan 1.3 GPU with mesh shaders and about 60 GB free.
+  - **Dusklight**: native PC port of Twilight Princess. Runs from your own GameCube or Wii disc dump (`.iso`, `.rvz`).
+  - Install, Play, Update and Remove work like for emulators.
+- **Check for updates** button on the Emulators tab: checks every downloaded emulator and port now, and names any it couldn't reach instead of calling them up to date.
 
-## Fixed
+## Improved
 
-- The game page header now follows the card's rounded corners.
-- The sidebar menu scrolls when the window is too short.
-
-## Notes
-
-- Switch, Wii U and PS5 games still use the console-colour cover unless you set one; there is no free art source for them.
-- Covers downloaded by older versions are fetched once more.
+- Games tab: the Library header no longer gets squeezed; Get Emulator is a blue button with a download arrow; the empty emulator picker is hidden.
+- Game names like "Legend of Zelda, The - Ocarina of Time" now read "The Legend of Zelda - Ocarina of Time" (for newly added games).
 
 ## Downloads
 

@@ -27,6 +27,12 @@ Steam Stopper is a local Windows utility for managing your Steam client: cut or 
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.4
+
+- **Switch and Wii U box art**: covers now download automatically for Switch and Wii U games too, matched by title.
+- **PC ports**: a new PC ports tab on the Emulators page installs Hookshot (Ocarina of Time) and Dusklight (Twilight Princess). Both build the game from your own copy.
+- **Check for updates on the Emulators tab** checks your emulators and ports right away.
+
 ## What's new in 2.5.3
 
 - **Stop button**: while a game runs, Play turns into a blue Stop button like Steam's. It closes the emulator so it can save, and force-closes it if it hangs.
