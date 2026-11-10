@@ -286,6 +286,7 @@ Check("unknown iso is a game with no console", Con("mystery.iso") == "");
 Check("extensions: N64, Switch; .txt and .bin ignored",
     Con("Super Mario 64 (USA) [!].z64") == "N64" && Con("Zelda_TOTK.nsp") == "SWITCH" && Con("readme.txt") is null && Con("ps1/Crash.bin") is null);
 Check("multi-disc: discs listed in .m3u are hidden", Con("ps1/FF7/FF7 (Disc 1).cue") is null && Con("ps1/FF7/FF7.m3u") == "PS1");
+Check("titles put a moved article back in front", RomLibrary.TitleOf("Legend of Zelda, The - Ocarina of Time (USA).z64") == "The Legend of Zelda - Ocarina of Time");
 Check("titles drop region and dump tags", RomLibrary.TitleOf("Super Mario 64 (USA) [!].z64") == "Super Mario 64" && RomLibrary.TitleOf("Zelda_TOTK.nsp") == "Zelda TOTK");
 var store = new RomLibrary.Store { Folders = [roms] };
 var found = RomLibrary.Scan(store);

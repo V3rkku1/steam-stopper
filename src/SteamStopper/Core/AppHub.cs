@@ -317,6 +317,8 @@ public static class AppHub
         new("RECOMP", "PC ports and recomps", "#B8860B", ["Hookshot", "Dusklight"])
     ];
 
+    public static ConsoleTile Recomp => Consoles.First(c => c.Name == "RECOMP");
+
     // Ids checked against microsoft/winget-pkgs. "site" opens the official download page (no winget package).
     public static readonly AppOffer[] Emulators =
     [
@@ -353,8 +355,8 @@ public static class AppHub
         new() { Name = "ares", Source = new("ares-emulator/ares", [@"windows.*\.zip$", @"win.*\.zip$"], @"^ares\.exe$"), Id = "ares-emulator.ares", Match = "ares", Category = "All-in-one", Systems = "N64, SNES, Mega Drive and more", Color = "#5B2C83", Blurb = "Accuracy-focused multi-system emulator." },
         // Recomps: the download is a builder/launcher that turns the user's own game files into the PC version.
         // Hookshot ships HookshotBuilder.exe bare (older releases zipped it); its Play button starts the game.
-        new() { Name = "Hookshot", Source = new("NotRexed/Hookshot", [@"^HookshotBuilder\.exe$", @"^Hookshot-.*Windows-x64\.zip$"], @"^hookshotbuilder\.exe$"), Kind = "site", Url = "https://github.com/NotRexed/Hookshot/releases", Category = "Recomp", Systems = "Ocarina of Time (Switch 2 remake)", Color = "#3E8E41", Blurb = "Native PC port of the Switch 2 Ocarina of Time. Builds the game from your own .nup; needs a Vulkan 1.3 GPU with mesh shaders and about 60 GB free." },
-        new() { Name = "Dusklight", Source = new("TwilitRealm/dusklight", [@"win32-x86_64\.zip$"], @"^dusklight\.exe$"), Kind = "site", Url = "https://twilitrealm.dev/install/", Category = "Recomp", Systems = "Twilight Princess (GameCube, Wii)", Color = "#6B4E9B", Blurb = "Native PC port of Twilight Princess from its decompilation. Needs your own disc dump (.iso or .rvz)." },
+        new() { Name = "Hookshot", Source = new("NotRexed/Hookshot", [@"^HookshotBuilder\.exe$", @"^Hookshot-.*Windows-x64\.zip$"], @"^hookshotbuilder\.exe$"), Kind = "site", Url = "https://github.com/NotRexed/Hookshot/releases", Category = "Recomp", Systems = "Ocarina of Time", Color = "#3E8E41", Blurb = "PC port built from your own Switch 2 .nup. Needs a Vulkan 1.3 GPU and 60 GB free." },
+        new() { Name = "Dusklight", Source = new("TwilitRealm/dusklight", [@"win32-x86_64\.zip$"], @"^dusklight\.exe$"), Kind = "site", Url = "https://twilitrealm.dev/install/", Category = "Recomp", Systems = "Twilight Princess", Color = "#6B4E9B", Blurb = "PC port that runs from your own GameCube or Wii disc dump (.iso, .rvz)." },
         new() { Name = "ES-DE", Id = "ES-DE.EmulationStation-DE", Match = "ES-DE", Category = "All-in-one", Systems = "Game library frontend", Color = "#B03A2E", Blurb = "Console-style menu that launches your emulators and games." }
     ];
 

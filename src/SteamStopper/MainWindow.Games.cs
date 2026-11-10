@@ -74,6 +74,7 @@ public partial class MainWindow
         GameEmuBox.ItemsSource = choices.Select(e => e.Name).ToList();
         GameEmuBox.SelectedItem = choices.FirstOrDefault()?.Name;
         GameEmuBox.IsEnabled = choices.Count > 1;
+        GameEmuPanel.Visibility = choices.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         _gamesFilling = false;
         PaintPlay(rom);
     }
@@ -93,8 +94,8 @@ public partial class MainWindow
         var running = _playing.ContainsKey(rom);
         var hasEmu = EmulatorsFor(rom).Count > 0;
         GamePlayButton.Content = running ? "STOP" : hasEmu ? "PLAY" : "GET EMULATOR";
-        // Tag switches the button to Steam's blue Stop look.
-        GamePlayButton.Tag = running ? "Stop" : null;
+        // Tag switches the button to Steam's blue Stop look, or blue with a download arrow for Get Emulator.
+        GamePlayButton.Tag = running ? "Stop" : hasEmu ? null : "Get";
         GamePlayButton.IsEnabled = running || (rom.Exists && rom.Tile is not null);
         GameHint.Text = !rom.Exists ? "The game file is gone. Remove it or rescan."
             : rom.Tile is null ? "Pick the console this game is for below."

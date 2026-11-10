@@ -268,6 +268,8 @@ public static class RomLibrary
     {
         var name = System.IO.Path.GetFileNameWithoutExtension(file);
         var clean = Regex.Replace(name, @"\s*[\(\[][^\)\]]*[\)\]]", "").Replace('_', ' ').Trim();
+        // No-Intro moves articles back: "Legend of Zelda, The - Ocarina of Time" reads "The Legend of Zelda - Ocarina of Time".
+        clean = Regex.Replace(clean, @"^(.+?), (The|A|An)\b(.*)$", "$2 $1$3");
         return clean.Length > 0 ? clean : name;
     }
 
