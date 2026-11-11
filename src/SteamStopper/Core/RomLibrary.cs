@@ -396,7 +396,7 @@ public static class RomLibrary
     public static ILookup<string, string> ByKey(IEnumerable<string> names) => names.ToLookup(Key);
 
     // "Legend of Zelda, The - Ocarina of Time (USA) (Rev 1)" and "The_Legend_of_Zelda_Ocarina_of_Time" both become "legendofzeldaocarinaoftime".
-    private static string Key(string name) =>
+    public static string Key(string name) =>
         Regex.Replace(Regex.Replace(TitleOf(name + ".x").ToLowerInvariant().Replace("&", "and").Replace('_', ' '), @"\bthe\b", ""), @"[^a-z0-9]", "");
 
     private static string Safe(string name) => string.Concat(name.Select(c => System.IO.Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));

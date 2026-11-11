@@ -665,6 +665,25 @@
         </Setter.Value>
       </Setter>
     </Style>
+    <!-- Same look as a text box, for the RetroAchievements key. -->
+    <Style TargetType="PasswordBox">
+      <Setter Property="Background" Value="{DynamicResource Raised}"/>
+      <Setter Property="Foreground" Value="#F2F2F2"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource Accent}"/>
+      <Setter Property="Padding" Value="12,8"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="MinHeight" Value="36"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="PasswordBox">
+            <Border Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+              <ScrollViewer x:Name="PART_ContentHost"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
     <Style TargetType="ProgressBar">
       <Setter Property="Height" Value="6"/>
       <Setter Property="Foreground" Value="{DynamicResource Accent}"/>

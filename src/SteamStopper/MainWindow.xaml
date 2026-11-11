@@ -227,6 +227,29 @@
           </Border>
           <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
             <StackPanel>
+              <TextBlock Text="RETROACHIEVEMENTS" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+              <TextBlock Foreground="{DynamicResource Faint}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,10"
+                         Text="Shows your achievements on each game's page. Earn them by logging in to RetroAchievements inside DuckStation, PCSX2, PPSSPP, Dolphin or RetroArch. Your Web API key is on retroachievements.org under Settings, and is stored encrypted on this PC."/>
+              <UniformGrid Columns="2" Margin="0,0,0,10">
+                <StackPanel Margin="0,0,6,0">
+                  <TextBlock Text="Username" Style="{StaticResource FieldLabel}"/>
+                  <TextBox x:Name="RaUserBox"/>
+                </StackPanel>
+                <StackPanel Margin="6,0,0,0">
+                  <TextBlock Text="Web API key" Style="{StaticResource FieldLabel}"/>
+                  <PasswordBox x:Name="RaKeyBox"/>
+                </StackPanel>
+              </UniformGrid>
+              <StackPanel Orientation="Horizontal">
+                <Button Content="Save and check" Style="{StaticResource SmallPrimary}" Margin="0,0,8,0" Click="RaSave_Click"/>
+                <Button Content="Get my key" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="RaKeyPage_Click"/>
+                <Button Content="Disconnect" Style="{StaticResource SmallButton}" Click="RaClear_Click"/>
+              </StackPanel>
+              <TextBlock x:Name="RaStatus" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,8,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+            <StackPanel>
               <DockPanel>
                 <ToggleButton x:Name="BoostBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="Boost_Click"/>
                 <StackPanel>
@@ -1506,6 +1529,39 @@
                       <TextBlock Text="{Binding SizeText}" Foreground="{DynamicResource Muted}" Margin="0,10,0,0"/>
                     </StackPanel>
                   </UniformGrid>
+                  <!-- RetroAchievements progress, filled in by code when connected in Settings. -->
+                  <StackPanel x:Name="GameCheevos" Margin="0,0,0,18" Visibility="Collapsed">
+                    <DockPanel Margin="0,0,0,6">
+                      <Button x:Name="GameCheevosLink" DockPanel.Dock="Right" Content="Open on RetroAchievements" Style="{StaticResource LinkButton}"
+                              Padding="6,2" MinHeight="0" FontSize="12" Click="GameCheevosLink_Click"/>
+                      <TextBlock Text="ACHIEVEMENTS" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" Margin="0"/>
+                    </DockPanel>
+                    <TextBlock x:Name="GameCheevosText" Foreground="{DynamicResource Muted}" TextWrapping="Wrap"/>
+                    <ProgressBar x:Name="GameCheevosBar" Height="4" Maximum="1" Margin="0,8,0,10"/>
+                    <ItemsControl x:Name="GameCheevosList">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Width="44" Height="44" CornerRadius="6" Margin="0,0,6,6" ToolTip="{Binding Tip}" Background="{DynamicResource Raised}">
+                            <Border.Style>
+                              <Style TargetType="Border">
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding Earned}" Value="False">
+                                    <Setter Property="Opacity" Value="0.45"/>
+                                  </DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </Border.Style>
+                            <Image Source="{Binding BadgeUrl}" Stretch="UniformToFill"/>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
                   <TextBlock Text="File" Style="{StaticResource FieldLabel}"/>
                   <TextBlock Text="{Binding Path}" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,0,0,18"/>
                   <WrapPanel>

@@ -77,6 +77,7 @@ public partial class MainWindow
         GameEmuPanel.Visibility = choices.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         _gamesFilling = false;
         PaintPlay(rom);
+        ShowCheevos(rom);
     }
 
     /// <summary>Installed emulators that can open this game, the one the user picked first.</summary>

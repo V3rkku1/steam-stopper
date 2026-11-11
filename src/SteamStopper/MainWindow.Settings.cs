@@ -47,6 +47,7 @@ public partial class MainWindow
             ThemeBar.Children.Add(button);
         }
 
+        InitCheevos();
         BoostBox.IsChecked = _settings.GameBoost;
         BoostAppsBox.Text = string.Join(Environment.NewLine, _settings.GameBoostApps);
         SettingsAbout.Text = $"Steam Stopper {Core.Updater.Version}  ·  Steam folder: {_steamRoot ?? "not found"}";
@@ -79,7 +80,7 @@ public partial class MainWindow
         Theme.Apply("game", accent);
         ThemeHint.Text = accent is null
             ? "From my game: no game cover with colour yet. Add games on the Games tab and it follows the one you play most."
-            : $"From my game: coloured by {game!.Title}, your most played game.";
+            : $"From my game: coloured by {game!.Title}, {(game.PlaySeconds > 0 ? "your most played game" : "your newest game until you play one")}.";
     }
 
     private void Settings_Click(object sender, RoutedEventArgs e)

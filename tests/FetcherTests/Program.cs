@@ -350,6 +350,22 @@ Directory.Delete(saveApp, true);
 if (Directory.Exists(SaveBackup.FolderFor("TestEmu"))) Directory.Delete(SaveBackup.FolderFor("TestEmu"), true);
 if (Directory.Exists(SaveBackup.Root) && !Directory.EnumerateFileSystemEntries(SaveBackup.Root).Any()) Directory.Delete(SaveBackup.Root);
 SaveBackup.Places.Remove("TestEmu");
+var raList = """
+[{"Title":"Legend of Zelda, The: Ocarina of Time ~Hack~ Master Quest","ID":900,"ConsoleID":2},
+ {"Title":"Legend of Zelda, The: Ocarina of Time","ID":3,"ConsoleID":2},
+ {"Title":"Mario Kart 64","ID":10,"ConsoleID":2}]
+""";
+Check("retroachievements: title match prefers the main set",
+    Cheevos.Match(raList, "Legend of Zelda, The - Ocarina of Time (USA)", "The Legend of Zelda - Ocarina of Time") == 3
+    && Cheevos.Match(raList, "Pilotwings 64 (USA)", "Pilotwings 64") is null);
+var raProgress = Cheevos.ParseProgress("""
+{"ID":3,"Title":"Legend of Zelda, The: Ocarina of Time","Achievements":{
+ "1":{"Title":"Kokiri","Description":"Get the sword","Points":5,"BadgeName":"111","DateEarned":"2025-01-01 10:00:00"},
+ "2":{"Title":"Master","Description":"Beat Ganon","Points":50,"BadgeName":"222"}}}
+""");
+Check("retroachievements: progress counts earned and lists earned first",
+    raProgress.Total == 2 && raProgress.Earned == 1 && raProgress.List[0].Title == "Kokiri"
+    && raProgress.List[1].BadgeUrl.EndsWith("222_lock.png") && raProgress.List[0].BadgeUrl.EndsWith("111.png"));
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",

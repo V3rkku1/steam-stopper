@@ -46,7 +46,11 @@ public partial class MainWindow
         _netLast = [];
         var error = _net.Start();
         NetHeadline.Text = error is null ? "Listening…" : "Not available";
-        if (error is not null) NetHint.Text = error;
+        if (error is not null)
+        {
+            NetHint.Text = error;
+            NetEmpty.Text = "Live numbers per app aren't available on this PC. Blocked apps still show here.";
+        }
         PaintNetwork();
     }
 

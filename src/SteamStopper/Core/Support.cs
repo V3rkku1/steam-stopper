@@ -145,6 +145,9 @@ public sealed class AppSettings
     public List<string> BlockedApps { get; set; } = [];
     // Game boost: close these background apps while a game from the Games tab runs.
     public bool GameBoost { get; set; }
+    // RetroAchievements login; the Web API key is DPAPI-encrypted for this Windows user.
+    public string RaUser { get; set; } = "";
+    public string RaKeyProtected { get; set; } = "";
     public List<string> GameBoostApps { get; set; } = [.. Core.GameBoost.Suggested];
     // App key -> adapter name it was last pinned to.
     public Dictionary<string, string> RouteLinks { get; set; } = [];
