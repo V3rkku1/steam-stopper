@@ -433,5 +433,23 @@ Check("appid has the top bit set and matches the stored int; box art named <id>p
 Check("backup of the previous file kept", File.Exists(Path.Combine(cfg!, "shortcuts.vdf.bak")));
 
 Directory.Delete(dir, true);
+// The kernel network trace only exists on Windows (CI runs there, as administrator).
+if (OperatingSystem.IsWindows())
+{
+    using var net = new NetMonitor();
+    var netError = net.Start();
+    Check($"network monitor starts ({netError ?? "ok"})", netError is null);
+    if (netError is null)
+    {
+        using var web = new HttpClient();
+        var got = (await web.GetByteArrayAsync("https://github.com/")).Length;
+        await Task.Delay(3000);
+        var mine = net.Snapshot().GetValueOrDefault(Environment.ProcessId);
+        Check($"network monitor counts this process ({mine.Received} of {got} bytes received, {mine.Sent} sent)", mine.Received > got / 2 && mine.Sent > 0);
+        net.Stop();
+        Check("network monitor stops", !net.Running);
+    }
+}
+
 Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");
 return fails;

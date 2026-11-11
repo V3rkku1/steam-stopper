@@ -82,6 +82,12 @@
               <TextBlock Style="{StaticResource NavText}" Text="Fetch"/>
             </StackPanel>
           </RadioButton>
+          <RadioButton Style="{StaticResource NavItem}" Tag="network" Click="Nav_Click">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE9D9;"/>
+              <TextBlock Style="{StaticResource NavText}" Text="Network"/>
+            </StackPanel>
+          </RadioButton>
           <RadioButton Style="{StaticResource NavItem}" Tag="routes" Click="Nav_Click">
             <StackPanel Orientation="Horizontal">
               <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8AB;"/>
@@ -976,6 +982,66 @@
       </Grid>
 
       <!-- ===================== ROUTES ===================== -->
+      <!-- ===================== NETWORK ===================== -->
+      <Grid x:Name="PageNetwork" Visibility="Collapsed">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="14"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Border Style="{StaticResource HeroCard}">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+              <StackPanel Margin="0,0,28,0">
+                <TextBlock Text="DOWNLOAD" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                <TextBlock x:Name="NetDown" Text="—" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource Green}"/>
+              </StackPanel>
+              <StackPanel>
+                <TextBlock Text="UPLOAD" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                <TextBlock x:Name="NetUp" Text="—" FontSize="24" FontWeight="SemiBold" Foreground="{DynamicResource AccentText}"/>
+              </StackPanel>
+            </StackPanel>
+            <StackPanel VerticalAlignment="Center" Margin="0,0,24,0">
+              <TextBlock Text="WHAT USES YOUR INTERNET" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+              <TextBlock x:Name="NetHeadline" Text="Starting…" Style="{StaticResource Hero}" FontSize="30" TextTrimming="CharacterEllipsis"/>
+              <TextBlock x:Name="NetHint" Foreground="{DynamicResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap"
+                         Text="Live, per app, while this page is open. Block cuts an app off the internet with Windows Firewall until you unblock it."/>
+            </StackPanel>
+          </DockPanel>
+        </Border>
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="20,16,12,10">
+          <Grid>
+            <DataGrid x:Name="NetGrid" RowHeight="46" SelectionMode="Single">
+              <DataGrid.Columns>
+                <DataGridTemplateColumn Header="APP" Width="*" MinWidth="200">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <StackPanel VerticalAlignment="Center" ToolTip="{Binding Path}">
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                      </StackPanel>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="DOWN" Binding="{Binding DownText}" Width="100"/>
+                <DataGridTextColumn Header="UP" Binding="{Binding UpText}" Width="100"/>
+                <DataGridTextColumn Header="TOTAL" Binding="{Binding TotalText}" Width="90"/>
+                <DataGridTemplateColumn Width="110">
+                  <DataGridTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                      <Button Content="{Binding ActionText}" Style="{StaticResource SmallButton}" Click="NetBlock_Click"
+                              HorizontalAlignment="Right" Margin="0,0,8,0" IsEnabled="{Binding CanBlock}"/>
+                    </DataTemplate>
+                  </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+              </DataGrid.Columns>
+            </DataGrid>
+            <TextBlock x:Name="NetEmpty" Text="No app has used the internet since this page opened." Foreground="{DynamicResource Faint}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+          </Grid>
+        </Border>
+      </Grid>
+
       <Grid x:Name="PageRoutes" Visibility="Collapsed">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="0.9*"/>

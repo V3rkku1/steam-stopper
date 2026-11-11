@@ -17,5 +17,6 @@
     <Compile Include="../../src/SteamStopper/Core/SteamShortcuts.cs" />
     <Compile Include="../../src/SteamStopper/Core/Vdf.cs" />
     <Compile Include="../../src/SteamStopper/Core/SaveBackup.cs" />
+    <Compile Include="../../src/SteamStopper/Core/NetMonitor.cs" />
   </ItemGroup>
 </Project>

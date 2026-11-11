@@ -141,6 +141,8 @@ public sealed class AppSettings
     public string StartPage { get; set; } = "home";
     // Menu "side" (sidebar) or "top" (tab bar like Steam).
     public string NavPosition { get; set; } = "side";
+    // Programs blocked on the Network page (full paths).
+    public List<string> BlockedApps { get; set; } = [];
     // App key -> adapter name it was last pinned to.
     public Dictionary<string, string> RouteLinks { get; set; } = [];
     public string FetchFolder { get; set; } = "";

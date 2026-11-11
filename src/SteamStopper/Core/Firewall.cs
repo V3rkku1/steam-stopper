@@ -53,12 +53,30 @@ public static class Firewall
         return names.Count;
     }
 
-    private static void AddRule(string program, string direction)
+    // Rules for single apps blocked on the Network page. A prefix that doesn't start with Prefix, so
+    // "Let Steam online" (which deletes every Prefix rule) and the Steam blocked check leave them alone.
+    public const string AppPrefix = "SSBlockApp";
+
+    public static void BlockApp(string program)
+    {
+        AddRule(program, "out", AppPrefix);
+        AddRule(program, "in", AppPrefix);
+    }
+
+    public static void UnblockApp(string program)
+    {
+        foreach (var direction in new[] { "out", "in" })
+            RunNetsh($"advfirewall firewall delete rule name=\"{RuleName(program, direction, AppPrefix)}\"");
+    }
+
+    private static void AddRule(string program, string direction, string prefix = Prefix) =>
+        RunNetsh($"advfirewall firewall add rule name=\"{RuleName(program, direction, prefix)}\" dir={direction} action=block program=\"{program}\" enable=yes profile=any");
+
+    private static string RuleName(string program, string direction, string prefix)
     {
         var safe = Regex.Replace(Path.GetFileName(program), @"[^A-Za-z0-9._-]+", "_");
         var digest = Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(program.ToLowerInvariant())))[..10];
-        var name = $"{Prefix}-{direction}-{safe}-{digest}";
-        RunNetsh($"advfirewall firewall add rule name=\"{name}\" dir={direction} action=block program=\"{program}\" enable=yes profile=any");
+        return $"{prefix}-{direction}-{safe}-{digest}";
     }
 
     private static void RunNetsh(string args)

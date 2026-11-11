@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     {
         ["home"] = ("Home", "Your games, downloads and Steam at a glance"),
         ["settings"] = ("Settings", "Look, menu order and window behaviour"),
+        ["network"] = ("Network", "Which apps use your internet right now"),
         ["control"] = ("Control", "Cut Steam off the internet and manage the client"),
         ["downloads"] = ("Downloads", "Watch downloads and act when they finish"),
         ["library"] = ("Library", "Installed games, sizes and Steam maintenance"),
@@ -95,6 +96,7 @@ public partial class MainWindow : Window
         {
             ["home"] = PageHome,
             ["settings"] = PageSettings,
+            ["network"] = PageNetwork,
             ["control"] = PageControl,
             ["downloads"] = PageDownloads,
             ["library"] = PageLibrary,
@@ -136,6 +138,7 @@ public partial class MainWindow : Window
         _pollTimer.Tick += (_, _) => PaintBondSpeed();
         _pollTimer.Tick += (_, _) => PaintFetchSpeed();
         _pollTimer.Tick += (_, _) => { if (PageHome.IsVisible) PaintHome(); };
+        _pollTimer.Tick += (_, _) => { if (PageNetwork.IsVisible) PaintNetwork(); };
         _pollTimer.Start();
         _tray = new TrayIcon(
             isBlocked: () => _steamBlocked,
@@ -163,6 +166,8 @@ public partial class MainWindow : Window
             _tray?.Dispose();
             _tray = null;
             StopFetchJobs();
+            // A real-time trace session outlives the process unless stopped.
+            StopNetwork();
             PersistSettings();
             _pollTimer.Stop();
             _bonder.Stop();
@@ -309,6 +314,7 @@ public partial class MainWindow : Window
             page.Visibility = page == _pages[key] ? Visibility.Visible : Visibility.Collapsed;
         ShowPageHeader(key);
         if (key == "home") RefreshHome();
+        if (key == "network") StartNetwork(); else StopNetwork();
         if (key == "control") RefreshProcesses();
         if (key == "dns") RefreshDnsUi();
         if (key == "bond") RefreshBondUi();
