@@ -125,7 +125,7 @@ public static class RomLibrary
     // GameTDB (database zip, art folder) for consoles libretro has no box art for. Art is named by GameTDB's own game id.
     private static readonly Dictionary<string, (string Db, string Art)> TdbSystems = new()
     {
-        ["SWITCH"] = ("switchtdb", "switch"), ["WII U"] = ("wiiutdb", "wiiu")
+        ["SWITCH"] = ("switchtdb", "switch"), ["WII U"] = ("wiiutdb", "wiiu"), ["PS3"] = ("ps3tdb", "ps3")
     };
 
     private static string Dir => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SteamStopper");
@@ -344,7 +344,9 @@ public static class RomLibrary
         var cachedBase = System.IO.Path.Combine(CoverDir, Safe($"{rom.Console} - {file}"));
         if (new[] { ".png", ".jpg" }.Select(e => cachedBase + e).FirstOrDefault(File.Exists) is { } hit) return hit;
         var miss = cachedBase + ".png.none";
-        if (File.Exists(miss)) return null;
+        // A miss is retried after a week, or sooner once an update may have added a source.
+        if (File.Exists(miss) && File.GetLastWriteTimeUtc(miss) is var missed && missed > DateTime.UtcNow.AddDays(-7)
+            && (Environment.ProcessPath is not { } exe || missed > File.GetLastWriteTimeUtc(exe))) return null;
         try
         {
             Directory.CreateDirectory(CoverDir);
@@ -352,8 +354,11 @@ public static class RomLibrary
             foreach (var system in systems ?? [])
                 if (BestMatch(file, rom.Title, await IndexOf(system, http)) is { } name)
                     urls.Add($"https://thumbnails.libretro.com/{Uri.EscapeDataString(system)}/Named_Boxarts/{Uri.EscapeDataString(name)}.png");
-            if (hasTdb && TdbPick(file, rom.Title, await TdbIndexOf(tdb.Db, http)) is { } game)
-                urls.Add($"https://art.gametdb.com/{tdb.Art}/coverM/{game.Region}/{game.Id}.jpg");
+            // GameTDB keeps some art only in the full-size folder or under another region, so fall back to those.
+            if (hasTdb && TdbPick(file, rom.Title, await TdbIndexOf(tdb.Db, http), TitleId(rom.Path)) is { } game)
+                foreach (var kind in new[] { "coverM", "cover" })
+                    foreach (var region in new[] { game.Region, "US", "EN" }.Distinct())
+                        urls.Add($"https://art.gametdb.com/{tdb.Art}/{kind}/{region}/{game.Id}.jpg");
             foreach (var url in urls)
             {
                 using var response = await http.GetAsync(url);
@@ -395,22 +400,39 @@ public static class RomLibrary
 
     /// <summary>"name|id|art region" for every game in a GameTDB xml.</summary>
     public static IEnumerable<string> TdbLines(string xml) =>
-        Regex.Matches(xml, @"<game name=""([^""]+)"">\s*<id>([^<]+)</id>\s*<type>[^<]*</type>\s*<region>([^<]+)</region>")
+        Regex.Matches(xml, @"<game name=""([^""]+)"">\s*<id>([^<]+)</id>\s*<type>[^<]*</type>\s*(?:<region>([^<]*)</region>|<region\s*/>)")
             .Select(m => $"{System.Net.WebUtility.HtmlDecode(m.Groups[1].Value).Replace('|', ' ')}|{m.Groups[2].Value}|{ArtRegion(m.Groups[3].Value)}");
 
-    // Regions are lists like "USA,EUR" or "ALL"; art folders are US, EN (Europe and worldwide) and JA.
+    // Regions are lists like "USA,EUR" or "ALL" (PS3: NTSC-U, NTSC-J, PAL, or none); art folders are US, EN (Europe and worldwide) and JA.
     private static string ArtRegion(string regions) =>
-        regions.Contains("USA") ? "US" : regions.Contains("ALL") || regions.Contains("EUR") || !regions.StartsWith("JPN") ? "EN" : "JA";
+        regions.Contains("USA") || regions.Contains("NTSC-U") ? "US" : regions.StartsWith("JPN") || regions.StartsWith("NTSC-J") ? "JA" : "EN";
 
-    public static ILookup<string, string> TdbByKey(IEnumerable<string> lines) => lines.ToLookup(l => Key(l.Split('|')[0]));
+    // Each game is found by its name and by its id.
+    public static ILookup<string, string> TdbByKey(IEnumerable<string> lines) =>
+        lines.SelectMany(l => l.Split('|') is var p ? new[] { (Key(p[0]), l), (Key(p[1]), l) } : []).ToLookup(x => x.Item1, x => x.Item2);
 
-    /// <summary>The GameTDB game for a file, the US release first.</summary>
-    public static (string Id, string Region)? TdbPick(string file, string title, ILookup<string, string> games) =>
-        games[Key(file)].Concat(games[Key(title)])
+    /// <summary>The GameTDB game for a file: its own id first, else by name with the US release first.</summary>
+    public static (string Id, string Region)? TdbPick(string file, string title, ILookup<string, string> games, string? id = null) =>
+        (id is null ? [] : games[Key(id)]).Concat(games[Key(file)]).Concat(games[Key(title)])
             .Select(l => l.Split('|'))
-            .OrderBy(p => p[2] == "US" ? 0 : p[2] == "EN" ? 1 : 2)
+            .OrderBy(p => p[1] == id ? 0 : 1)
+            .ThenBy(p => p[2] == "US" ? 0 : p[2] == "EN" ? 1 : 2)
             .Select(p => ((string, string)?)(p[1], p[2]))
             .FirstOrDefault();
+
+    /// <summary>A PS3 title id like NPUA80490 from the file or folder name, else from a .pkg's content id.</summary>
+    public static string? TitleId(string path)
+    {
+        if (Regex.Match(System.IO.Path.GetFileName(path), @"[A-Z]{4}\d{5}") is { Success: true } m) return m.Value;
+        if (!path.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase)) return null;
+        try
+        {
+            using var s = File.OpenRead(path);
+            var id = Encoding.ASCII.GetString(Read(s, 0x37, 9));
+            return Regex.IsMatch(id, @"^[A-Z]{4}\d{5}$") ? id : null;
+        }
+        catch { return null; }
+    }
 
     private static readonly Dictionary<string, Task<ILookup<string, string>>> Indexes = [];
 

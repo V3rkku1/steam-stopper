@@ -409,6 +409,20 @@ Check("switch covers: scene file name finds the US release",
     RomLibrary.TdbPick("Super Mario Odyssey [0100000000010000][v0]", "Super Mario Odyssey", tdbGames) == ("AAACA", "US")
     && RomLibrary.TdbPick("Mario and Sonic", "Mario and Sonic", tdbGames) == ("AT4AB", "EN")
     && RomLibrary.TdbPick("Unknown Game", "Unknown Game", tdbGames) is null);
+var ps3Tdb = RomLibrary.TdbByKey(RomLibrary.TdbLines("""
+<game name="God of War HD (EN)">
+		<id>NPUA80490</id>
+		<type>SEN</type>
+		<region/>
+<game name="God of War Collection (USA) (EN)">
+		<id>BCUS98229</id>
+		<type>PS3</type>
+		<region>NTSC-U</region>
+"""));
+Check("ps3 covers: PSN games without a region, NTSC-U is US, found by title or by id in a pkg name",
+    RomLibrary.TdbPick("God of War HD", "God of War® HD", ps3Tdb) == ("NPUA80490", "EN")
+    && RomLibrary.TdbPick("God of War Collection", "God of War Collection", ps3Tdb) == ("BCUS98229", "US")
+    && RomLibrary.TitleId("UP9000-NPUA80490_00-GODOFWARHD000001.pkg") is "NPUA80490" && RomLibrary.TdbPick("x", "x", ps3Tdb, "NPUA80490") == ("NPUA80490", "EN"));
 var saveApp = Path.Combine(Path.GetTempPath(), "ss-saves-" + Guid.NewGuid().ToString("N"));
 SaveBackup.Places["TestEmu"] = [@"{app}\saves", @"{app}\missing"];
 Directory.CreateDirectory(Path.Combine(saveApp, "saves", "slot1"));
