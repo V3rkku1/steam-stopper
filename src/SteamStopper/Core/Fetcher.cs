@@ -236,6 +236,9 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
                 job.Save();
             }
             PrepareFile(job);
+            // A pause cancels workers mid-piece without releasing their pieces; free them, or resuming
+            // the same download skips them and stops short of the end.
+            lock (job.Gate) foreach (var segment in job.Segments) segment.Busy = false;
             job.SetState(FetchState.Downloading);
 
             Exception? fatal = null;
@@ -317,6 +320,53 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
         job.Segments = [new FetchSegment { Pos = 0, End = job.Total >= 0 ? job.Total : long.MaxValue }];
         job.Probed = true;
         job.ResetProgress();
+    }
+
+    /// <summary>
+    /// Point a stopped download at a new link (the old one expired or broke) and keep what is already
+    /// downloaded. Returns null when done, else why not. The new link must be the same file: same size.
+    /// </summary>
+    public async Task<string?> Relink(FetchJob job, string url, CancellationToken cancel)
+    {
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            return "That isn't an http:// or https:// link.";
+        if (job.Running) return "Pause the download first.";
+        if (!job.Probed)
+        {
+            job.Url = uri.ToString();
+            return null;
+        }
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        request.Headers.Range = new RangeHeaderValue(0, 0);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+        timeout.CancelAfter(Stall);
+        HttpResponseMessage response;
+        try { response = await ClientFor(null).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token); }
+        catch (Exception ex) when (!cancel.IsCancellationRequested) { return "The new link didn't answer: " + Describe(ex); }
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode) return $"The new link answered {(int)response.StatusCode} {response.ReasonPhrase}.";
+            var range = response.Content.Headers.ContentRange;
+            var ranged = response.StatusCode == HttpStatusCode.PartialContent && range?.Length is not null;
+            var total = ranged ? range!.Length!.Value : response.Content.Headers.ContentLength ?? -1;
+            if (job.Total > 0 && total != job.Total)
+                return $"The new link is a different file ({(total < 0 ? "unknown size" : Format.Bytes(total))}; this download is {Format.Bytes(job.Total)}).";
+            lock (job.Gate)
+            {
+                job.Url = uri.ToString();
+                job.ResolvedUrl = (response.RequestMessage?.RequestUri ?? uri).ToString();
+                job.Validator = response.Headers.ETag is { IsWeak: false } etag ? etag.Tag : response.Content.Headers.LastModified?.ToString("R") ?? "";
+                if (!ranged)
+                {
+                    // No resume on this server: the only way is from the start.
+                    job.Ranged = false;
+                    job.Segments = [new FetchSegment { Pos = 0, End = job.Total >= 0 ? job.Total : long.MaxValue }];
+                }
+            }
+            job.ResetProgress();
+            job.Save();
+            return null;
+        }
     }
 
     private static void PrepareFile(FetchJob job)

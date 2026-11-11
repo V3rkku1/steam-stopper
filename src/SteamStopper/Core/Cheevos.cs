@@ -69,6 +69,21 @@ public static class Cheevos
     public static async Task<CheevoGame> Progress(int gameId, string user, string key, HttpClient http) =>
         ParseProgress(await http.GetStringAsync($"{Api}API_GetGameInfoAndUserProgress.php?g={gameId}&u={Uri.EscapeDataString(user)}&{Auth(user, key)}"));
 
+    /// <summary>Achievements earned in the last few minutes, newest first, keyed by achievement id.</summary>
+    public static async Task<List<(int Id, Cheevo Cheevo, string Game)>> Recent(string user, string key, HttpClient http, int minutes = 10) =>
+        ParseRecent(await http.GetStringAsync($"{Api}API_GetUserRecentAchievements.php?u={Uri.EscapeDataString(user)}&m={minutes}&{Auth(user, key)}"));
+
+    public static List<(int Id, Cheevo Cheevo, string Game)> ParseRecent(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.ValueKind != JsonValueKind.Array ? [] : doc.RootElement.EnumerateArray().Select(a => (
+            a.GetProperty("AchievementID").GetInt32(),
+            new Cheevo(a.GetProperty("Title").GetString() ?? "", a.TryGetProperty("Description", out var d) ? d.GetString() ?? "" : "",
+                a.TryGetProperty("Points", out var p) && p.ValueKind == JsonValueKind.Number ? p.GetInt32() : 0,
+                a.TryGetProperty("BadgeName", out var b) ? b.GetString() ?? "" : "", true),
+            a.TryGetProperty("GameTitle", out var g) ? g.GetString() ?? "" : "")).ToList();
+    }
+
     public static CheevoGame ParseProgress(string json)
     {
         using var doc = JsonDocument.Parse(json);

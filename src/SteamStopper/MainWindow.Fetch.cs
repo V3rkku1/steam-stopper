@@ -348,6 +348,7 @@ public partial class MainWindow
                 "Open" => picked.Any(j => j.State == FetchState.Done && File.Exists(j.FinalPath)),
                 "Resume" => picked.Count == 0 ? _fetchJobs.Any(j => j.CanResume) : picked.Any(j => j.CanResume),
                 "Pause" => picked.Any(j => j.Running || j.State == FetchState.Queued),
+                "Continue with a new link" => picked is [{ CanResume: true }],
                 "Remove" or "Show in folder" => true,
                 _ => picked.Count > 0
             };
@@ -357,6 +358,33 @@ public partial class MainWindow
     {
         if (SelectedFetchJobs().FirstOrDefault(j => j.State == FetchState.Done && File.Exists(j.FinalPath)) is { } job)
             Process.Start(new ProcessStartInfo(job.FinalPath) { UseShellExecute = true })?.Dispose();
+    }
+
+    /// <summary>Swap an expired or broken link for a fresh one to the same file, keeping what's downloaded.</summary>
+    private async void FetchRelink_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedFetchJobs() is not [{ CanResume: true } job]) return;
+        var typed = ParseLinks(FetchUrlBox.Text);
+        var url = typed.Count == 1 ? typed[0] : "";
+        if (url.Length == 0)
+            try { url = Clipboard.ContainsText() ? ParseLinks(Clipboard.GetText()).FirstOrDefault() ?? "" : ""; }
+            catch { } // another app holding the clipboard
+        if (url.Length == 0)
+        {
+            FetchBusy.Text = "Copy the new link (or paste it in the Links box) first, then choose Continue with a new link.";
+            return;
+        }
+        FetchBusy.Text = "Checking the new link…";
+        var error = await FetchEngine.Relink(job, url, CancellationToken.None);
+        if (error is not null)
+        {
+            FetchBusy.Text = error;
+            return;
+        }
+        if (typed.Count == 1) FetchUrlBox.Clear();
+        FetchBusy.Text = $"{job.Name} continues from the new link.";
+        job.SetState(FetchState.Queued);
+        PumpFetch();
     }
 
     private void FetchCopyLink_Click(object sender, RoutedEventArgs e)
