@@ -346,6 +346,9 @@ using (var z = System.IO.Compression.ZipFile.Open(evil, System.IO.Compression.Zi
 SaveBackup.Restore("TestEmu", saveApp, evil);
 Check("restore never writes outside the save folder", !File.Exists(Path.Combine(saveApp, "..", "escaped.txt")) && !File.Exists(Path.Combine(saveApp, "escaped.txt")));
 Directory.Delete(saveApp, true);
+// Restore also left a "Before restore" zip in the real backups folder.
+if (Directory.Exists(SaveBackup.FolderFor("TestEmu"))) Directory.Delete(SaveBackup.FolderFor("TestEmu"), true);
+if (Directory.Exists(SaveBackup.Root) && !Directory.EnumerateFileSystemEntries(SaveBackup.Root).Any()) Directory.Delete(SaveBackup.Root);
 SaveBackup.Places.Remove("TestEmu");
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
