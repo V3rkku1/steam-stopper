@@ -6,6 +6,7 @@
         WindowStyle="None" ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen" Background="{DynamicResource Bg}"
         BorderBrush="{DynamicResource Line}" BorderThickness="1">
+  <Grid>
   <DockPanel>
     <Border x:Name="SidebarPanel" DockPanel.Dock="Left" Width="212" Background="{DynamicResource Sidebar}"
             BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
@@ -373,7 +374,11 @@
                         <Button.Template>
                           <ControlTemplate TargetType="Button">
                             <StackPanel Width="150">
-                              <Grid Height="200">
+                              <!-- Lifts a little under the mouse, like a card on iOS. -->
+                              <Grid x:Name="Lift" Height="200">
+                                <Grid.RenderTransform>
+                                  <TranslateTransform/>
+                                </Grid.RenderTransform>
                                 <Border CornerRadius="8" Background="{Binding Color, Converter={StaticResource HexBrush}}">
                                   <TextBlock Text="{Binding Initials}" Foreground="White" FontSize="30" FontWeight="Black"
                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -390,6 +395,24 @@
                             </StackPanel>
                             <ControlTemplate.Triggers>
                               <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                  <BeginStoryboard>
+                                    <Storyboard>
+                                      <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" To="-5" Duration="0:0:0.16">
+                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                      </DoubleAnimation>
+                                    </Storyboard>
+                                  </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                  <BeginStoryboard>
+                                    <Storyboard>
+                                      <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" To="0" Duration="0:0:0.2">
+                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                      </DoubleAnimation>
+                                    </Storyboard>
+                                  </BeginStoryboard>
+                                </Trigger.ExitActions>
                                 <Setter TargetName="Ring" Property="Opacity" Value="1"/>
                               </Trigger>
                             </ControlTemplate.Triggers>
@@ -1663,6 +1686,10 @@
                 <Button Click="ConsoleTile_Click" Cursor="Hand" Margin="0,0,12,12" Height="118" ToolTip="{Binding Maker}">
                   <Button.Template>
                     <ControlTemplate TargetType="Button">
+                      <Grid x:Name="Lift">
+                      <Grid.RenderTransform>
+                        <TranslateTransform/>
+                      </Grid.RenderTransform>
                       <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5" ClipToBounds="True">
                         <Grid.RenderTransform>
                           <ScaleTransform/>
@@ -1692,8 +1719,27 @@
                           </Viewbox>
                         </DockPanel>
                       </Grid>
+                      </Grid>
                       <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                  <BeginStoryboard>
+                                    <Storyboard>
+                                      <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" To="-5" Duration="0:0:0.16">
+                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                      </DoubleAnimation>
+                                    </Storyboard>
+                                  </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                  <BeginStoryboard>
+                                    <Storyboard>
+                                      <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" To="0" Duration="0:0:0.2">
+                                        <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                      </DoubleAnimation>
+                                    </Storyboard>
+                                  </BeginStoryboard>
+                                </Trigger.ExitActions>
                           <Setter TargetName="Ring" Property="BorderBrush" Value="#CCFFFFFF"/>
                           <Setter TargetName="Ring" Property="BorderThickness" Value="2"/>
                         </Trigger>
@@ -1797,4 +1843,20 @@
       </DockPanel>
     </Grid>
   </DockPanel>
+
+  <!-- Start-up animation: the gear turns into place and the play button pops in, then it all fades away. -->
+  <Grid x:Name="IntroOverlay" Background="{DynamicResource Bg}" IsHitTestVisible="False">
+    <Grid Width="120" Height="120">
+      <Image x:Name="IntroTile" Source="Assets/intro-tile.png" RenderTransformOrigin="0.5,0.5">
+        <Image.RenderTransform><ScaleTransform/></Image.RenderTransform>
+      </Image>
+      <Image x:Name="IntroGear" Source="Assets/intro-gear.png" RenderTransformOrigin="0.5,0.5">
+        <Image.RenderTransform><RotateTransform/></Image.RenderTransform>
+      </Image>
+      <Image x:Name="IntroPlay" Source="Assets/intro-play.png" RenderTransformOrigin="0.5,0.5">
+        <Image.RenderTransform><ScaleTransform/></Image.RenderTransform>
+      </Image>
+    </Grid>
+  </Grid>
+  </Grid>
 </Window>

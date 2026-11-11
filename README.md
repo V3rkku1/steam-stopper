@@ -27,6 +27,19 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.5
+
+Steam Stopper is now **Steam Multitool**, with a new icon, a splash screen and a faster start.
+
+- **Home**: your games, downloads, Steam and updates at a glance, with a Continue playing shelf.
+- **Settings** (gear in the corner): themes (Steam Multitool, Steam, Liquid Glass, From my game, or your own CSS file), menu on the left or on top, drag menu items to reorder, start page, close button.
+- **Network**: live download and upload per app, with Block.
+- **Download doctor**: finds out whether your line, Steam or distance makes Steam downloads slow.
+- **Fetch**: shut down or sleep when all downloads finish, speed limit, right-click menu, time left.
+- **Games**: RetroAchievements on each game's page, save backups for emulators and PC ports, game boost.
+- **PC ports**: Zelda64Recomp, Ship of Harkinian, 2Ship2Harkinian and Starship join Hookshot and Dusklight.
+- Smooth page transitions, a start-up animation and dark tooltips and menus everywhere.
+
 ## What's new in 2.5.4
 
 - **Switch and Wii U box art**: covers now download automatically for Switch and Wii U games too, matched by title.

@@ -129,6 +129,7 @@ public partial class MainWindow : Window
         Loaded += (_, _) => StartUpdateChecks();
         ContentRendered += (_, _) =>
         {
+            PlayIntro();
             RefreshHome();
             if (_settings.Theme == "game") ApplyTheme();
         };
@@ -321,6 +322,7 @@ public partial class MainWindow : Window
         foreach (var (name, page) in _pages)
             // Apps and Emulators share one page, so compare pages rather than keys.
             page.Visibility = page == _pages[key] ? Visibility.Visible : Visibility.Collapsed;
+        SlideIn(_pages[key]);
         ShowPageHeader(key);
         if (key == "home") RefreshHome();
         if (key == "network") StartNetwork(); else StopNetwork();

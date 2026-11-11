@@ -17,9 +17,9 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
     <PublishReadyToRun>true</PublishReadyToRun>
-    <Version>2.5.4</Version>
-    <FileVersion>2.5.4</FileVersion>
-    <AssemblyVersion>2.5.4</AssemblyVersion>
+    <Version>2.5.5</Version>
+    <FileVersion>2.5.5</FileVersion>
+    <AssemblyVersion>2.5.5</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />
@@ -30,6 +30,7 @@
     <Content Include="FeedUrl.txt" CopyToOutputDirectory="PreserveNewest" />
     <Resource Include="Assets\app.ico" />
     <Resource Include="Assets\apps\*.png" />
+    <Resource Include="Assets\intro-*.png" />
     <!-- Shown by WPF the moment the process starts, before the window is built; closes itself when it appears. -->
     <SplashScreen Include="Assets\splash.png" />
   </ItemGroup>

@@ -32,6 +32,14 @@ jobs:
       - name: Build
         run: dotnet publish src/SteamStopper/SteamStopper.csproj -c Release -o dist/app
 
+      # The installer is otherwise only built when releasing; build it here so a WiX mistake shows up first.
+      - name: Build MSI
+        shell: pwsh
+        run: |
+          Copy-Item src/SteamStopper/FeedUrl.txt, installer/EnsureDotNet.bat dist/app/ -ErrorAction SilentlyContinue
+          dotnet build installer/SteamStopper.wixproj -c Release -p:PublishDir="$PWD\dist\app\"
+          if (-not (Get-ChildItem installer/bin -Recurse -Filter SteamStopper.msi)) { throw "MSI not built" }
+
       # The app must start and keep running; a crash at startup fails the job.
       - name: Start the app
         shell: pwsh

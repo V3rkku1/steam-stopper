@@ -1,16 +1,24 @@
+**Steam Stopper is now Steam Multitool.** Same app, new name, new icon. Settings, saves and auto-update carry over.
+
 ## New
 
-- **Switch and Wii U box art**: covers download automatically from GameTDB, matched by game title. File names with title IDs like `Game [0100…][v0].nsp` work too. The US cover is preferred.
-- **PC ports tab** on the Emulators page, next to Consoles:
-  - **Hookshot**: native PC port of Ocarina of Time (Switch 2 remake). Builds the game from your own `.nup`. Needs a Vulkan 1.3 GPU with mesh shaders and about 60 GB free.
-  - **Dusklight**: native PC port of Twilight Princess. Runs from your own GameCube or Wii disc dump (`.iso`, `.rvz`).
-  - Install, Play, Update and Remove work like for emulators.
-- **Check for updates** button on the Emulators tab: checks every downloaded emulator and port now, and names any it couldn't reach instead of calling them up to date.
+- **Home page**: greeting, a Continue playing shelf with covers, and Steam, download and update cards.
+- **Settings** behind the gear in the title bar:
+  - Themes: Steam Multitool, Steam, **Liquid Glass** (iOS-style see-through glass on Windows 11), **From my game** (colour from your most played game's cover).
+  - **Your own CSS themes**: New theme writes the current colours to a CSS file and opens it; the app updates every time you save.
+  - Menu on the left or **on top** like Steam, **drag menu items to reorder**, start page, close button behaviour.
+  - **Save backups** for emulators and PC ports, **game boost** (closes background apps while you play) and **RetroAchievements** login.
+- **Network page**: live download and upload per app, with a Block button (Windows Firewall).
+- **Download doctor** (Downloads page): tests Steam's servers near you and your line, and tells you which one is the limit.
+- **Fetch**: shut down, sleep, hibernate or restart when all downloads finish (60 s countdown), speed limit, right-click menu, total time left, taskbar progress, drag links in.
+- **Games**: RetroAchievements progress and badges on each game's page; Back up saves.
+- **PC ports**: Zelda64Recomp, Ship of Harkinian, 2Ship2Harkinian and Starship.
 
 ## Improved
 
-- Games tab: the Library header no longer gets squeezed; Get Emulator is a blue button with a download arrow; the empty emulator picker is hidden.
-- Game names like "Legend of Zelda, The - Ocarina of Time" now read "The Legend of Zelda - Ocarina of Time" (for newly added games).
+- Splash screen and faster start (precompiled), start-up animation, smooth page transitions and lift on hover.
+- Dark tooltips and menus instead of white boxes.
+- Uninstalling removes the app's firewall rules.
 
 ## Downloads
 

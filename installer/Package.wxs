@@ -65,6 +65,13 @@
                   Execute="deferred"
                   Impersonate="no"
                   Return="ignore" />
+    <!-- Uninstall: drop the app's firewall rules (Steam block and apps blocked on the Network page) and its network trace. -->
+    <CustomAction Id="CleanUp"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="[System64Folder]WindowsPowerShell\v1.0\powershell.exe -NoProfile -Command &quot;Get-NetFirewallRule -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like 'SteamStopper*' -or $_.DisplayName -like 'SSBlockApp*' } | Remove-NetFirewallRule; logman stop SteamStopperNet -ets&quot;"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
     <CustomAction Id="LaunchApp"
                   Directory="INSTALLFOLDER"
                   ExeCommand="[INSTALLFOLDER]SteamStopper.exe"
@@ -75,6 +82,7 @@
     <InstallExecuteSequence>
       <Custom Action="RunEnsureDotNet" After="InstallFiles" Condition="NOT Installed" />
       <Custom Action="LaunchApp" After="InstallFinalize" Condition="NOT Installed" />
+      <Custom Action="CleanUp" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
   </Package>
 </Wix>
