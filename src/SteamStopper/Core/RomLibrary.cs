@@ -199,6 +199,10 @@ public static class RomLibrary
         return System.IO.Path.GetFileName(folder.TrimEnd('\\', '/'));
     }
 
+    /// <summary>Cheap check for the folder watcher: could this path be (part of) a game? No file is opened.</summary>
+    public static bool LooksLikeGame(string path) =>
+        ByExtension.ContainsKey(System.IO.Path.GetExtension(path)) || System.IO.Path.GetFileName(path).Equals("eboot.bin", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>Console for a game file, "" when it is a game but the console is unclear, null when it isn't a game.</summary>
     public static string? ConsoleOf(string file)
     {

@@ -33,6 +33,7 @@ public partial class MainWindow
             GamesList.ItemsSource = _gamesView;
             GameConsoleBox.ItemsSource = AppHub.Consoles.Where(c => c.Name is not ("ALL-IN-ONE" or "RECOMP")).Select(c => c.Maker).ToList();
             _ = LoadCoversAsync(_library.Games.ToList());
+            WatchLibrary();
         }
         // Emulators may have been installed or removed on the Emulators tab since last time.
         _emuInstalled = AppHub.Snapshot(AppHub.Emulators).Where(e => e.LaunchPath is not null).ToList();
@@ -301,14 +302,17 @@ public partial class MainWindow
     }
 
     /// <summary>Remember new folders, add single files, then scan every folder for games not in the list yet.</summary>
-    private async Task AddToLibrary(IEnumerable<string> folders, IEnumerable<string> files)
+    /// <param name="quiet">From the folder watcher: say nothing unless something was found, and keep the selection.</param>
+    private async Task AddToLibrary(IEnumerable<string> folders, IEnumerable<string> files, bool quiet = false)
     {
         if (_library is null) RefreshGamesUi();
         var store = _library!;
+        var newFolder = false;
         foreach (var folder in folders)
-            if (!store.Folders.Contains(folder, StringComparer.OrdinalIgnoreCase)) store.Folders.Add(folder);
+            if (!store.Folders.Contains(folder, StringComparer.OrdinalIgnoreCase)) { store.Folders.Add(folder); newFolder = true; }
+        if (newFolder) WatchLibrary();
         var before = store.Games.Count;
-        StatusText.Text = "Looking for games…";
+        if (!quiet) StatusText.Text = "Looking for games…";
         // Scan into a copy off the UI thread; the list the UI shows is only touched here.
         var scanned = await Task.Run(() =>
         {
@@ -322,17 +326,62 @@ public partial class MainWindow
         store.Games.AddRange(scanned);
         RomLibrary.Save(store);
         PaintGames();
-        StatusText.Text = scanned.Count switch
-        {
-            0 => "No new games found.",
-            1 => "Added 1 game.",
-            _ => $"Added {scanned.Count} games."
-        };
+        if (!quiet || scanned.Count > 0)
+            StatusText.Text = scanned.Count switch
+            {
+                0 => "No new games found.",
+                1 => $"Added {(quiet ? scanned[0].Title + " from your games folder" : "1 game")}.",
+                _ => $"Added {scanned.Count} games{(quiet ? " from your games folders" : "")}."
+            };
         if (scanned.Count > 0)
         {
-            GamesList.SelectedItem = scanned[0];
+            if (!quiet) GamesList.SelectedItem = scanned[0];
             _ = LoadCoversAsync(scanned);
+            if (PageHome.IsVisible) RefreshHome();
         }
+    }
+
+    private readonly List<FileSystemWatcher> _libraryWatchers = [];
+    private CancellationTokenSource? _libraryScanWait;
+
+    /// <summary>Watch the library folders, so a game dropped or copied into one shows up without Rescan.</summary>
+    private void WatchLibrary()
+    {
+        foreach (var old in _libraryWatchers) old.Dispose();
+        _libraryWatchers.Clear();
+        foreach (var folder in _library!.Folders.Where(Directory.Exists))
+        {
+            try
+            {
+                var watcher = new FileSystemWatcher(folder)
+                {
+                    IncludeSubdirectories = true,
+                    NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.Size,
+                    InternalBufferSize = 64 * 1024
+                };
+                watcher.Created += OnLibraryChanged;
+                watcher.Changed += OnLibraryChanged;
+                watcher.Renamed += (s, e) => OnLibraryChanged(s, e);
+                watcher.EnableRaisingEvents = true;
+                _libraryWatchers.Add(watcher);
+            }
+            catch { } // a drive that went away or a folder Windows won't watch: Rescan still works
+        }
+    }
+
+    private void OnLibraryChanged(object sender, FileSystemEventArgs e)
+    {
+        // Saves, screenshots and the like in the same folders aren't games; a new folder may hold some.
+        if (!RomLibrary.LooksLikeGame(e.FullPath) && !Directory.Exists(e.FullPath)) return;
+        Dispatcher.BeginInvoke(async () =>
+        {
+            // A big copy keeps changing the file; scan once it has been still for 5 seconds.
+            _libraryScanWait?.Cancel();
+            var wait = _libraryScanWait = new CancellationTokenSource();
+            try { await Task.Delay(TimeSpan.FromSeconds(5), wait.Token); }
+            catch (OperationCanceledException) { return; }
+            await AddToLibrary([], [], quiet: true);
+        });
     }
 
     /// <summary>Fill in box art one game at a time, so a big library doesn't flood the art server.</summary>
