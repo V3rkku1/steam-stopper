@@ -59,7 +59,9 @@ public sealed class BondLink : INotifyPropertyChanged
     internal void Sample(double seconds)
     {
         var bytes = Interlocked.Read(ref ByteCount);
-        _bps = seconds > 0 ? Math.Max(0, bytes - _lastBytes) / seconds : 0;
+        // Smoothed so a second without a finished chunk doesn't show the link as idle ("—").
+        var now = seconds > 0 ? Math.Max(0, bytes - _lastBytes) / seconds : 0;
+        _bps = seconds <= 0 ? 0 : _bps > 0 ? _bps * 0.6 + now * 0.4 : now;
         _lastBytes = bytes;
         _bytesShown = bytes;
         _activeShown = Volatile.Read(ref ActiveCount);

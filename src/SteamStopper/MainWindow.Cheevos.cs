@@ -121,6 +121,28 @@ public partial class MainWindow
         GameCheevosLink.Visibility = Visibility.Visible;
     }
 
+    /// <summary>While a game runs, look for new unlocks once a minute and show each as a banner.</summary>
+    private async Task WatchCheevos(Task gameEnded)
+    {
+        if (!RaConnected) return;
+        var user = _settings.RaUser;
+        var key = RaKey();
+        HashSet<int> seen;
+        // What was already earned before the game started doesn't pop up.
+        try { seen = (await Cheevos.Recent(user, key, CheevoHttp, 60)).Select(r => r.Id).ToHashSet(); }
+        catch { return; } // offline or RetroAchievements down: no banners this session
+        while (await Task.WhenAny(gameEnded, Task.Delay(TimeSpan.FromSeconds(60))) != gameEnded)
+        {
+            try
+            {
+                foreach (var (id, cheevo, game) in (await Cheevos.Recent(user, key, CheevoHttp)).Where(r => seen.Add(r.Id)).Reverse())
+                    new AchievementToast(cheevo, game).Show();
+            }
+            catch { } // one missed check is fine; try again next minute
+        }
+        _cheevoCache.Clear(); // the game page shows the new progress
+    }
+
     private void GameCheevosLink_Click(object sender, RoutedEventArgs e)
     {
         if (GameCheevosLink.Tag is string url) Process.Start(new ProcessStartInfo(url) { UseShellExecute = true })?.Dispose();

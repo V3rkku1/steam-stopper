@@ -312,9 +312,36 @@ public partial class MainWindow : Window
         BorderThickness = WindowState == WindowState.Maximized ? new Thickness(8) : new Thickness(1);
     }
 
+    // The sidebar groups and their pages; a group opens on the page it showed last.
+    private static readonly (string Key, string[] Pages)[] NavGroups =
+    [
+        ("home", ["home"]), ("steam", ["control", "downloads", "library"]), ("games", ["games", "emulators"]),
+        ("fetch", ["fetch"]), ("net", ["network", "bond", "routes", "dns"]), ("tools", ["clean", "organize", "apps"])
+    ];
+    private readonly Dictionary<string, string> _groupLast = [];
+
     private void Nav_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is RadioButton { Tag: string key }) ShowPage(key);
+        if (sender is RadioButton { Tag: string group } && NavGroups.FirstOrDefault(g => g.Key == group) is { Pages: { } pages })
+            GoTo(_groupLast.GetValueOrDefault(group, pages[0]));
+    }
+
+    /// <summary>Open a page: tick its group in the menu and show the group's pages as tabs in the title bar.</summary>
+    private void GoTo(string page)
+    {
+        var (group, pages) = NavGroups.FirstOrDefault(g => g.Pages.Contains(page));
+        if (group is null) return;
+        _groupLast[group] = page;
+        foreach (var nav in NavItems) nav.IsChecked = (string)nav.Tag == group;
+        SubTabs.Children.Clear();
+        foreach (var p in pages)
+        {
+            var tab = new RadioButton { Content = PageTitles[p].Title, Tag = p, GroupName = "SubTab", Style = (Style)FindResource("Segment"), IsChecked = p == page };
+            tab.Click += (_, _) => GoTo(p);
+            SubTabs.Children.Add(tab);
+        }
+        SubTabBar.Visibility = pages.Length > 1 ? Visibility.Visible : Visibility.Collapsed;
+        ShowPage(page);
     }
 
     private void ShowPage(string key)
@@ -359,8 +386,7 @@ public partial class MainWindow : Window
 
     private void OpenDownloads_Click(object sender, RoutedEventArgs e)
     {
-        NavDownloads.IsChecked = true;
-        Nav_Click(NavDownloads, e);
+        GoTo("downloads");
     }
 
     private void BlockSwitch_Click(object sender, RoutedEventArgs e)

@@ -24,6 +24,8 @@ public partial class MainWindow
     {
         _defaultNavOrder = NavItems.Select(n => (string)n.Tag).ToList();
         _navSideHost = (Panel)NavList.Parent;
+        // An order saved before the menu became six groups names pages, not groups: start fresh.
+        if (_settings.NavOrder.Any(k => NavGroups.All(g => g.Key != k))) _settings.NavOrder = [];
         ApplyNavOrder(_settings.NavOrder);
         ApplyNavPosition(_settings.NavPosition == "top");
         NavList.PreviewMouseLeftButtonDown += NavList_MouseDown;
@@ -56,17 +58,13 @@ public partial class MainWindow
         BoostAppsBox.Text = string.Join(Environment.NewLine, _settings.GameBoostApps);
         SettingsAbout.Text = $"Steam Multitool {Core.Updater.Version}  ·  Steam folder: {_steamRoot ?? "not found"}";
         _settingsFilling = true;
-        StartPageBox.ItemsSource = _defaultNavOrder.Select(k => PageTitles[k].Title).ToList();
+        StartPageBox.ItemsSource = NavGroups.SelectMany(g => g.Pages).Select(k => PageTitles[k].Title).ToList();
         StartPageBox.SelectedItem = PageTitles.GetValueOrDefault(_settings.StartPage, PageTitles["home"]).Title;
         CloseActionBox.ItemsSource = CloseActions.Values.ToList();
         CloseActionBox.SelectedItem = CloseActions.GetValueOrDefault(_settings.CloseAction, CloseActions["ask"]);
         _settingsFilling = false;
 
-        if (_settings.StartPage != "home" && NavItems.FirstOrDefault(n => (string)n.Tag == _settings.StartPage) is { } start)
-        {
-            start.IsChecked = true;
-            ShowPage(_settings.StartPage);
-        }
+        if (_settings.StartPage != "home" && PageTitles.ContainsKey(_settings.StartPage)) GoTo(_settings.StartPage);
     }
 
     /// <summary>Apply the chosen theme; "From my game" picks its colour from the most played game's cover.</summary>
@@ -164,6 +162,7 @@ public partial class MainWindow
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
         foreach (var nav in NavItems) nav.IsChecked = false;
+        SubTabBar.Visibility = Visibility.Collapsed;
         // The close choice can change from the close dialog or the tray too.
         _settingsFilling = true;
         CloseActionBox.SelectedItem = CloseActions.GetValueOrDefault(_settings.CloseAction, CloseActions["ask"]);

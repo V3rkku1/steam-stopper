@@ -41,76 +41,17 @@
                      ToolTip="Drag a menu item to move it"/>
           <!-- Drag an item up or down to reorder; the order is saved. -->
           <StackPanel x:Name="NavList" AllowDrop="True" Background="Transparent">
+          <!-- Six groups; a group with several pages shows them as tabs in the title bar. -->
           <RadioButton Style="{StaticResource NavItem}" Tag="home" Click="Nav_Click" IsChecked="True">
             <StackPanel Orientation="Horizontal">
               <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE80F;"/>
               <TextBlock Style="{StaticResource NavText}" Text="Home"/>
             </StackPanel>
           </RadioButton>
-          <RadioButton Style="{StaticResource NavItem}" Tag="control" Click="Nav_Click">
+          <RadioButton Style="{StaticResource NavItem}" Tag="steam" Click="Nav_Click">
             <StackPanel Orientation="Horizontal">
               <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE7E8;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="Control"/>
-            </StackPanel>
-          </RadioButton>
-          <RadioButton x:Name="NavDownloads" Style="{StaticResource NavItem}" Tag="downloads" Click="Nav_Click">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE896;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="Downloads"/>
-            </StackPanel>
-          </RadioButton>
-          <RadioButton Style="{StaticResource NavItem}" Tag="library" Click="Nav_Click">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8F1;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="Library"/>
-            </StackPanel>
-          </RadioButton>
-          <RadioButton x:Name="NavDns" Style="{StaticResource NavItem}" Tag="dns" Click="Nav_Click">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE774;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="DNS"/>
-            </StackPanel>
-          </RadioButton>
-          <RadioButton Style="{StaticResource NavItem}" Tag="bond" Click="Nav_Click">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE839;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="Bond"/>
-            </StackPanel>
-          </RadioButton>
-          <RadioButton Style="{StaticResource NavItem}" Tag="fetch" Click="Nav_Click">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE71B;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="Fetch"/>
-            </StackPanel>
-          </RadioButton>
-          <RadioButton Style="{StaticResource NavItem}" Tag="network" Click="Nav_Click">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE9D9;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="Network"/>
-            </StackPanel>
-          </RadioButton>
-          <RadioButton Style="{StaticResource NavItem}" Tag="routes" Click="Nav_Click">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8AB;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="Routes"/>
-            </StackPanel>
-          </RadioButton>
-          <RadioButton Style="{StaticResource NavItem}" Tag="clean" Click="Nav_Click">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE74D;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="Clean"/>
-            </StackPanel>
-          </RadioButton>
-          <RadioButton Style="{StaticResource NavItem}" Tag="organize" Click="Nav_Click">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE8B7;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="Organize"/>
-            </StackPanel>
-          </RadioButton>
-          <RadioButton Style="{StaticResource NavItem}" Tag="apps" Click="Nav_Click">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE71D;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="Apps"/>
+              <TextBlock Style="{StaticResource NavText}" Text="Steam"/>
             </StackPanel>
           </RadioButton>
           <RadioButton Style="{StaticResource NavItem}" Tag="games" Click="Nav_Click">
@@ -119,10 +60,22 @@
               <TextBlock Style="{StaticResource NavText}" Text="Games"/>
             </StackPanel>
           </RadioButton>
-          <RadioButton Style="{StaticResource NavItem}" Tag="emulators" Click="Nav_Click">
+          <RadioButton Style="{StaticResource NavItem}" Tag="fetch" Click="Nav_Click">
             <StackPanel Orientation="Horizontal">
-              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE990;"/>
-              <TextBlock Style="{StaticResource NavText}" Text="Emulators"/>
+              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE896;"/>
+              <TextBlock Style="{StaticResource NavText}" Text="Fetch"/>
+            </StackPanel>
+          </RadioButton>
+          <RadioButton Style="{StaticResource NavItem}" Tag="net" Click="Nav_Click">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE968;"/>
+              <TextBlock Style="{StaticResource NavText}" Text="Network"/>
+            </StackPanel>
+          </RadioButton>
+          <RadioButton Style="{StaticResource NavItem}" Tag="tools" Click="Nav_Click">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE90F;"/>
+              <TextBlock Style="{StaticResource NavText}" Text="Tools"/>
             </StackPanel>
           </RadioButton>
           </StackPanel>
@@ -140,6 +93,11 @@
         <TextBlock x:Name="PageTitle" Text="Control" FontSize="18" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
         <TextBlock x:Name="PagePath" Foreground="{DynamicResource Faint}" FontSize="11" Margin="0,1,0,0" TextTrimming="CharacterEllipsis"/>
       </StackPanel>
+      <!-- The pages of the open group (Steam: Control, Downloads, Library…). -->
+      <Border x:Name="SubTabBar" Background="{DynamicResource Raised}" CornerRadius="12" Padding="3" HorizontalAlignment="Right" VerticalAlignment="Center"
+              Margin="0,0,16,0" Visibility="Collapsed" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+        <StackPanel x:Name="SubTabs" Orientation="Horizontal"/>
+      </Border>
       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top"
                   shell:WindowChrome.IsHitTestVisibleInChrome="True">
         <Button x:Name="SettingsButton" Style="{StaticResource CaptionButton}" Click="Settings_Click" ToolTip="Settings">
@@ -362,7 +320,8 @@
             </DockPanel>
             <Grid>
               <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                <ItemsControl x:Name="HomeShelf">
+                <!-- Top margin: covers lift 5 px on hover and the scroller would clip them. -->
+                <ItemsControl x:Name="HomeShelf" Margin="0,6,0,0">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                       <StackPanel Orientation="Horizontal"/>
@@ -1036,6 +995,8 @@
                     <MenuItem Header="Resume" Click="FetchResume_Click"/>
                     <MenuItem Header="Pause" Click="FetchPause_Click"/>
                     <MenuItem Header="Download next" Click="FetchTop_Click"/>
+                    <MenuItem Header="Continue with a new link" Click="FetchRelink_Click"
+                              ToolTip="For an expired or broken link: copy a fresh link to the same file (or paste it in the Links box), then click this. What's downloaded is kept."/>
                     <Separator/>
                     <MenuItem Header="Remove" Click="FetchRemove_Click"/>
                   </ContextMenu>
@@ -1675,7 +1636,7 @@
         </DockPanel>
         <Grid>
         <ScrollViewer x:Name="ConsoleView" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed">
-          <ItemsControl x:Name="ConsoleGrid" Margin="0,0,4,0">
+          <ItemsControl x:Name="ConsoleGrid" Margin="0,6,4,0">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <UniformGrid Columns="5" VerticalAlignment="Top"/>

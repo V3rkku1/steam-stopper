@@ -62,9 +62,7 @@ public partial class MainWindow
 
     private void HomeGo(string key)
     {
-        if (FindNav(key) is not { } nav) return;
-        nav.IsChecked = true;
-        Nav_Click(nav, new RoutedEventArgs());
+        GoTo(key);
     }
 
     private void HomeGo_Click(object sender, RoutedEventArgs e)

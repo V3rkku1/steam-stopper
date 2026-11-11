@@ -60,6 +60,7 @@ _ = Task.Run(async () =>
                 {
                     res.StatusCode = 403; res.Close(); return;
                 }
+                if (ctx.Request.Url!.AbsolutePath == "/small") { res.ContentLength64 = 10; await res.OutputStream.WriteAsync(new byte[10]); res.Close(); return; }
                 if (ctx.Request.Url!.AbsolutePath == "/redir") { res.Redirect($"http://127.0.0.1:{port}/files/test%20file.bin"); res.Close(); return; }
                 long start = 0, end = data.Length - 1;
                 var range = ctx.Request.Headers["Range"];
@@ -137,6 +138,20 @@ Console.WriteLine($"  saved {r2.Received} of {data.Length}, segs {r2.Segments.Co
 Check("unique name", r2.FileName == "test file (1).bin");
 await RunJob(r2, 8);
 Check("resumed hash", Same(r2));
+
+Console.WriteLine("2a) pause and resume the same download without reloading it");
+var jp = await RunJob(new FetchJob { Url = $"http://127.0.0.1:{port}/files/pause.bin", Folder = dir }, 8, 1000);
+await RunJob(jp, 8);
+Check("pause then resume in one session finishes", Same(jp));
+
+Console.WriteLine("2b) expired link: pause, then continue from a new link to the same file");
+var jr = await RunJob(new FetchJob { Url = $"http://127.0.0.1:{port}/files/relink.bin", Folder = dir }, 8, 1000);
+var kept = jr.Received;
+Check("relink: a different file is refused", (await fetcher.Relink(jr, $"http://127.0.0.1:{port}/small", CancellationToken.None))?.Contains("different file") == true && jr.Url.EndsWith("relink.bin"));
+Check("relink: the same file is taken, progress kept", await fetcher.Relink(jr, $"http://127.0.0.1:{port}/mirror/relink.bin", CancellationToken.None) is null
+    && jr.Url.Contains("/mirror/") && jr.Received == kept && kept > 0);
+await RunJob(jr, 8);
+Check("relink: finishes with the right file", Same(jr));
 
 slow = 5; Console.WriteLine("3) no range support");
 noRange = true;
@@ -390,6 +405,18 @@ Check("css theme: colour forms",
     CssTheme.Color("#abc") == (255, 0xAA, 0xBB, 0xCC) && CssTheme.Color("#11223380") == (0x80, 0x11, 0x22, 0x33)
     && CssTheme.Color("rgba(10, 132, 255, .5)") == (128, 10, 132, 255) && CssTheme.Color("rgb(1 2 3 / 50%)") == (128, 1, 2, 3)
     && CssTheme.Color("transparent") == (0, 0, 0, 0) && CssTheme.Color("blue") is null && CssTheme.Color("#12345") is null);
+var blink = new FetchJob { Url = "http://x/y" };
+blink.SetState(FetchState.Downloading);
+blink.Add(512 * 1024, "LinkA");
+blink.Add(512 * 1024, "LinkB");
+blink.Sample(1);
+blink.Add(512 * 1024, "LinkA"); // LinkB gets no chunk this second
+blink.Sample(1);
+Check($"fetch: a link with a quiet second keeps its speed shown ({blink.Detail})", blink.Detail.Contains("LinkA") && blink.Detail.Contains("LinkB"));
+var recent = Cheevos.ParseRecent("""
+[{"Date":"2026-11-11 10:00:00","AchievementID":42,"Title":"First Steps","Description":"Leave the house","Points":5,"BadgeName":"9001","GameTitle":"Ocarina of Time"}]
+""");
+Check("retroachievements: recent unlocks parsed", recent is [(42, { Title: "First Steps", Points: 5, Earned: true }, "Ocarina of Time")] && Cheevos.ParseRecent("{}").Count == 0);
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",

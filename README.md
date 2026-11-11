@@ -27,6 +27,12 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.6
+
+- **Tidier menu**: six groups (Home, Steam, Games, Fetch, Network, Tools); a group's pages are tabs at the top of the window.
+- **Fetch**: continue a broken or expired download from a new link without losing progress; fixed resume after pause and connection speeds that blinked out.
+- **Achievement banners**: new RetroAchievements unlocks pop up in the corner while you play.
+
 ## What's new in 2.5.5
 
 Steam Stopper is now **Steam Multitool**, with a new icon, a splash screen and a faster start.

@@ -156,7 +156,9 @@ public partial class MainWindow
             if (boosted.Count > 0)
                 StatusText.Text = $"Playing {rom.Title} in {emu.Name}. Closed {string.Join(", ", boosted.Select(Path.GetFileNameWithoutExtension))} until you stop.";
         }
-        using (process) await process.WaitForExitAsync();
+        var exited = process.WaitForExitAsync();
+        _ = WatchCheevos(exited);
+        using (process) await exited;
         if (boosted.Count > 0) _ = Task.Run(() => GameBoost.Reopen(boosted));
         _playing.Remove(rom);
         rom.PlaySeconds += (DateTime.Now - started).TotalSeconds;
@@ -246,15 +248,11 @@ public partial class MainWindow
 
     private void OpenEmulatorsFor(ConsoleTile? tile)
     {
-        var nav = FindNav("emulators");
-        if (nav is null) return;
-        nav.IsChecked = true;
-        Nav_Click(nav, new RoutedEventArgs());
+        GoTo("emulators");
         _emuConsole = tile;
         BindApps();
     }
 
-    private RadioButton? FindNav(string key) => NavItems.FirstOrDefault(r => r.Tag as string == key);
 
     private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
     {
