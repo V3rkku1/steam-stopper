@@ -21,5 +21,6 @@
     <Compile Include="../../src/SteamStopper/Core/Cheevos.cs" />
     <Compile Include="../../src/SteamStopper/Core/DownloadDoctor.cs" />
     <Compile Include="../../src/SteamStopper/Core/CssTheme.cs" />
+    <Compile Include="../../src/SteamStopper/Core/NetTools.cs" />
   </ItemGroup>
 </Project>

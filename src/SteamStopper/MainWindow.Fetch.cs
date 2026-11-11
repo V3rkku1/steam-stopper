@@ -37,9 +37,11 @@ public partial class MainWindow
 
     private void InitFetch()
     {
+        // "Auto" (stored as 0) adds connections while they make the download faster.
+        FetchConnBox.Items.Add("Auto");
         foreach (var n in FetchConnChoices) FetchConnBox.Items.Add(n);
         foreach (var n in FetchAtOnceChoices) FetchAtOnceBox.Items.Add(n);
-        FetchConnBox.SelectedItem = FetchConnChoices.Contains(_settings.FetchConnections) ? _settings.FetchConnections : 8;
+        FetchConnBox.SelectedItem = FetchConnChoices.Contains(_settings.FetchConnections) ? _settings.FetchConnections : "Auto";
         FetchAtOnceBox.SelectedItem = FetchAtOnceChoices.Contains(_settings.FetchAtOnce) ? _settings.FetchAtOnce : 2;
         FetchAtOnceBox.SelectionChanged += (_, _) => { SaveFetchSettings(); PumpFetch(); };
         FetchConnBox.SelectionChanged += (_, _) => SaveFetchSettings();
@@ -84,7 +86,7 @@ public partial class MainWindow
 
     private void SaveFetchSettings()
     {
-        if (FetchConnBox.SelectedItem is int conns) _settings.FetchConnections = conns;
+        _settings.FetchConnections = FetchConnBox.SelectedItem is int conns ? conns : 0;
         if (FetchAtOnceBox.SelectedItem is int atOnce) _settings.FetchAtOnce = atOnce;
         _settings.FetchJobs = _fetchJobs
             .Where(j => j.State != FetchState.Done && !_fetchRemoved.Contains(j))
@@ -145,7 +147,11 @@ public partial class MainWindow
         var running = _fetchJobs.Where(j => j.Running).ToList();
         foreach (var job in running) job.Sample(_pollTimer.Interval.TotalSeconds);
         // The bonder samples link speeds itself while it runs; sampling twice would halve them.
-        if (!_bonder.Running) foreach (var link in _bondRows) link.Sample(_pollTimer.Interval.TotalSeconds);
+        if (!_bonder.Running)
+        {
+            foreach (var link in _bondRows) link.Sample(_pollTimer.Interval.TotalSeconds);
+            BondLink.Rebalance(_bondRows);
+        }
         if (++_fetchTicks % 5 == 0) foreach (var job in running) job.Save();
         var total = running.Sum(j => j.Bps);
         FetchHeadline.Text = running.Count == 0 ? "Idle" : Format.Speed(total);
@@ -238,7 +244,7 @@ public partial class MainWindow
     {
         var cancel = new CancellationTokenSource();
         _fetchRuns[job] = cancel;
-        try { await FetchEngine.Run(job, FetchConnBox.SelectedItem as int? ?? _settings.FetchConnections, cancel.Token); }
+        try { await FetchEngine.Run(job, FetchConnBox.SelectedItem is int conns ? conns : 0, cancel.Token); }
         finally
         {
             _fetchRuns.Remove(job);
@@ -320,7 +326,7 @@ public partial class MainWindow
         var root = _steamRoot;
         var message = await Task.Run(() => Power.Run(key, root));
         StatusText.Text = message + note;
-        if (key == "notify") MessageBox.Show(this, "All downloads finished" + note + ".", "Steam Multitool");
+        if (key == "notify") Dialog.Show(this, "All downloads finished" + note + ".", "Steam Multitool");
     }
 
     private void FetchGrid_RightDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -439,7 +445,7 @@ public partial class MainWindow
             if (picked.Count == 0) return;
         }
         var unfinished = picked.Count(j => j.State != FetchState.Done);
-        if (unfinished > 0 && MessageBox.Show(
+        if (unfinished > 0 && Dialog.Show(
                 $"Remove {picked.Count} download(s)?\n\n{unfinished} unfinished file(s) will be deleted. Finished files stay on disk.",
                 "Remove downloads", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;

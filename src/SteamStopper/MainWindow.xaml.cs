@@ -147,6 +147,7 @@ public partial class MainWindow : Window
         _pollTimer.Tick += (_, _) => PollWatch();
         _pollTimer.Tick += (_, _) => PaintBondSpeed();
         _pollTimer.Tick += (_, _) => PaintFetchSpeed();
+        _pollTimer.Tick += (_, _) => { if (++_probeTick % 2 == 0) ProbeLinks(); };
         _pollTimer.Tick += (_, _) => { if (PageHome.IsVisible) PaintHome(); };
         _pollTimer.Tick += (_, _) => { if (PageNetwork.IsVisible) PaintNetwork(); };
         _pollTimer.Start();
@@ -220,6 +221,8 @@ public partial class MainWindow : Window
         RestartAfterBox.IsChecked = _settings.RestartAfterUnblock;
         BondPortBox.Text = _settings.BondPort.ToString();
         BondRestartBox.IsChecked = _settings.BondRestartSteam;
+        BondAutoBox.IsChecked = BondLink.AutoBalance = _settings.BondAutoBalance;
+        BondGamesBox.IsChecked = _bonder.KeepGamesOnOneLink = _settings.BondKeepGames;
         ApplyWatcherSettings();
         _suppress = false;
         ActionBox.SelectionChanged += WatchSettings_Changed;
@@ -660,7 +663,7 @@ public partial class MainWindow : Window
 
     private void Launch(bool offline)
     {
-        if (_steamRoot is null) { MessageBox.Show("Could not find a Steam install."); return; }
+        if (_steamRoot is null) { Dialog.Show("Could not find a Steam install."); return; }
         SteamClient.Launch(_steamRoot, offline);
         StatusText.Text = offline ? "Launching Steam in offline mode." : "Launching Steam.";
         Dispatcher.BeginInvoke(async () =>
@@ -738,7 +741,7 @@ public partial class MainWindow : Window
                 StatusText.Text = message;
                 RefreshFirewallAsync();
                 if (key is "notify" or "exit_steam" or "block_internet")
-                    MessageBox.Show(message, "Steam Multitool");
+                    Dialog.Show(message, "Steam Multitool");
                 return;
             }
             CountdownLabel.Text = $"{_finishReason}  ·  {ActionBox.SelectedItem} in {left}s";
@@ -908,7 +911,7 @@ public partial class MainWindow : Window
     {
         if (_steamRoot is null) return;
         var names = string.Join(", ", CacheTargets.Select(t => t.Name));
-        if (MessageBox.Show($"Delete the contents of Steam's {names} folders? Unfinished downloads will start over.", "Clear caches", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+        if (Dialog.Show($"Delete the contents of Steam's {names} folders? Unfinished downloads will start over.", "Clear caches", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;
         StatusText.Text = "Clearing Steam caches…";
         var paths = CacheTargets.Select(t => CachePath(t.Name)!).ToList();
@@ -925,11 +928,11 @@ public partial class MainWindow : Window
             var root = _steamRoot;
             var archive = await Task.Run(() => SteamClient.BackupConfig(root));
             StatusText.Text = "Backup saved to " + archive;
-            MessageBox.Show(archive, "Backup complete");
+            Dialog.Show(archive, "Backup complete");
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Backup failed");
+            Dialog.Show(ex.Message, "Backup failed");
         }
     }
 
@@ -937,7 +940,7 @@ public partial class MainWindow : Window
     {
         var action = (sender as FrameworkElement)?.Tag as string ?? "";
         var label = Power.Actions.FirstOrDefault(a => a.Key == action).Label ?? action;
-        if (MessageBox.Show($"{label} now?", "Steam Multitool", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (Dialog.Show($"{label} now?", "Steam Multitool", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         var root = _steamRoot;
         StatusText.Text = await Task.Run(() => Power.Run(action, root));
     }
@@ -951,7 +954,7 @@ public partial class MainWindow : Window
     private bool NeedAdmin(string action = "A firewall change")
     {
         if (SteamClient.IsAdmin()) return true;
-        if (MessageBox.Show($"{action} needs Administrator. Relaunch as admin now?", "Administrator required", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+        if (Dialog.Show($"{action} needs Administrator. Relaunch as admin now?", "Administrator required", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
         {
             SteamClient.RelaunchAsAdmin();
             Quit();
@@ -1226,6 +1229,26 @@ public partial class MainWindow : Window
     }
 
     private async void BondToggle_Click(object sender, RoutedEventArgs e) => await ToggleBondAsync();
+
+    private void BondOptions_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.BondAutoBalance = BondLink.AutoBalance = BondAutoBox.IsChecked == true;
+        _settings.BondKeepGames = _bonder.KeepGamesOnOneLink = BondGamesBox.IsChecked == true;
+        _settings.Save();
+    }
+
+    private bool _probing;
+    private int _probeTick;
+
+    /// <summary>Every 2 s while links carry traffic: is each one still online, and how quick? Dead ones drop out.</summary>
+    private async void ProbeLinks()
+    {
+        if (_probing || _bondRows.Count < 2 || !(_bonder.Running || _fetchRuns.Count > 0)) return;
+        _probing = true;
+        try { await LinkHealth.Probe(_bondRows); }
+        catch { } // a link vanished mid-probe; the next round sees the new list
+        finally { _probing = false; }
+    }
 
     private async Task ToggleBondAsync()
     {
@@ -1507,7 +1530,7 @@ public partial class MainWindow : Window
             return;
         }
         var size = Format.Bytes(picked.Sum(i => i.Bytes));
-        if (MessageBox.Show($"Delete {size} from {picked.Count} selected target(s)? Locked files are skipped.", "Clean files", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+        if (Dialog.Show($"Delete {size} from {picked.Count} selected target(s)? Locked files are skipped.", "Clean files", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;
         _toolsWorking = true;
         CleanBusy.Text = "Cleaning…";
@@ -1681,7 +1704,7 @@ public partial class MainWindow : Window
     private async Task UninstallApp(AppOffer app)
     {
         if (_toolsWorking) return;
-        if (MessageBox.Show($"Uninstall {app.Name} from this PC?", "Uninstall", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
+        if (Dialog.Show($"Uninstall {app.Name} from this PC?", "Uninstall", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;
         _toolsWorking = true;
         AppBusy.Text = $"Uninstalling {app.Name}…";
@@ -1801,7 +1824,7 @@ public partial class MainWindow : Window
     {
         if (_orgWorking || _orgPlan.Count == 0) return;
         var folder = OrganizeFolder();
-        if (MessageBox.Show($"Move {_orgPlan.Count} file(s) into subfolders of\n{folder}?\n\nNothing is deleted. You can undo this.",
+        if (Dialog.Show($"Move {_orgPlan.Count} file(s) into subfolders of\n{folder}?\n\nNothing is deleted. You can undo this.",
                 "Organize", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;
         _orgWorking = true;

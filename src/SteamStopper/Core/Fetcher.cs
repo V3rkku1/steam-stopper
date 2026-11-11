@@ -45,6 +45,8 @@ public sealed class FetchJob : INotifyPropertyChanged
     public string Validator { get; set; } = "";
     public bool Probed { get; set; }
     public List<FetchSegment> Segments { get; set; } = [];
+    /// <summary>Connections Auto has opened for this run (0 when not in Auto).</summary>
+    [JsonIgnore] public int Connections { get; internal set; }
 
     [JsonIgnore] public string FinalPath => Path.Combine(Folder, FileName);
     [JsonIgnore] public string PartPath => FinalPath + ".part";
@@ -242,18 +244,38 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
             job.SetState(FetchState.Downloading);
 
             Exception? fatal = null;
-            var workers = Enumerable.Range(0, job.Ranged ? Math.Max(1, connections) : 1).Select(_ => Task.Run(async () =>
+            var workers = new List<Task>();
+            void Spawn()
             {
-                try { await Worker(job, stop.Token); }
-                catch (Exception ex)
-                {
-                    // The others stop with a cancellation; keep the error that actually ended the download.
-                    if (ex is not OperationCanceledException || !stop.IsCancellationRequested)
-                        Interlocked.CompareExchange(ref fatal, ex, null);
-                    stop.Cancel();
-                }
-            }, CancellationToken.None));
-            await Task.WhenAll(workers);
+                lock (workers)
+                    workers.Add(Task.Run(async () =>
+                    {
+                        try { await Worker(job, stop.Token); }
+                        catch (Exception ex)
+                        {
+                            // The others stop with a cancellation; keep the error that actually ended the download.
+                            if (ex is not OperationCanceledException || !stop.IsCancellationRequested)
+                                Interlocked.CompareExchange(ref fatal, ex, null);
+                            stop.Cancel();
+                        }
+                    }, CancellationToken.None));
+            }
+            // 0 connections is Auto: start with a few and add more while the speed keeps rising.
+            var auto = connections <= 0 && job.Ranged;
+            for (var i = 0; i < (!job.Ranged ? 1 : auto ? AutoStart : connections); i++) Spawn();
+            using var grown = new CancellationTokenSource();
+            var growing = auto ? Grow(job, Spawn, () => { lock (workers) return workers.Count; }, grown.Token) : Task.CompletedTask;
+            // Workers can be added while waiting, so wait until a round adds none.
+            while (true)
+            {
+                Task[] round;
+                lock (workers) round = [.. workers];
+                await Task.WhenAll(round);
+                lock (workers) if (workers.Count == round.Length) break;
+            }
+            grown.Cancel();
+            await growing;
+            job.Connections = 0;
             cancel.ThrowIfCancellationRequested();
             if (fatal is not null) throw fatal;
             if (!job.Complete) throw new IOException("Download stopped before the end of the file.");
@@ -274,6 +296,32 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
         {
             job.SetState(FetchState.Failed, Describe(ex));
             job.Save();
+        }
+    }
+
+    private const int AutoStart = 4, AutoMax = 32;
+
+    /// <summary>
+    /// Auto connections: every 3 s, if the speed rose by more than 8% since the last step, add two more.
+    /// Two steps without a gain (or the server refusing more) and it stops growing.
+    /// </summary>
+    private static async Task Grow(FetchJob job, Action spawn, Func<int> count, CancellationToken cancel)
+    {
+        job.Connections = count();
+        double best = 0;
+        var flat = 0;
+        var last = job.Received;
+        while (flat < 2 && count() < AutoMax)
+        {
+            try { await Task.Delay(3000, cancel); }
+            catch (OperationCanceledException) { return; }
+            var now = job.Received;
+            var rate = (now - last) / 3.0;
+            last = now;
+            if (rate > best * 1.08) { spawn(); spawn(); flat = 0; }
+            else flat++;
+            best = Math.Max(best, rate);
+            job.Connections = count();
         }
     }
 
@@ -530,7 +578,7 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
             var link = links().Where(l => l.Selected)
                 // When every link failed lately, retry the one that failed longest ago.
                 .OrderBy(l => l.Failing ? Interlocked.Read(ref l.FailUntilTicks) : 0)
-                .ThenBy(l => (Volatile.Read(ref l.ActiveCount) + 1.0) / l.Weight)
+                .ThenBy(l => (Volatile.Read(ref l.ActiveCount) + 1.0) / l.Share)
                 .FirstOrDefault();
             if (link is not null) Interlocked.Increment(ref link.ActiveCount);
             return link;

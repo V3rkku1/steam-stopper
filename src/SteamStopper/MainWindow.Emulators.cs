@@ -85,7 +85,7 @@ public partial class MainWindow
             {
                 // Not on winget: let the user download it by hand and hand the archive over, rather than just opening a page.
                 AppBusy.Text = "";
-                var answer = MessageBox.Show(
+                var answer = Dialog.Show(
                     $"{app.Name} couldn't be downloaded automatically ({lookupError ?? "no Windows build matched on its release page"}).\n\n"
                     + $"Yes: choose a {app.Name} .zip or .7z you already downloaded, and Steam Multitool installs it.\n"
                     + "No: open the download page first.",
@@ -266,7 +266,7 @@ public partial class MainWindow
     {
         if (_toolsWorking) return;
         var folder = EmuStore.FolderFor(app.Name);
-        if (MessageBox.Show(
+        if (Dialog.Show(
                 $"Remove {app.Name}?\n\nThis deletes {folder}, including anything you put in it (keys, firmware, portable saves). Saves the emulator keeps in AppData stay.",
                 "Remove emulator", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;

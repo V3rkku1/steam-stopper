@@ -22,6 +22,14 @@ public sealed class BondLink : INotifyPropertyChanged
     internal int ActiveCount;
     internal long ByteCount;
     internal long FailUntilTicks;
+    // Best recent speed, falling slowly, as the link's capacity for auto-balance.
+    private double _peak;
+    private int _misses;
+    // Weight times measured capacity: what Bond and Fetch share connections by.
+    internal double Share = 1;
+
+    /// <summary>Balance links by their measured speed (on by default); off uses only the manual weight.</summary>
+    public static bool AutoBalance { get; set; } = true;
 
     public string Name { get; init; } = "";
     public int Index { get; init; }
@@ -29,6 +37,11 @@ public sealed class BondLink : INotifyPropertyChanged
     public string Kind { get; init; } = "";
     public IPAddress Address { get; init; } = IPAddress.None;
     public string Gateway { get; init; } = "";
+    public IPAddress[] DnsServers { get; init; } = [];
+    /// <summary>Last round trip to the internet over this link, from the health probe.</summary>
+    public double? RttMs { get; private set; }
+    /// <summary>The health probe couldn't get out over this link twice in a row.</summary>
+    public bool Down { get; private set; }
     public string Detail => $"{Address}  ·  {Kind}";
     public string Hint => $"{Description}\nIP {Address}, gateway {Gateway}";
     public int[] WeightChoices { get; } = [1, 2, 3, 4];
@@ -47,7 +60,7 @@ public sealed class BondLink : INotifyPropertyChanged
     }
 
     public int Active => _activeShown;
-    public string SpeedText => _bps <= 0 ? "—" : Format.Speed(_bps);
+    public string SpeedText => Down ? "offline" : _bps <= 0 ? "—" : Format.Speed(_bps);
     public string TotalText => _bytesShown <= 0 ? "—" : Format.Bytes(_bytesShown);
     public double Bps => _bps;
 
@@ -62,12 +75,42 @@ public sealed class BondLink : INotifyPropertyChanged
         // Smoothed so a second without a finished chunk doesn't show the link as idle ("—").
         var now = seconds > 0 ? Math.Max(0, bytes - _lastBytes) / seconds : 0;
         _bps = seconds <= 0 ? 0 : _bps > 0 ? _bps * 0.6 + now * 0.4 : now;
+        _peak = seconds <= 0 ? 0 : Math.Max(_peak * Math.Pow(0.995, seconds), _bps);
         _lastBytes = bytes;
         _bytesShown = bytes;
         _activeShown = Volatile.Read(ref ActiveCount);
         OnChanged(nameof(Active));
         OnChanged(nameof(SpeedText));
         OnChanged(nameof(TotalText));
+    }
+
+    /// <summary>Recompute each link's share: its weight, times its speed against the fastest link when auto-balance is on.</summary>
+    public static void Rebalance(IEnumerable<BondLink> links)
+    {
+        var list = links.ToList();
+        var fastest = list.Count == 0 ? 0 : list.Max(l => l._peak);
+        foreach (var link in list)
+            // Until links have carried real traffic (64 KB/s), or with auto off, only the weight counts.
+            // A floor of a fifth keeps a slow link in use, so its speed keeps being measured.
+            link.Share = link.Weight * (AutoBalance && fastest > 65536 ? Math.Clamp(link._peak / fastest, 0.2, 1) : 1);
+    }
+
+    /// <summary>Record a health probe: two misses in a row take the link out of use until it answers again.</summary>
+    internal void Probed(double? rttMs)
+    {
+        if (rttMs is { } ms)
+        {
+            RttMs = RttMs is { } was ? was * 0.7 + ms * 0.3 : ms;
+            _misses = 0;
+            if (Down) { Down = false; Interlocked.Exchange(ref FailUntilTicks, 0); }
+        }
+        else if (++_misses >= 2)
+        {
+            Down = true;
+            // Kept failing while down; the next probe (2 s) renews it.
+            Interlocked.Exchange(ref FailUntilTicks, DateTime.UtcNow.AddSeconds(10).Ticks);
+        }
+        OnChanged(nameof(SpeedText));
     }
 
     internal void ResetCounters()
@@ -131,6 +174,7 @@ public sealed class LinkBonder
                 if (address is null) continue;
                 list.Add(new BondLink
                 {
+                    DnsServers = props.DnsAddresses.Where(a => a.AddressFamily == AddressFamily.InterNetwork).ToArray(),
                     Name = nic.Name,
                     Index = props.GetIPv4Properties()?.Index ?? 0,
                     Description = nic.Description,
@@ -206,6 +250,7 @@ public sealed class LinkBonder
         var seconds = (now - _lastSample).TotalSeconds;
         _lastSample = now;
         foreach (var link in _links) link.Sample(seconds);
+        BondLink.Rebalance(_links);
         return _links.Sum(l => l.Bps);
     }
 
@@ -237,7 +282,7 @@ public sealed class LinkBonder
                 return;
             }
 
-            (upstream, link) = await ConnectUpstream(request.Value.Host, request.Value.Port, cancel);
+            (upstream, link) = await ConnectUpstream(request.Value.Host, request.Value.Port, LatencyApp(client), cancel);
             if (upstream is null)
             {
                 await Reply(client, "502 Bad Gateway", cancel);
@@ -342,7 +387,33 @@ public sealed class LinkBonder
     private static Task Reply(Socket client, string status, CancellationToken cancel)
         => client.SendAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 {status}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"), SocketFlags.None, cancel).AsTask();
 
-    private async Task<(Socket?, BondLink?)> ConnectUpstream(string host, int port, CancellationToken cancel)
+    /// <summary>Keep games, emulators and voice chat on the one quickest link instead of spreading them (on by default).</summary>
+    public bool KeepGamesOnOneLink { get; set; } = true;
+
+    private static readonly string[] VoiceApps = ["discord", "discordptb", "discordcanary", "teamspeak", "ts3client_win64", "mumble"];
+    private readonly Dictionary<int, bool> _latencyPids = [];
+
+    /// <summary>Is the program behind this proxy connection a game, emulator or voice app? Downloaders and browsers aren't.</summary>
+    private bool LatencyApp(Socket client)
+    {
+        if (!KeepGamesOnOneLink || client.RemoteEndPoint is not IPEndPoint remote || TcpOwner.PidOf(remote.Port, Port) is not { } pid) return false;
+        lock (_latencyPids)
+            if (_latencyPids.TryGetValue(pid, out var known)) return known;
+        var latency = false;
+        try
+        {
+            using var process = System.Diagnostics.Process.GetProcessById(pid);
+            var path = process.MainModule?.FileName ?? "";
+            latency = VoiceApps.Contains(process.ProcessName.ToLowerInvariant())
+                || path.Contains(@"\steamapps\common\", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith(EmuStore.Root, StringComparison.OrdinalIgnoreCase);
+        }
+        catch { } // exited or protected: treat as a normal app
+        lock (_latencyPids) _latencyPids[pid] = latency;
+        return latency;
+    }
+
+    private async Task<(Socket?, BondLink?)> ConnectUpstream(string host, int port, bool latency, CancellationToken cancel)
     {
         IPAddress[] addresses;
         if (IPAddress.TryParse(host, out var literal)) addresses = [literal];
@@ -362,10 +433,18 @@ public sealed class LinkBonder
             return (plain, null);
         }
 
-        foreach (var link in Ranked())
+        var links = Ranked();
+        // Latency apps: the quickest healthy link first, the rest only as fallbacks.
+        if (latency) links = [.. links.OrderBy(l => l.Down).ThenBy(l => l.RttMs ?? double.MaxValue)];
+        foreach (var link in links)
         {
             Interlocked.Increment(ref link.ActiveCount);
-            var socket = await TryConnect(v4, port, link.Address, cancel);
+            // Ask this link's own DNS, so a CDN hands it the server nearest to its provider.
+            var target = v4;
+            if (literal is null && link.DnsServers.FirstOrDefault() is { } dns)
+                try { target = (await LinkDns.Resolve(host, dns, link.Address, cancel)).FirstOrDefault() ?? v4; }
+                catch when (!cancel.IsCancellationRequested) { } // that DNS didn't answer: use Windows' answer
+            var socket = await TryConnect(target, port, link.Address, cancel);
             if (socket is not null)
             {
                 socket.NoDelay = true;
@@ -385,8 +464,8 @@ public sealed class LinkBonder
         return chosen
             // When every link failed lately, retry the one that failed longest ago, not the heaviest.
             .OrderBy(l => l.Failing ? Interlocked.Read(ref l.FailUntilTicks) : 0)
-            .ThenBy(l => (Volatile.Read(ref l.ActiveCount) + 1.0) / l.Weight)
-            .ThenBy(l => Interlocked.Read(ref l.ByteCount) / (double)l.Weight)
+            .ThenBy(l => (Volatile.Read(ref l.ActiveCount) + 1.0) / l.Share)
+            .ThenBy(l => Interlocked.Read(ref l.ByteCount) / l.Share)
             .ToList();
     }
 

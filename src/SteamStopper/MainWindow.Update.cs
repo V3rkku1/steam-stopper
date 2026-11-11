@@ -167,7 +167,7 @@ public partial class MainWindow
                 .Select(l => l.TrimEnd().Replace("**", "").Replace("`", ""))
                 .Select(l => l.StartsWith("## ") ? "\n" + l[3..].ToUpperInvariant() : l.StartsWith("- ") ? "•  " + l[2..] : l))
             .Trim();
-        var open = MessageBox.Show(
+        var open = Dialog.Show(
             $"{notes}\n\nOpen the release page?",
             $"What's new in Steam Multitool {info.Version}", MessageBoxButton.YesNo, MessageBoxImage.Information);
         if (open == MessageBoxResult.Yes && info.PageUrl.Length > 0)

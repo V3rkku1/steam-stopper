@@ -583,6 +583,8 @@
             <StackPanel x:Name="DoctorResults" Visibility="Collapsed" Margin="0,12,0,0">
               <WrapPanel x:Name="DoctorServers"/>
               <TextBlock x:Name="DoctorFixes" Foreground="{DynamicResource Text}" TextWrapping="Wrap" Margin="0,8,0,10"/>
+              <!-- Windows settings that quietly cap speed: TCP auto-tuning and Wi-Fi power saving, each with a fix. -->
+              <WrapPanel x:Name="DoctorChecks" Margin="0,0,0,8"/>
               <StackPanel Orientation="Horizontal">
                 <Button Content="Clear Steam's download cache" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="DoctorFlush_Click"
                         ToolTip="Asks Steam to clear its download cache and pick its servers again (steam://flushconfig). Steam restarts; you may need to log in again."/>
@@ -823,11 +825,21 @@
                 <ToggleButton x:Name="BondRestartBox" DockPanel.Dock="Right" Style="{StaticResource Switch}"/>
                 <TextBlock Style="{StaticResource OptionText}" Text="Restart Steam on start and stop so it picks up the change"/>
               </DockPanel>
+              <DockPanel Style="{StaticResource Option}" Margin="0,-10,0,8"
+                         ToolTip="Measures each link's real speed and gives faster links more connections. The weights still count on top.">
+                <ToggleButton x:Name="BondAutoBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Click="BondOptions_Click"/>
+                <TextBlock Style="{StaticResource OptionText}" Text="Balance by measured speed"/>
+              </DockPanel>
+              <DockPanel Style="{StaticResource Option}" Margin="0,0,0,18"
+                         ToolTip="Games, emulators and Discord go out the one link with the lowest ping instead of being spread, so bonding never adds lag.">
+                <ToggleButton x:Name="BondGamesBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Click="BondOptions_Click"/>
+                <TextBlock Style="{StaticResource OptionText}" Text="Keep games and voice chat on the quickest link"/>
+              </DockPanel>
               <Button x:Name="BondButton" Content="Start bonding" Style="{StaticResource WideSafe}" Click="BondToggle_Click"/>
               <TextBlock x:Name="BondBusy" Text="" Foreground="{DynamicResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
               <TextBlock Text="HOW IT WORKS" Style="{StaticResource SectionLabel}" Margin="0,18,0,6"/>
               <TextBlock Foreground="{DynamicResource Faint}" FontSize="11" TextWrapping="Wrap"
-                         Text="Steam downloads a game over many connections at once. Bonding runs a small proxy on this PC and sends each new connection out a different link, so the speeds add up. One single connection still uses one link, and Windows' proxy setting is restored when you stop or close the app. Give a faster link a higher weight so it gets more connections."/>
+                         Text="Steam downloads a game over many connections at once. Bonding runs a small proxy on this PC and sends each new connection out a different link, so the speeds add up. One single connection still uses one link, and Windows' proxy setting is restored when you stop or close the app. Faster links get more connections by their measured speed; a weight adds to that. Each link asks its own DNS, so it downloads from the server nearest to its provider. A link that stops answering is skipped within a few seconds and used again once it's back."/>
             </StackPanel>
           </ScrollViewer>
         </Border>
@@ -934,7 +946,7 @@
               <UniformGrid Columns="2" Margin="0,0,0,16">
                 <StackPanel Margin="0,0,4,0">
                   <TextBlock Text="Connections per file" Style="{StaticResource FieldLabel}"/>
-                  <ComboBox x:Name="FetchConnBox" ToolTip="More connections spread better over your links. Some servers limit this."/>
+                  <ComboBox x:Name="FetchConnBox" ToolTip="Auto starts with 4 and adds more while the download keeps getting faster. More connections spread better over your links; some servers limit this."/>
                 </StackPanel>
                 <StackPanel Margin="4,0,0,0">
                   <TextBlock Text="Files at once" Style="{StaticResource FieldLabel}"/>
