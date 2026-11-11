@@ -405,10 +405,9 @@ public partial class MainWindow
     private void GameCover_Click(object sender, RoutedEventArgs e)
     {
         if (GameDetail.DataContext is not Rom rom || _library is null) return;
-        var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Choose a cover image", Filter = "Images|*.png;*.jpg;*.jpeg;*.webp;*.bmp" };
-        if (dialog.ShowDialog(this) != true) return;
-        rom.CustomCover = dialog.FileName;
-        rom.Cover = dialog.FileName;
+        if (CoverPicker.Show(this, rom, CoverHttp) is not { } path) return;
+        rom.CustomCover = path;
+        rom.Cover = path;
         RomLibrary.Save(_library);
     }
 

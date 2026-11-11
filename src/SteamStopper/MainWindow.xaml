@@ -1593,7 +1593,8 @@
                   <TextBlock Text="{Binding Path}" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,0,0,18"/>
                   <WrapPanel>
                     <Button Content="Open file location" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameOpenFolder_Click"/>
-                    <Button Content="Set cover image" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameCover_Click"/>
+                    <Button Content="Change cover" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameCover_Click"
+                            ToolTip="Search box art for this game and pick one, or use an image file."/>
                     <Button Content="Back up saves" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameSaves_Click"
                             ToolTip="Zip the saves of this game's emulator. Restore is in Settings."/>
                     <Button Content="Remove from library" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameRemove_Click"

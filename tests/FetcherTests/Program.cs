@@ -30,6 +30,13 @@ if (args is ["--live"])
 }
 
 
+// dotnet run -- --covers "God of War" PS2: what the cover picker finds, live.
+if (args is ["--covers", var q, var console])
+{
+    using var h = new System.Net.Http.HttpClient();
+    foreach (var c in await RomLibrary.SearchCovers(console, q, h, 10)) Console.WriteLine($"{c.Rank} {c.Source,-28} {c.Name}  {c.Urls[0]}");
+    return 0;
+}
 // dotnet run -- --roms: game library sniffing of .pkg files, PARAM.SFO titles and PS3/PS4 folder dumps.
 if (args is ["--roms"])
 {
@@ -423,6 +430,9 @@ Check("ps3 covers: PSN games without a region, NTSC-U is US, found by title or b
     RomLibrary.TdbPick("God of War HD", "God of War® HD", ps3Tdb) == ("NPUA80490", "EN")
     && RomLibrary.TdbPick("God of War Collection", "God of War Collection", ps3Tdb) == ("BCUS98229", "US")
     && RomLibrary.TitleId("UP9000-NPUA80490_00-GODOFWARHD000001.pkg") is "NPUA80490" && RomLibrary.TdbPick("x", "x", ps3Tdb, "NPUA80490") == ("NPUA80490", "EN"));
+Check("cover search words: articles moved and dropped, symbols split",
+    RomLibrary.Words("Legend of Zelda, The - Ocarina of Time (USA)").SequenceEqual(["legend", "of", "zelda", "ocarina", "of", "time"])
+    && RomLibrary.Words("God of War® HD").SequenceEqual(["god", "of", "war", "hd"]));
 var saveApp = Path.Combine(Path.GetTempPath(), "ss-saves-" + Guid.NewGuid().ToString("N"));
 SaveBackup.Places["TestEmu"] = [@"{app}\saves", @"{app}\missing"];
 Directory.CreateDirectory(Path.Combine(saveApp, "saves", "slot1"));

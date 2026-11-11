@@ -115,14 +115,15 @@ public static class RomLibrary
     private static readonly Dictionary<string, string[]> ThumbSystems = new()
     {
         ["PS1"] = ["Sony - PlayStation"], ["PS2"] = ["Sony - PlayStation 2"], ["PSP"] = ["Sony - PlayStation Portable"],
-        ["GAMECUBE"] = ["Nintendo - GameCube"], ["WII"] = ["Nintendo - Wii"], ["DS"] = ["Nintendo - Nintendo DS"],
+        ["GAMECUBE"] = ["Nintendo - GameCube"], ["WII"] = ["Nintendo - Wii"], ["DS"] = ["Nintendo - Nintendo DS", "Nintendo - Nintendo DSi"],
+        ["WII U"] = ["Nintendo - Wii U"], ["PS4"] = ["Sony - PlayStation 4"], ["ARCADE"] = ["MAME", "FBNeo - Arcade Games"],
         ["3DS"] = ["Nintendo - Nintendo 3DS", "Nintendo - Nintendo 3DS (Digital)"], ["N64"] = ["Nintendo - Nintendo 64"],
         ["DREAMCAST"] = ["Sega - Dreamcast"], ["PS3"] = ["Sony - PlayStation 3"], ["VITA"] = ["Sony - PlayStation Vita"], ["XBOX"] = ["Microsoft - Xbox"], ["XBOX 360"] = ["Microsoft - Xbox 360"],
-        ["NES · SNES"] = ["Nintendo - Super Nintendo Entertainment System", "Nintendo - Nintendo Entertainment System"],
+        ["NES · SNES"] = ["Nintendo - Super Nintendo Entertainment System", "Nintendo - Nintendo Entertainment System", "Nintendo - Family Computer Disk System"],
         ["GAME BOY"] = ["Nintendo - Game Boy Advance", "Nintendo - Game Boy Color", "Nintendo - Game Boy"]
     };
 
-    // GameTDB (database zip, art folder) for consoles libretro has no box art for. Art is named by GameTDB's own game id.
+    // GameTDB (database zip, art folder) for consoles libretro has little or no box art for. Art is named by GameTDB's own game id.
     private static readonly Dictionary<string, (string Db, string Art)> TdbSystems = new()
     {
         ["SWITCH"] = ("switchtdb", "switch"), ["WII U"] = ("wiiutdb", "wiiu"), ["PS3"] = ("ps3tdb", "ps3")
@@ -354,11 +355,12 @@ public static class RomLibrary
             foreach (var system in systems ?? [])
                 if (BestMatch(file, rom.Title, await IndexOf(system, http)) is { } name)
                     urls.Add($"https://thumbnails.libretro.com/{Uri.EscapeDataString(system)}/Named_Boxarts/{Uri.EscapeDataString(name)}.png");
-            // GameTDB keeps some art only in the full-size folder or under another region, so fall back to those.
             if (hasTdb && TdbPick(file, rom.Title, await TdbIndexOf(tdb.Db, http), TitleId(rom.Path)) is { } game)
-                foreach (var kind in new[] { "coverM", "cover" })
-                    foreach (var region in new[] { game.Region, "US", "EN" }.Distinct())
-                        urls.Add($"https://art.gametdb.com/{tdb.Art}/{kind}/{region}/{game.Id}.jpg");
+                urls.AddRange(TdbUrls(tdb.Art, game.Id, game.Region));
+            // No exact name: take a near one only when it starts with every word of a title at least two words long
+            // ("Pokemon Emerald" finds "Pokemon - Emerald Version"), so a short name never grabs another game's art.
+            if (urls.Count == 0 && Words(rom.Title).Length >= 2 && (await SearchCovers(rom.Console, rom.Title, http, 1)) is [{ Rank: <= 1 } near])
+                urls.AddRange(near.Urls);
             foreach (var url in urls)
             {
                 using var response = await http.GetAsync(url);
@@ -372,6 +374,85 @@ public static class RomLibrary
         }
         catch { }
         return null;
+    }
+
+    // GameTDB keeps some art only in the full-size folder or under another region, so fall back to those.
+    private static string[] TdbUrls(string art, string id, string region) =>
+        (from kind in new[] { "coverM", "cover" } from r in new[] { region, "US", "EN" }.Distinct() select $"https://art.gametdb.com/{art}/{kind}/{r}/{id}.jpg").ToArray();
+
+    /// <summary>One box art the cover search found. Urls are tried in order; Rank 0 is the exact name, 1 starts with the search words, 2 holds them.</summary>
+    public sealed record CoverChoice(string Name, string Source, string[] Urls, int Rank);
+
+    public static bool HasCoverSource(string console) => ThumbSystems.ContainsKey(console) || TdbSystems.ContainsKey(console);
+
+    /// <summary>Every box art for this console whose name holds the search words (or GameTDB id), best match and USA release first.</summary>
+    public static async Task<List<CoverChoice>> SearchCovers(string console, string query, HttpClient http, int max = 60)
+    {
+        var words = Words(query);
+        if (words.Length == 0) return [];
+        var key = Key(query);
+        var found = new List<CoverChoice>();
+        foreach (var system in ThumbSystems.GetValueOrDefault(console) ?? [])
+        {
+            ILookup<string, string> index;
+            try { index = await IndexOf(system, http); }
+            catch { continue; } // one listing down shouldn't hide the others
+            foreach (var name in index.SelectMany(g => g))
+                if (Rank(name, key, words) is { } rank)
+                    found.Add(new(name, system, [$"https://thumbnails.libretro.com/{Uri.EscapeDataString(system)}/Named_Boxarts/{Uri.EscapeDataString(name)}.png"], rank));
+        }
+        if (TdbSystems.TryGetValue(console, out var tdb))
+        {
+            try
+            {
+                foreach (var p in (await TdbIndexOf(tdb.Db, http)).SelectMany(g => g).Distinct().Select(l => l.Split('|')))
+                    if ((Key(p[1]) == key ? 0 : Rank(p[0], key, words)) is { } rank)
+                        found.Add(new(p[0], "GameTDB", TdbUrls(tdb.Art, p[1], p[2]), rank));
+            }
+            catch { }
+        }
+        return found.OrderBy(c => c.Rank).ThenBy(c => ReleaseOrder(c.Name)).ThenBy(c => c.Name.Length).Take(max).ToList();
+    }
+
+    private static int? Rank(string name, string key, string[] words)
+    {
+        if (Key(name) == key) return 0;
+        var have = Words(name);
+        if (have.Length >= words.Length && have.Take(words.Length).SequenceEqual(words)) return 1;
+        return words.All(w => have.Any(h => h.StartsWith(w, StringComparison.Ordinal))) ? 2 : null;
+    }
+
+    private static int ReleaseOrder(string n) =>
+        (n.Contains("(Beta") || n.Contains("(Proto") || n.Contains("(Demo") ? 10 : 0)
+        + (n.Contains("(USA") || n.Contains("(EN") ? 0 : n.Contains("(World") ? 1 : n.Contains("(Europe") ? 2 : 3);
+
+    // "Legend of Zelda, The - Ocarina of Time (USA)" becomes legend, of, zelda, ocarina, of, time.
+    public static string[] Words(string name) =>
+        Regex.Split(TitleOf(name + ".x").ToLowerInvariant().Replace("&", " and "), "[^a-z0-9]+").Where(w => w.Length > 0 && w != "the").ToArray();
+
+    /// <summary>The first of a choice's urls that answers, as image bytes.</summary>
+    public static async Task<byte[]?> CoverBytes(CoverChoice choice, HttpClient http)
+    {
+        foreach (var url in choice.Urls)
+        {
+            try
+            {
+                using var response = await http.GetAsync(url);
+                if (response.IsSuccessStatusCode) return await response.Content.ReadAsByteArrayAsync();
+            }
+            catch { }
+        }
+        return null;
+    }
+
+    /// <summary>Save the picked art next to the other covers and return its path. Each pick gets its own file, so the shown one is never overwritten.</summary>
+    public static async Task<string?> SaveChosenCover(Rom rom, CoverChoice choice, HttpClient http)
+    {
+        if (await CoverBytes(choice, http) is not { } bytes) return null;
+        Directory.CreateDirectory(CoverDir);
+        var path = System.IO.Path.Combine(CoverDir, Safe($"{rom.Console} - {System.IO.Path.GetFileNameWithoutExtension(rom.Path)} - {choice.Name}") + (bytes is [0x89, ..] ? ".png" : ".jpg"));
+        await File.WriteAllBytesAsync(path, bytes);
+        return path;
     }
 
     private static readonly Dictionary<string, Task<ILookup<string, string>>> TdbIndexes = [];
