@@ -38,7 +38,7 @@ public partial class MainWindow
             {
                 _settings.Theme = key;
                 _settings.Save();
-                Theme.Apply(key);
+                ApplyTheme();
                 // Colours the code picked itself (status chips, headlines) are set once; paint them again.
                 RefreshFirewallAsync();
                 RefreshAdmin();
@@ -47,6 +47,8 @@ public partial class MainWindow
             ThemeBar.Children.Add(button);
         }
 
+        BoostBox.IsChecked = _settings.GameBoost;
+        BoostAppsBox.Text = string.Join(Environment.NewLine, _settings.GameBoostApps);
         SettingsAbout.Text = $"Steam Stopper {Core.Updater.Version}  ·  Steam folder: {_steamRoot ?? "not found"}";
         _settingsFilling = true;
         StartPageBox.ItemsSource = _defaultNavOrder.Select(k => PageTitles[k].Title).ToList();
@@ -62,6 +64,24 @@ public partial class MainWindow
         }
     }
 
+    /// <summary>Apply the chosen theme; "From my game" picks its colour from the most played game's cover.</summary>
+    private void ApplyTheme()
+    {
+        if (_settings.Theme != "game")
+        {
+            Theme.Apply(_settings.Theme);
+            return;
+        }
+        if (_library is null) RefreshGamesUi();
+        var game = _library!.Games.Where(g => g.Cover is not null)
+            .OrderByDescending(g => g.PlaySeconds).ThenByDescending(g => g.LastPlayed ?? g.Added).FirstOrDefault();
+        var accent = game is null ? null : Theme.AccentOf(game.Cover!);
+        Theme.Apply("game", accent);
+        ThemeHint.Text = accent is null
+            ? "From my game: no game cover with colour yet. Add games on the Games tab and it follows the one you play most."
+            : $"From my game: coloured by {game!.Title}, your most played game.";
+    }
+
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
         foreach (var nav in NavItems) nav.IsChecked = false;
@@ -70,7 +90,27 @@ public partial class MainWindow
         CloseActionBox.SelectedItem = CloseActions.GetValueOrDefault(_settings.CloseAction, CloseActions["ask"]);
         _settingsFilling = false;
         RefreshSaves();
+        PaintBoost();
         ShowPage("settings");
+    }
+
+    private void Boost_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.GameBoost = BoostBox.IsChecked == true;
+        _settings.Save();
+    }
+
+    private void BoostApps_Changed(object sender, RoutedEventArgs e)
+    {
+        _settings.GameBoostApps = BoostAppsBox.Text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+        _settings.Save();
+        PaintBoost();
+    }
+
+    private void PaintBoost()
+    {
+        var running = _settings.GameBoostApps.Where(n => System.Diagnostics.Process.GetProcessesByName(System.IO.Path.GetFileNameWithoutExtension(n)).Length > 0).ToList();
+        BoostRunning.Text = running.Count == 0 ? "None of these is running right now." : "Running now: " + string.Join(", ", running);
     }
 
     private void StartPage_Changed(object sender, SelectionChangedEventArgs e)

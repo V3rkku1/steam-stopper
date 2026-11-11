@@ -145,9 +145,20 @@ public partial class MainWindow
         rom.Refresh();
         PaintPlay(rom);
         StatusText.Text = $"Playing {rom.Title} in {emu.Name}.";
+        List<string> boosted = [];
+        if (_settings.GameBoost && _settings.GameBoostApps.Count > 0)
+        {
+            var names = _settings.GameBoostApps.ToList();
+            var gamePid = process.Id;
+            boosted = await Task.Run(() => GameBoost.Close(names, gamePid));
+            if (boosted.Count > 0)
+                StatusText.Text = $"Playing {rom.Title} in {emu.Name}. Closed {string.Join(", ", boosted.Select(Path.GetFileNameWithoutExtension))} until you stop.";
+        }
         using (process) await process.WaitForExitAsync();
+        if (boosted.Count > 0) _ = Task.Run(() => GameBoost.Reopen(boosted));
         _playing.Remove(rom);
         rom.PlaySeconds += (DateTime.Now - started).TotalSeconds;
+        if (_settings.Theme == "game") ApplyTheme();
         RomLibrary.Save(_library);
         rom.Refresh();
         if (GameDetail.DataContext == rom) PaintPlay(rom);
@@ -332,6 +343,8 @@ public partial class MainWindow
             if (rom.Cover is not null) continue;
             rom.Cover = await RomLibrary.CoverFor(rom, CoverHttp);
         }
+        // Covers can arrive after start; the game theme waits for them.
+        if (_settings.Theme == "game") ApplyTheme();
     }
 
     private void GameOpenFolder_Click(object sender, RoutedEventArgs e)

@@ -143,6 +143,9 @@ public sealed class AppSettings
     public string NavPosition { get; set; } = "side";
     // Programs blocked on the Network page (full paths).
     public List<string> BlockedApps { get; set; } = [];
+    // Game boost: close these background apps while a game from the Games tab runs.
+    public bool GameBoost { get; set; }
+    public List<string> GameBoostApps { get; set; } = [.. Core.GameBoost.Suggested];
     // App key -> adapter name it was last pinned to.
     public Dictionary<string, string> RouteLinks { get; set; } = [];
     public string FetchFolder { get; set; } = "";

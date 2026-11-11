@@ -123,7 +123,11 @@ public partial class MainWindow : Window
         ShowPageHeader("home");
         VersionText.Text = "Version " + Updater.Version;
         Loaded += (_, _) => StartUpdateChecks();
-        Loaded += (_, _) => RefreshHome();
+        Loaded += (_, _) =>
+        {
+            RefreshHome();
+            if (_settings.Theme == "game") ApplyTheme();
+        };
         FillComboBoxes();
         FillAppCategories();
         LoadUiFromSettings();

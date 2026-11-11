@@ -444,8 +444,8 @@ if (OperatingSystem.IsWindows())
         using var web = new HttpClient();
         var got = (await web.GetByteArrayAsync("https://github.com/")).Length;
         await Task.Delay(3000);
-        var mine = net.Snapshot().GetValueOrDefault(Environment.ProcessId);
-        Check($"network monitor counts this process ({mine.Received} of {got} bytes received, {mine.Sent} sent)", mine.Received > got / 2 && mine.Sent > 0);
+        var netMine = net.Snapshot().GetValueOrDefault(Environment.ProcessId);
+        Check($"network monitor counts this process ({netMine.Received} of {got} bytes received, {netMine.Sent} sent)", netMine.Received > got / 2 && netMine.Sent > 0);
         net.Stop();
         Check("network monitor stops", !net.Running);
     }

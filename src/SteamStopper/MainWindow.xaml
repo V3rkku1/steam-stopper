@@ -211,7 +211,7 @@
             <StackPanel>
               <TextBlock Text="APPEARANCE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
               <TextBlock Text="Theme" FontWeight="SemiBold"/>
-              <TextBlock Text="Steam uses the Steam client's navy and blue." Foreground="{DynamicResource Faint}" FontSize="12" Margin="0,2,0,10"/>
+              <TextBlock x:Name="ThemeHint" Text="Steam uses the Steam client's navy and blue. From my game takes its colour from the cover of the game you play most." Foreground="{DynamicResource Faint}" FontSize="12" Margin="0,2,0,10" TextWrapping="Wrap"/>
               <Border Background="{DynamicResource Raised}" CornerRadius="12" Padding="3" HorizontalAlignment="Left">
                 <StackPanel x:Name="ThemeBar" Orientation="Horizontal"/>
               </Border>
@@ -223,6 +223,20 @@
                   <RadioButton x:Name="NavTopButton" Content="On top" GroupName="NavPos" Style="{StaticResource Segment}" Click="NavPosition_Click"/>
                 </StackPanel>
               </Border>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+            <StackPanel>
+              <DockPanel>
+                <ToggleButton x:Name="BoostBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="Boost_Click"/>
+                <StackPanel>
+                  <TextBlock Text="GAME BOOST" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                  <TextBlock Text="Close these background apps when you press Play on the Games tab, and open them again when the game closes. One program name per line."
+                             Foreground="{DynamicResource Faint}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,10"/>
+                </StackPanel>
+              </DockPanel>
+              <TextBox x:Name="BoostAppsBox" AcceptsReturn="True" Height="110" VerticalScrollBarVisibility="Auto" LostFocus="BoostApps_Changed"/>
+              <TextBlock x:Name="BoostRunning" Foreground="{DynamicResource Faint}" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
           <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
