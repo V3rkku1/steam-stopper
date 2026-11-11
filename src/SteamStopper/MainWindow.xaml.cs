@@ -24,6 +24,7 @@ public partial class MainWindow : Window
 
     private static readonly Dictionary<string, (string Title, string Subtitle)> PageTitles = new()
     {
+        ["home"] = ("Home", "Your games, downloads and Steam at a glance"),
         ["control"] = ("Control", "Cut Steam off the internet and manage the client"),
         ["downloads"] = ("Downloads", "Watch downloads and act when they finish"),
         ["library"] = ("Library", "Installed games, sizes and Steam maintenance"),
@@ -91,6 +92,7 @@ public partial class MainWindow : Window
         StateChanged += (_, _) => UpdateCaptionButtons();
         _pages = new Dictionary<string, UIElement>
         {
+            ["home"] = PageHome,
             ["control"] = PageControl,
             ["downloads"] = PageDownloads,
             ["library"] = PageLibrary,
@@ -114,9 +116,10 @@ public partial class MainWindow : Window
 
         SteamPathText.Text = _steamRoot ?? "Not found";
         SteamPathText.ToolTip = _steamRoot;
-        ShowPageHeader("control");
+        ShowPageHeader("home");
         VersionText.Text = "Version " + Updater.Version;
         Loaded += (_, _) => StartUpdateChecks();
+        Loaded += (_, _) => RefreshHome();
         FillComboBoxes();
         FillAppCategories();
         LoadUiFromSettings();
@@ -129,6 +132,7 @@ public partial class MainWindow : Window
         _pollTimer.Tick += (_, _) => PollWatch();
         _pollTimer.Tick += (_, _) => PaintBondSpeed();
         _pollTimer.Tick += (_, _) => PaintFetchSpeed();
+        _pollTimer.Tick += (_, _) => { if (PageHome.IsVisible) PaintHome(); };
         _pollTimer.Start();
         _tray = new TrayIcon(
             isBlocked: () => _steamBlocked,
@@ -297,6 +301,7 @@ public partial class MainWindow : Window
             // Apps and Emulators share one page, so compare pages rather than keys.
             page.Visibility = page == _pages[key] ? Visibility.Visible : Visibility.Collapsed;
         ShowPageHeader(key);
+        if (key == "home") RefreshHome();
         if (key == "control") RefreshProcesses();
         if (key == "dns") RefreshDnsUi();
         if (key == "bond") RefreshBondUi();

@@ -43,6 +43,8 @@ public sealed class Rom : INotifyPropertyChanged
         : PlaySeconds < 90 ? "1 minute" : PlaySeconds < 3600 ? $"{PlaySeconds / 60:0} minutes" : $"{PlaySeconds / 3600:0.0} hours";
     [JsonIgnore] public string LastPlayedText => LastPlayed is not { } t ? "Never"
         : t.Date == DateTime.Today ? "Today" : t.Date == DateTime.Today.AddDays(-1) ? "Yesterday" : t.ToString("d MMM yyyy");
+    // Under a cover on the Home shelf: when it was played, or its console when it never was.
+    [JsonIgnore] public string ShelfText => LastPlayed is null ? ConsoleName : "Played " + (LastPlayed.Value.Date >= DateTime.Today.AddDays(-1) ? LastPlayedText.ToLowerInvariant() : LastPlayedText);
     [JsonIgnore] public bool Exists => File.Exists(Path) || Directory.Exists(Path);
     [JsonIgnore] public string SizeText => File.Exists(Path) ? Format.Bytes(new FileInfo(Path).Length) : Directory.Exists(Path) ? "Game folder" : "File missing";
 

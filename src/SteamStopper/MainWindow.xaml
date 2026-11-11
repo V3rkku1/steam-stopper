@@ -37,7 +37,13 @@
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="10,14,10,0">
           <TextBlock Text="MENU" Style="{StaticResource SectionLabel}" Foreground="{StaticResource Faint}" Margin="12,0,0,8"/>
-          <RadioButton Style="{StaticResource NavItem}" Tag="control" Click="Nav_Click" IsChecked="True">
+          <RadioButton Style="{StaticResource NavItem}" Tag="home" Click="Nav_Click" IsChecked="True">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE80F;"/>
+              <TextBlock Style="{StaticResource NavText}" Text="Home"/>
+            </StackPanel>
+          </RadioButton>
+          <RadioButton Style="{StaticResource NavItem}" Tag="control" Click="Nav_Click">
             <StackPanel Orientation="Horizontal">
               <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE7E8;"/>
               <TextBlock Style="{StaticResource NavText}" Text="Control"/>
@@ -180,7 +186,123 @@
 
     <Grid Margin="28,6,28,20">
       <!-- ===================== CONTROL ===================== -->
-      <Grid x:Name="PageControl">
+      <!-- ===================== HOME ===================== -->
+      <Grid x:Name="PageHome">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="14"/>
+          <RowDefinition Height="*"/>
+          <RowDefinition Height="14"/>
+          <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Border Style="{StaticResource HeroCard}">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+              <Button x:Name="HomeBlockButton" Style="{StaticResource GhostButton}" Margin="0,0,10,0" Padding="18,10" Click="HomeBlock_Click"/>
+              <Button Content="Open Steam" Style="{StaticResource SafeButton}" Padding="18,10" Click="Launch_Click"/>
+            </StackPanel>
+            <StackPanel VerticalAlignment="Center" Margin="0,0,24,0">
+              <TextBlock x:Name="HomeGreeting" Text="Welcome back" Style="{StaticResource Hero}" FontSize="30"/>
+              <TextBlock x:Name="HomeSummary" Foreground="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+            </StackPanel>
+          </DockPanel>
+        </Border>
+
+        <!-- Continue playing: the most recent games from the Games tab, like Steam's library shelf. -->
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="20,16,20,14">
+          <DockPanel>
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+              <Button DockPanel.Dock="Right" Content="All games" Style="{StaticResource SmallButton}" Click="HomeGames_Click"/>
+              <TextBlock x:Name="HomeShelfTitle" Text="CONTINUE PLAYING" Style="{StaticResource SectionLabel}" Margin="0" VerticalAlignment="Center"/>
+            </DockPanel>
+            <Grid>
+              <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="HomeShelf">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Click="HomeGame_Click" Cursor="Hand" Margin="0,0,14,0" ToolTip="{Binding Title}">
+                        <Button.Template>
+                          <ControlTemplate TargetType="Button">
+                            <StackPanel Width="150">
+                              <Grid Height="200">
+                                <Border CornerRadius="8" Background="{Binding Color, Converter={StaticResource HexBrush}}">
+                                  <TextBlock Text="{Binding Initials}" Foreground="White" FontSize="30" FontWeight="Black"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <Border CornerRadius="8">
+                                  <Border.Background>
+                                    <ImageBrush ImageSource="{Binding Cover, TargetNullValue={x:Null}}" Stretch="UniformToFill"/>
+                                  </Border.Background>
+                                </Border>
+                                <Border x:Name="Ring" CornerRadius="8" BorderBrush="{StaticResource Accent}" BorderThickness="2" Opacity="0"/>
+                              </Grid>
+                              <TextBlock Text="{Binding Title}" Margin="2,8,2,0" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"/>
+                              <TextBlock Text="{Binding ShelfText}" Margin="2,2,2,0" Foreground="{StaticResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                            <ControlTemplate.Triggers>
+                              <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Ring" Property="Opacity" Value="1"/>
+                              </Trigger>
+                            </ControlTemplate.Triggers>
+                          </ControlTemplate>
+                        </Button.Template>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+              <StackPanel x:Name="HomeShelfEmpty" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420">
+                <TextBlock Text="Your games show up here" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                <TextBlock Text="Add the folder with your game files on the Games tab. The ones you play last come first."
+                           Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,14"/>
+                <Button Content="Add games" Style="{StaticResource SafeButton}" HorizontalAlignment="Center" Padding="22,9" Click="HomeGames_Click"/>
+              </StackPanel>
+            </Grid>
+          </DockPanel>
+        </Border>
+
+        <UniformGrid Grid.Row="4" Columns="3">
+          <Border Style="{StaticResource CardBorder}" Margin="0,0,7,0" Padding="18,14">
+            <DockPanel>
+              <Button DockPanel.Dock="Bottom" Content="Steam controls" Style="{StaticResource SmallButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Tag="control" Click="HomeGo_Click"/>
+              <StackPanel>
+                <TextBlock Text="STEAM" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                <TextBlock x:Name="HomeSteam" FontSize="20" FontWeight="SemiBold"/>
+                <TextBlock x:Name="HomeSteamHint" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}" Margin="7,0" Padding="18,14">
+            <DockPanel>
+              <Button DockPanel.Dock="Bottom" Content="Open Fetch" Style="{StaticResource SmallButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Tag="fetch" Click="HomeGo_Click"/>
+              <StackPanel>
+                <TextBlock Text="DOWNLOADS" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                <TextBlock x:Name="HomeFetch" FontSize="20" FontWeight="SemiBold"/>
+                <TextBlock x:Name="HomeFetchHint" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                <ProgressBar x:Name="HomeFetchBar" Height="4" Maximum="1" Margin="0,10,0,0"/>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}" Margin="7,0,0,0" Padding="18,14">
+            <DockPanel>
+              <Button DockPanel.Dock="Bottom" Content="Check for updates" Style="{StaticResource SmallButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Click="UpdateCheck_Click"/>
+              <StackPanel>
+                <TextBlock Text="UPDATES" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
+                <TextBlock x:Name="HomeUpdates" FontSize="20" FontWeight="SemiBold"/>
+                <TextBlock x:Name="HomeUpdatesHint" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+        </UniformGrid>
+      </Grid>
+
+      <Grid x:Name="PageControl" Visibility="Collapsed">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
           <RowDefinition Height="14"/>
