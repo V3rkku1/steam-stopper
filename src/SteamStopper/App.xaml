@@ -31,6 +31,8 @@
       <GradientStop Color="#1A1B1F" Offset="0.65"/>
     </LinearGradientBrush>
     <SolidColorBrush x:Key="HeroLine" Color="#2E2A42"/>
+    <!-- Card corners; a theme's radius property changes it. -->
+    <CornerRadius x:Key="CardRadius">16</CornerRadius>
     <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
     <Style TargetType="Window">
@@ -463,7 +465,7 @@
       <Setter Property="Background" Value="{DynamicResource Card}"/>
       <Setter Property="BorderBrush" Value="{DynamicResource Line}"/>
       <Setter Property="BorderThickness" Value="1"/>
-      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="CornerRadius" Value="{DynamicResource CardRadius}"/>
       <Setter Property="Padding" Value="20"/>
     </Style>
     <Style x:Key="HeroCard" TargetType="Border" BasedOn="{StaticResource CardBorder}">

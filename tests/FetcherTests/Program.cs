@@ -378,6 +378,18 @@ Check("download doctor: one server per city, least loaded, caches only",
 steamServers[0].PingMs = 20;
 Check("download doctor: slow line is blamed on the line", DownloadDoctor.Diagnose(steamServers, 1_000_000, 0).Verdict.StartsWith("Your internet is the limit"));
 Check("download doctor: Steam using half the line is blamed on Steam", DownloadDoctor.Diagnose(steamServers, 50_000_000, 5_000_000).Verdict.StartsWith("Steam is using only"));
+var css = CssTheme.Parse("""
+/* my theme */
+:root { --bg: #112233; --Accent: rgba(10, 132, 255, .5); --radius: 22; }
+.ignored { color: red; }
+:root { --bg: #abc; }
+""");
+Check("css theme: variables, later wins, comments and other rules ignored",
+    css.Count == 3 && css["bg"] == "#abc" && css["accent"] == "rgba(10, 132, 255, .5)" && css["radius"] == "22");
+Check("css theme: colour forms",
+    CssTheme.Color("#abc") == (255, 0xAA, 0xBB, 0xCC) && CssTheme.Color("#11223380") == (0x80, 0x11, 0x22, 0x33)
+    && CssTheme.Color("rgba(10, 132, 255, .5)") == (128, 10, 132, 255) && CssTheme.Color("rgb(1 2 3 / 50%)") == (128, 1, 2, 3)
+    && CssTheme.Color("transparent") == (0, 0, 0, 0) && CssTheme.Color("blue") is null && CssTheme.Color("#12345") is null);
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",

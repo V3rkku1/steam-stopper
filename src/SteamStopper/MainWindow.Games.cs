@@ -51,9 +51,10 @@ public partial class MainWindow
         GamesEmpty.Visibility = _library.Games.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // Radius 15: the card's 16 minus its 1px border. Bottom corners round too but fade into the card colour there.
+    // The card radius minus its 1px border. Bottom corners round too but fade into the card colour there.
     private void GameHero_SizeChanged(object sender, SizeChangedEventArgs e) =>
-        ((Grid)sender).Clip = new System.Windows.Media.RectangleGeometry(new Rect(e.NewSize), 15, 15);
+        ((Grid)sender).Clip = new System.Windows.Media.RectangleGeometry(new Rect(e.NewSize),
+            ((CornerRadius)FindResource("CardRadius")).TopLeft - 1, ((CornerRadius)FindResource("CardRadius")).TopLeft - 1);
 
     private void GameSearch_Changed(object sender, TextChangedEventArgs e)
     {

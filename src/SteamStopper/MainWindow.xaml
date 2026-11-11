@@ -211,10 +211,18 @@
             <StackPanel>
               <TextBlock Text="APPEARANCE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
               <TextBlock Text="Theme" FontWeight="SemiBold"/>
-              <TextBlock x:Name="ThemeHint" Text="Steam uses the Steam client's navy and blue. From my game takes its colour from the cover of the game you play most." Foreground="{DynamicResource Faint}" FontSize="12" Margin="0,2,0,10" TextWrapping="Wrap"/>
+              <TextBlock x:Name="ThemeHint" Text="Steam uses the Steam client's navy and blue. Liquid Glass is iOS-style see-through glass (Windows 11). From my game takes its colour from the cover of the game you play most." Foreground="{DynamicResource Faint}" FontSize="12" Margin="0,2,0,10" TextWrapping="Wrap"/>
               <Border Background="{DynamicResource Raised}" CornerRadius="12" Padding="3" HorizontalAlignment="Left">
                 <StackPanel x:Name="ThemeBar" Orientation="Horizontal"/>
               </Border>
+              <TextBlock Text="Your own themes" FontWeight="SemiBold" Margin="0,16,0,0"/>
+              <TextBlock Text="A theme is a small CSS file of colours (--bg, --accent, --radius, --backdrop…). New theme copies the current colours into one and opens it; the app updates every time you save."
+                         Foreground="{DynamicResource Faint}" FontSize="12" Margin="0,2,0,10" TextWrapping="Wrap"/>
+              <StackPanel Orientation="Horizontal">
+                <ComboBox x:Name="CustomThemeBox" Width="220" Margin="0,0,8,0" SelectionChanged="CustomTheme_Changed"/>
+                <Button Content="New theme" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="NewTheme_Click"/>
+                <Button Content="Open themes folder" Style="{StaticResource SmallButton}" Click="ThemesFolder_Click"/>
+              </StackPanel>
               <TextBlock Text="Menu" FontWeight="SemiBold" Margin="0,16,0,0"/>
               <TextBlock Text="On top puts the pages in a tab bar across the window, like Steam." Foreground="{DynamicResource Faint}" FontSize="12" Margin="0,2,0,10"/>
               <Border Background="{DynamicResource Raised}" CornerRadius="12" Padding="3" HorizontalAlignment="Left">

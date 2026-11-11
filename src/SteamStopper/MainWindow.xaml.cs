@@ -90,7 +90,11 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => DarkTitleBar.Apply(this);
+        SourceInitialized += (_, _) =>
+        {
+            DarkTitleBar.Apply(this);
+            ApplyBackdrop();
+        };
         StateChanged += (_, _) => UpdateCaptionButtons();
         _pages = new Dictionary<string, UIElement>
         {

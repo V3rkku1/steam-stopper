@@ -38,6 +38,8 @@ public partial class MainWindow
             {
                 _settings.Theme = key;
                 _settings.Save();
+                CustomThemeBox.SelectedItem = null;
+                WatchTheme();
                 ApplyTheme();
                 // Colours the code picked itself (status chips, headlines) are set once; paint them again.
                 RefreshFirewallAsync();
@@ -46,6 +48,8 @@ public partial class MainWindow
             };
             ThemeBar.Children.Add(button);
         }
+        FillCustomThemes();
+        WatchTheme();
 
         InitCheevos();
         BoostBox.IsChecked = _settings.GameBoost;
@@ -71,6 +75,8 @@ public partial class MainWindow
         if (_settings.Theme != "game")
         {
             Theme.Apply(_settings.Theme);
+            ApplyBackdrop();
+            ThemeHint.Text = DefaultThemeHint;
             return;
         }
         if (_library is null) RefreshGamesUi();
@@ -78,9 +84,81 @@ public partial class MainWindow
             .OrderByDescending(g => g.PlaySeconds).ThenByDescending(g => g.LastPlayed ?? g.Added).FirstOrDefault();
         var accent = game is null ? null : Theme.AccentOf(game.Cover!);
         Theme.Apply("game", accent);
+        ApplyBackdrop();
         ThemeHint.Text = accent is null
             ? "From my game: no game cover with colour yet. Add games on the Games tab and it follows the one you play most."
             : $"From my game: coloured by {game!.Title}, {(game.PlaySeconds > 0 ? "your most played game" : "your newest game until you play one")}.";
+    }
+
+    private void ApplyBackdrop()
+    {
+        // Glass needs Windows 11; elsewhere the see-through background becomes solid instead of black.
+        if (!DarkTitleBar.SetBackdrop(this, Theme.Backdrop)) Theme.Opaque();
+    }
+
+    private System.IO.FileSystemWatcher? _themeWatcher;
+    private const string DefaultThemeHint = "Steam uses the Steam client's navy and blue. Liquid Glass is iOS-style see-through glass (Windows 11). From my game takes its colour from the cover of the game you play most.";
+
+    private void FillCustomThemes()
+    {
+        _settingsFilling = true;
+        var files = Theme.Files();
+        CustomThemeBox.ItemsSource = files;
+        CustomThemeBox.SelectedItem = _settings.Theme.StartsWith("css:") ? _settings.Theme[4..] : null;
+        CustomThemeBox.IsEnabled = files.Count > 0;
+        _settingsFilling = false;
+    }
+
+    private void CustomTheme_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_settingsFilling || CustomThemeBox.SelectedItem is not string file) return;
+        foreach (var b in ThemeBar.Children.OfType<RadioButton>()) b.IsChecked = false;
+        _settings.Theme = "css:" + file;
+        _settings.Save();
+        ApplyTheme();
+        WatchTheme();
+    }
+
+    /// <summary>Re-apply a CSS theme whenever its file is saved, so editing it shows the result at once.</summary>
+    private void WatchTheme()
+    {
+        _themeWatcher?.Dispose();
+        _themeWatcher = null;
+        if (!_settings.Theme.StartsWith("css:") || !System.IO.Directory.Exists(Theme.Folder)) return;
+        _themeWatcher = new System.IO.FileSystemWatcher(Theme.Folder, _settings.Theme[4..])
+        {
+            NotifyFilter = System.IO.NotifyFilters.LastWrite | System.IO.NotifyFilters.Size | System.IO.NotifyFilters.FileName,
+            EnableRaisingEvents = true
+        };
+        // Editors save in bursts, some by writing a new file and renaming it over; apply a moment after.
+        System.IO.FileSystemEventHandler reload = (_, _) => Dispatcher.BeginInvoke(async () =>
+        {
+            await Task.Delay(150);
+            ApplyTheme();
+        });
+        _themeWatcher.Changed += reload;
+        _themeWatcher.Created += reload;
+        _themeWatcher.Renamed += (s, e) => reload(s, e);
+    }
+
+    private void NewTheme_Click(object sender, RoutedEventArgs e)
+    {
+        System.IO.Directory.CreateDirectory(Theme.Folder);
+        var n = 1;
+        string path;
+        do path = System.IO.Path.Combine(Theme.Folder, n == 1 ? "My theme.css" : $"My theme {n}.css"); while (System.IO.File.Exists(path) && ++n > 0);
+        System.IO.File.WriteAllText(path, Theme.Template());
+        FillCustomThemes();
+        CustomThemeBox.SelectedItem = System.IO.Path.GetFileName(path); // applies it and starts watching
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("notepad.exe", $"\"{path}\"") { UseShellExecute = true })?.Dispose(); }
+        catch { }
+        StatusText.Text = $"Made {System.IO.Path.GetFileName(path)} from the current colours. Edit and save it; the app updates as you save.";
+    }
+
+    private void ThemesFolder_Click(object sender, RoutedEventArgs e)
+    {
+        System.IO.Directory.CreateDirectory(Theme.Folder);
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{Theme.Folder}\"") { UseShellExecute = true })?.Dispose();
     }
 
     private void Settings_Click(object sender, RoutedEventArgs e)
@@ -92,6 +170,7 @@ public partial class MainWindow
         _settingsFilling = false;
         RefreshSaves();
         PaintBoost();
+        FillCustomThemes(); // files may have been added in the folder meanwhile
         ShowPage("settings");
     }
 
