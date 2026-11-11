@@ -28,6 +28,7 @@ public sealed class FetchJob : INotifyPropertyChanged
     internal readonly object Gate = new();
     private readonly Dictionary<string, long> _linkBytes = [];
     private Dictionary<string, long> _lastLinkBytes = [];
+    private readonly Dictionary<string, double> _linkBps = [];
     private long _received;
     private long _lastReceived;
     private double _bps;
@@ -142,10 +143,14 @@ public sealed class FetchJob : INotifyPropertyChanged
         }
         if (_state == FetchState.Downloading)
         {
-            var parts = bytes
-                .Select(p => (p.Key, Bps: seconds > 0 ? (p.Value - _lastLinkBytes.GetValueOrDefault(p.Key)) / seconds : 0))
-                .Where(p => p.Bps > 0)
-                .Select(p => $"{p.Key} {Format.Speed(p.Bps)}");
+            // Smoothed like the total: data arrives in chunks, so a slower link (or the speed limit) can
+            // have a second with nothing in it, and an unsmoothed link would blink out of the list.
+            foreach (var (link, total) in bytes)
+            {
+                var linkNow = seconds > 0 ? Math.Max(0, total - _lastLinkBytes.GetValueOrDefault(link)) / seconds : 0;
+                _linkBps[link] = _linkBps.TryGetValue(link, out var was) && was > 0 ? was * 0.6 + linkNow * 0.4 : linkNow;
+            }
+            var parts = _linkBps.Where(p => p.Value >= 1024).Select(p => $"{p.Key} {Format.Speed(p.Value)}");
             _via = $"{conns} conn · " + string.Join(" · ", parts);
         }
         _lastLinkBytes = bytes;

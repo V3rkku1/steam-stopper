@@ -390,6 +390,14 @@ Check("css theme: colour forms",
     CssTheme.Color("#abc") == (255, 0xAA, 0xBB, 0xCC) && CssTheme.Color("#11223380") == (0x80, 0x11, 0x22, 0x33)
     && CssTheme.Color("rgba(10, 132, 255, .5)") == (128, 10, 132, 255) && CssTheme.Color("rgb(1 2 3 / 50%)") == (128, 1, 2, 3)
     && CssTheme.Color("transparent") == (0, 0, 0, 0) && CssTheme.Color("blue") is null && CssTheme.Color("#12345") is null);
+var blink = new FetchJob { Url = "http://x/y" };
+blink.SetState(FetchState.Downloading);
+blink.Add(512 * 1024, "LinkA");
+blink.Add(512 * 1024, "LinkB");
+blink.Sample(1);
+blink.Add(512 * 1024, "LinkA"); // LinkB gets no chunk this second
+blink.Sample(1);
+Check($"fetch: a link with a quiet second keeps its speed shown ({blink.Detail})", blink.Detail.Contains("LinkA") && blink.Detail.Contains("LinkB"));
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",
