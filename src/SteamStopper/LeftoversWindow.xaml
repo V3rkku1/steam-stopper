@@ -4,7 +4,7 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Leftover files" Width="760" Height="520" MinWidth="560" MinHeight="380"
         WindowStyle="None" ResizeMode="CanResize" WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Bg}" BorderBrush="{StaticResource Line}" BorderThickness="1">
+        Background="{DynamicResource Bg}" BorderBrush="{DynamicResource Line}" BorderThickness="1">
   <DockPanel Margin="24,0,24,20">
     <DockPanel DockPanel.Dock="Top" Height="56">
       <Button DockPanel.Dock="Right" Style="{StaticResource CaptionClose}" Height="40" VerticalAlignment="Top" Margin="0,0,-24,0"
@@ -14,14 +14,14 @@
       </Button>
       <StackPanel VerticalAlignment="Center">
         <TextBlock x:Name="HeadingText" Text="Leftover folders" FontSize="18" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
-        <TextBlock x:Name="SubText" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,1,0,0"/>
+        <TextBlock x:Name="SubText" Foreground="{DynamicResource Faint}" FontSize="11" Margin="0,1,0,0"/>
       </StackPanel>
     </DockPanel>
 
     <Border DockPanel.Dock="Top" Background="#2E2614" BorderBrush="#4A3B17" BorderThickness="1" CornerRadius="12" Padding="14,10" Margin="0,4,0,14">
       <DockPanel>
-        <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource Amber}" Margin="0,2,10,0"/>
-        <TextBlock Foreground="{StaticResource Amber}" FontSize="12" TextWrapping="Wrap"
+        <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" FontFamily="{StaticResource IconFont}" Foreground="{DynamicResource Amber}" Margin="0,2,10,0"/>
+        <TextBlock Foreground="{DynamicResource Amber}" FontSize="12" TextWrapping="Wrap"
                    Text="These folders hold the app's settings, caches and sometimes your data (mail, saves, notes). Deleting them cannot be undone. Large folders start unticked."/>
       </DockPanel>
     </Border>
@@ -31,7 +31,7 @@
         <Button Content="Keep all" Style="{StaticResource GhostButton}" Click="Cancel_Click"/>
         <Button x:Name="DeleteButton" Content="Delete selected" Style="{StaticResource DangerButton}" Margin="0" Click="Delete_Click"/>
       </StackPanel>
-      <TextBlock x:Name="TotalText" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+      <TextBlock x:Name="TotalText" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
     </DockPanel>
 
     <Border Style="{StaticResource CardBorder}" Padding="12,10,8,6">
@@ -48,7 +48,7 @@
           <DataGridTemplateColumn Header="FOLDER" Width="*">
             <DataGridTemplateColumn.CellTemplate>
               <DataTemplate>
-                <TextBlock Text="{Binding Path}" ToolTip="{Binding Path}" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Path}" ToolTip="{Binding Path}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
               </DataTemplate>
             </DataGridTemplateColumn.CellTemplate>
           </DataGridTemplateColumn>

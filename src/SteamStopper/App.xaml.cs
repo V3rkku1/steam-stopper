@@ -37,6 +37,7 @@ public partial class App : Application
             MessageBox.Show(args.Exception.Message, "Steam Stopper", MessageBoxButton.OK, MessageBoxImage.Warning);
         };
         base.OnStartup(e);
+        Theme.Apply(AppSettings.Load().Theme);
         // Created here rather than through StartupUri: the helper modes above must exit without ever building
         // the window, or its close prompt runs during their shutdown and crashes the process.
         new MainWindow().Show();

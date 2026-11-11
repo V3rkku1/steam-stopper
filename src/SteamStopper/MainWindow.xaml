@@ -4,31 +4,31 @@
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="Steam Stopper" Height="760" Width="1260" MinHeight="620" MinWidth="1100"
         WindowStyle="None" ResizeMode="CanResize"
-        WindowStartupLocation="CenterScreen" Background="{StaticResource Bg}"
-        BorderBrush="{StaticResource Line}" BorderThickness="1">
+        WindowStartupLocation="CenterScreen" Background="{DynamicResource Bg}"
+        BorderBrush="{DynamicResource Line}" BorderThickness="1">
   <DockPanel>
-    <Border DockPanel.Dock="Left" Width="212" Background="{StaticResource Sidebar}"
-            BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+    <Border DockPanel.Dock="Left" Width="212" Background="{DynamicResource Sidebar}"
+            BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
       <DockPanel>
         <DockPanel DockPanel.Dock="Top" Height="56" Margin="18,0,12,0">
           <Image Source="Assets/app.ico" Width="26" Height="26" Margin="0,0,10,0" VerticalAlignment="Center"
                  RenderOptions.BitmapScalingMode="HighQuality"/>
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="Steam Stopper" FontSize="14" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
-            <TextBlock x:Name="VersionText" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,1,0,0" Cursor="Hand"
+            <TextBlock x:Name="VersionText" Foreground="{DynamicResource Faint}" FontSize="11" Margin="0,1,0,0" Cursor="Hand"
                        ToolTip="Click to check for updates" MouseLeftButtonUp="VersionText_Click"/>
           </StackPanel>
         </DockPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,16">
-          <TextBlock Text="UPDATES" Style="{StaticResource SectionLabel}" Foreground="{StaticResource Faint}" Margin="2,0,0,4"/>
-          <TextBlock x:Name="UpdateState" Text="Not checked yet" Foreground="{StaticResource Muted}" FontSize="11" Margin="2,0,0,6" TextWrapping="Wrap"/>
+          <TextBlock Text="UPDATES" Style="{StaticResource SectionLabel}" Foreground="{DynamicResource Faint}" Margin="2,0,0,4"/>
+          <TextBlock x:Name="UpdateState" Text="Not checked yet" Foreground="{DynamicResource Muted}" FontSize="11" Margin="2,0,0,6" TextWrapping="Wrap"/>
           <Button x:Name="UpdateCheckButton" Content="Check for updates" Style="{StaticResource GhostButton}" Margin="0,0,0,14"
                   HorizontalAlignment="Stretch" Click="UpdateCheck_Click" ToolTip="Look for a new Steam Stopper and new emulator builds now"/>
-          <TextBlock Text="STEAM FOLDER" Style="{StaticResource SectionLabel}" Foreground="{StaticResource Faint}" Margin="2,0,0,4"/>
-          <TextBlock x:Name="SteamPathText" Foreground="{StaticResource Muted}" FontSize="11" Margin="2,0,0,14" TextTrimming="CharacterEllipsis"/>
+          <TextBlock Text="STEAM FOLDER" Style="{StaticResource SectionLabel}" Foreground="{DynamicResource Faint}" Margin="2,0,0,4"/>
+          <TextBlock x:Name="SteamPathText" Foreground="{DynamicResource Muted}" FontSize="11" Margin="2,0,0,14" TextTrimming="CharacterEllipsis"/>
           <DockPanel>
-            <Ellipse x:Name="AdminDot" Width="8" Height="8" Fill="{StaticResource Faint}" VerticalAlignment="Center" Margin="2,0,8,0"/>
-            <TextBlock x:Name="AdminChip" Text="standard user" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+            <Ellipse x:Name="AdminDot" Width="8" Height="8" Fill="{DynamicResource Faint}" VerticalAlignment="Center" Margin="2,0,8,0"/>
+            <TextBlock x:Name="AdminChip" Text="standard user" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
           </DockPanel>
           <Button x:Name="ElevateButton" Content="Relaunch as admin" Style="{StaticResource GhostButton}"
                   Margin="0,10,0,0" HorizontalAlignment="Stretch" Click="Elevate_Click"/>
@@ -36,7 +36,10 @@
         <!-- Scrolls only when the window is too short for the menu and the sidebar footer. -->
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="10,14,10,0">
-          <TextBlock Text="MENU" Style="{StaticResource SectionLabel}" Foreground="{StaticResource Faint}" Margin="12,0,0,8"/>
+          <TextBlock Text="MENU" Style="{StaticResource SectionLabel}" Foreground="{DynamicResource Faint}" Margin="12,0,0,8"
+                     ToolTip="Drag a menu item to move it"/>
+          <!-- Drag an item up or down to reorder; the order is saved. -->
+          <StackPanel x:Name="NavList" AllowDrop="True" Background="Transparent">
           <RadioButton Style="{StaticResource NavItem}" Tag="home" Click="Nav_Click" IsChecked="True">
             <StackPanel Orientation="Horizontal">
               <TextBlock Style="{StaticResource NavGlyph}" Text="&#xE80F;"/>
@@ -115,6 +118,7 @@
               <TextBlock Style="{StaticResource NavText}" Text="Emulators"/>
             </StackPanel>
           </RadioButton>
+          </StackPanel>
         </StackPanel>
         </ScrollViewer>
       </DockPanel>
@@ -127,10 +131,13 @@
       </Grid.ColumnDefinitions>
       <StackPanel VerticalAlignment="Center" Margin="28,0,12,0">
         <TextBlock x:Name="PageTitle" Text="Control" FontSize="18" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
-        <TextBlock x:Name="PagePath" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,1,0,0" TextTrimming="CharacterEllipsis"/>
+        <TextBlock x:Name="PagePath" Foreground="{DynamicResource Faint}" FontSize="11" Margin="0,1,0,0" TextTrimming="CharacterEllipsis"/>
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top"
                   shell:WindowChrome.IsHitTestVisibleInChrome="True">
+        <Button x:Name="SettingsButton" Style="{StaticResource CaptionButton}" Click="Settings_Click" ToolTip="Settings">
+          <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="14"/>
+        </Button>
         <Button Style="{StaticResource CaptionButton}" Click="Min_Click" ToolTip="Minimize">
           <Path Width="12" Height="12" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
                 StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
@@ -155,7 +162,7 @@
     </Grid>
 
     <Border x:Name="UpdateBanner" DockPanel.Dock="Top" Visibility="Collapsed" Margin="28,0,28,12" CornerRadius="12" Padding="16,10"
-            Background="{StaticResource Selected}" BorderBrush="{StaticResource Accent}" BorderThickness="1">
+            Background="{DynamicResource Selected}" BorderBrush="{DynamicResource Accent}" BorderThickness="1">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
           <Button x:Name="UpdateNotesButton" Content="What's new" Style="{StaticResource LinkButton}" Margin="0,0,4,0" Click="UpdateNotes_Click"/>
@@ -163,29 +170,66 @@
           <Button x:Name="UpdateLaterButton" Content="Later" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="UpdateLater_Click"/>
           <Button x:Name="UpdateNowButton" Content="Update now" Style="{StaticResource SmallPrimary}" Margin="0" Click="UpdateNow_Click"/>
         </StackPanel>
-        <TextBlock Text="&#xE895;" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource AccentText}" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="16"/>
+        <TextBlock Text="&#xE895;" FontFamily="{StaticResource IconFont}" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" Margin="0,0,12,0" FontSize="16"/>
         <StackPanel VerticalAlignment="Center">
           <TextBlock x:Name="UpdateTitle" FontWeight="SemiBold"/>
-          <TextBlock x:Name="UpdateDetail" Foreground="{StaticResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+          <TextBlock x:Name="UpdateDetail" Foreground="{DynamicResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis"/>
         </StackPanel>
       </DockPanel>
     </Border>
 
-    <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="28,9">
+    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="28,9">
       <DockPanel>
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-          <TextBlock x:Name="FirewallChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="16,0,0,0"/>
-          <TextBlock x:Name="DnsChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="16,0,0,0"/>
-          <TextBlock x:Name="BondChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="16,0,0,0"/>
-          <TextBlock x:Name="DownloadChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="16,0,0,0"/>
-          <TextBlock x:Name="AutoChip" Text="" FontSize="12" Foreground="{StaticResource Muted}" Margin="16,0,0,0"/>
+          <TextBlock x:Name="FirewallChip" Text="" FontSize="12" Foreground="{DynamicResource Muted}" Margin="16,0,0,0"/>
+          <TextBlock x:Name="DnsChip" Text="" FontSize="12" Foreground="{DynamicResource Muted}" Margin="16,0,0,0"/>
+          <TextBlock x:Name="BondChip" Text="" FontSize="12" Foreground="{DynamicResource Muted}" Margin="16,0,0,0"/>
+          <TextBlock x:Name="DownloadChip" Text="" FontSize="12" Foreground="{DynamicResource Muted}" Margin="16,0,0,0"/>
+          <TextBlock x:Name="AutoChip" Text="" FontSize="12" Foreground="{DynamicResource Muted}" Margin="16,0,0,0"/>
         </StackPanel>
-        <TextBlock x:Name="StatusText" Text="Ready." Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+        <TextBlock x:Name="StatusText" Text="Ready." Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
       </DockPanel>
     </Border>
 
     <Grid Margin="28,6,28,20">
       <!-- ===================== CONTROL ===================== -->
+      <!-- ===================== SETTINGS ===================== -->
+      <ScrollViewer x:Name="PageSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+          <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+            <StackPanel>
+              <TextBlock Text="APPEARANCE" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
+              <TextBlock Text="Theme" FontWeight="SemiBold"/>
+              <TextBlock Text="Steam uses the Steam client's navy and blue." Foreground="{DynamicResource Faint}" FontSize="12" Margin="0,2,0,10"/>
+              <Border Background="{DynamicResource Raised}" CornerRadius="12" Padding="3" HorizontalAlignment="Left">
+                <StackPanel x:Name="ThemeBar" Orientation="Horizontal"/>
+              </Border>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+            <StackPanel>
+              <TextBlock Text="MENU" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Reset order" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Click="NavReset_Click"/>
+                <StackPanel>
+                  <TextBlock Text="Menu order" FontWeight="SemiBold"/>
+                  <TextBlock Text="Drag any item in the menu on the left up or down to move it." Foreground="{DynamicResource Faint}" FontSize="12" Margin="0,2,12,0" TextWrapping="Wrap"/>
+                </StackPanel>
+              </DockPanel>
+              <TextBlock Text="Open on" FontWeight="SemiBold" Margin="0,16,0,6"/>
+              <ComboBox x:Name="StartPageBox" Width="240" HorizontalAlignment="Left" SelectionChanged="StartPage_Changed"/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="WINDOW" Style="{StaticResource SectionLabel}" Margin="0,0,0,10"/>
+              <TextBlock Text="When I close the window" FontWeight="SemiBold" Margin="0,0,0,6"/>
+              <ComboBox x:Name="CloseActionBox" Width="240" HorizontalAlignment="Left" SelectionChanged="CloseAction_Changed"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
       <!-- ===================== HOME ===================== -->
       <Grid x:Name="PageHome">
         <Grid.RowDefinitions>
@@ -204,7 +248,7 @@
             </StackPanel>
             <StackPanel VerticalAlignment="Center" Margin="0,0,24,0">
               <TextBlock x:Name="HomeGreeting" Text="Welcome back" Style="{StaticResource Hero}" FontSize="30"/>
-              <TextBlock x:Name="HomeSummary" Foreground="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+              <TextBlock x:Name="HomeSummary" Foreground="{DynamicResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
             </StackPanel>
           </DockPanel>
         </Border>
@@ -240,10 +284,10 @@
                                     <ImageBrush ImageSource="{Binding Cover, TargetNullValue={x:Null}}" Stretch="UniformToFill"/>
                                   </Border.Background>
                                 </Border>
-                                <Border x:Name="Ring" CornerRadius="8" BorderBrush="{StaticResource Accent}" BorderThickness="2" Opacity="0"/>
+                                <Border x:Name="Ring" CornerRadius="8" BorderBrush="{DynamicResource Accent}" BorderThickness="2" Opacity="0"/>
                               </Grid>
                               <TextBlock Text="{Binding Title}" Margin="2,8,2,0" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"/>
-                              <TextBlock Text="{Binding ShelfText}" Margin="2,2,2,0" Foreground="{StaticResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                              <TextBlock Text="{Binding ShelfText}" Margin="2,2,2,0" Foreground="{DynamicResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
                             <ControlTemplate.Triggers>
                               <Trigger Property="IsMouseOver" Value="True">
@@ -260,7 +304,7 @@
               <StackPanel x:Name="HomeShelfEmpty" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="420">
                 <TextBlock Text="Your games show up here" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"/>
                 <TextBlock Text="Add the folder with your game files on the Games tab. The ones you play last come first."
-                           Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,14"/>
+                           Foreground="{DynamicResource Muted}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,14"/>
                 <Button Content="Add games" Style="{StaticResource SafeButton}" HorizontalAlignment="Center" Padding="22,9" Click="HomeGames_Click"/>
               </StackPanel>
             </Grid>
@@ -274,7 +318,7 @@
               <StackPanel>
                 <TextBlock Text="STEAM" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
                 <TextBlock x:Name="HomeSteam" FontSize="20" FontWeight="SemiBold"/>
-                <TextBlock x:Name="HomeSteamHint" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="HomeSteamHint" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
               </StackPanel>
             </DockPanel>
           </Border>
@@ -284,7 +328,7 @@
               <StackPanel>
                 <TextBlock Text="DOWNLOADS" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
                 <TextBlock x:Name="HomeFetch" FontSize="20" FontWeight="SemiBold"/>
-                <TextBlock x:Name="HomeFetchHint" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="HomeFetchHint" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
                 <ProgressBar x:Name="HomeFetchBar" Height="4" Maximum="1" Margin="0,10,0,0"/>
               </StackPanel>
             </DockPanel>
@@ -295,7 +339,7 @@
               <StackPanel>
                 <TextBlock Text="UPDATES" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
                 <TextBlock x:Name="HomeUpdates" FontSize="20" FontWeight="SemiBold"/>
-                <TextBlock x:Name="HomeUpdatesHint" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="HomeUpdatesHint" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
               </StackPanel>
             </DockPanel>
           </Border>
@@ -320,7 +364,7 @@
             <StackPanel VerticalAlignment="Center" Margin="0,0,24,0">
               <TextBlock Text="STEAM INTERNET ACCESS" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
               <TextBlock x:Name="BlockHeadline" Text="Checking…" Style="{StaticResource Hero}" FontSize="34"/>
-              <TextBlock x:Name="RuleCount" Text="Checking Steam’s firewall rules…" Foreground="{StaticResource Muted}" Margin="0,4,0,16" TextWrapping="Wrap"/>
+              <TextBlock x:Name="RuleCount" Text="Checking Steam’s firewall rules…" Foreground="{DynamicResource Muted}" Margin="0,4,0,16" TextWrapping="Wrap"/>
               <WrapPanel>
                 <DockPanel Style="{StaticResource Option}">
                   <ToggleButton x:Name="KillAfterBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Checked="Persist_Changed" Unchecked="Persist_Changed"/>
@@ -339,7 +383,7 @@
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
               <ToggleButton x:Name="BlockSwitch" Style="{StaticResource SwitchHero}" Click="BlockSwitch_Click"
                             ToolTip="Turn off to block Steam with Windows Firewall"/>
-              <TextBlock Text="Online  /  Blocked" Foreground="{StaticResource Faint}" FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+              <TextBlock Text="Online  /  Blocked" Foreground="{DynamicResource Faint}" FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0"/>
             </StackPanel>
           </Grid>
         </Border>
@@ -426,7 +470,7 @@
               <StackPanel VerticalAlignment="Center" Margin="0,0,0,12">
                 <TextBlock x:Name="DashAuto" Text="Not armed." FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
                 <TextBlock Text="When a Steam or browser download slows below your limit, Steam Stopper can shut down, sleep or just notify you."
-                           Foreground="{StaticResource Muted}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                           Foreground="{DynamicResource Muted}" Margin="0,8,0,0" TextWrapping="Wrap"/>
               </StackPanel>
             </DockPanel>
           </Border>
@@ -439,8 +483,8 @@
                 CornerRadius="14" Padding="18,12" Visibility="Collapsed">
           <DockPanel>
             <Button DockPanel.Dock="Right" Content="Cancel" Style="{StaticResource DangerButton}" Margin="0" Click="CancelCountdown_Click"/>
-            <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" FontFamily="{StaticResource IconFont}" FontSize="18" Foreground="{StaticResource Amber}" VerticalAlignment="Center" Margin="0,0,12,0"/>
-            <TextBlock x:Name="CountdownLabel" FontWeight="SemiBold" Foreground="{StaticResource Amber}" VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap"/>
+            <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" FontFamily="{StaticResource IconFont}" FontSize="18" Foreground="{DynamicResource Amber}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <TextBlock x:Name="CountdownLabel" FontWeight="SemiBold" Foreground="{DynamicResource Amber}" VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap"/>
           </DockPanel>
         </Border>
 
@@ -455,11 +499,11 @@
             </Grid.ColumnDefinitions>
             <StackPanel VerticalAlignment="Center">
               <TextBlock Text="AUTO ACTION" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
-              <TextBlock x:Name="ActionPreview" Text="Choose an app and a speed floor. After a real download, staying under that speed starts the countdown." TextWrapping="Wrap" Foreground="{StaticResource Text}" FontSize="13"/>
+              <TextBlock x:Name="ActionPreview" Text="Choose an app and a speed floor. After a real download, staying under that speed starts the countdown." TextWrapping="Wrap" Foreground="{DynamicResource Text}" FontSize="13"/>
             </StackPanel>
             <StackPanel Grid.Column="2" VerticalAlignment="Center" MaxWidth="240">
               <TextBlock x:Name="ArmHint" Text="Not watching" FontWeight="SemiBold" HorizontalAlignment="Right"/>
-              <TextBlock Text="Arm once a download is running." Foreground="{StaticResource Faint}" FontSize="11" Margin="0,2,0,0" HorizontalAlignment="Right"/>
+              <TextBlock Text="Arm once a download is running." Foreground="{DynamicResource Faint}" FontSize="11" Margin="0,2,0,0" HorizontalAlignment="Right"/>
             </StackPanel>
             <Button Grid.Column="4" x:Name="ArmButton" Content="Arm" Style="{StaticResource WideSafe}" Click="Arm_Click"/>
           </Grid>
@@ -476,8 +520,8 @@
             <DockPanel>
               <StackPanel DockPanel.Dock="Top" Margin="0,0,8,12">
                 <DockPanel>
-                  <Border DockPanel.Dock="Right" Background="{StaticResource Raised}" CornerRadius="10" Padding="10,3" VerticalAlignment="Center">
-                    <TextBlock x:Name="DlState" Text="idle" Foreground="{StaticResource Muted}" FontSize="12" FontWeight="SemiBold"/>
+                  <Border DockPanel.Dock="Right" Background="{DynamicResource Raised}" CornerRadius="10" Padding="10,3" VerticalAlignment="Center">
+                    <TextBlock x:Name="DlState" Text="idle" Foreground="{DynamicResource Muted}" FontSize="12" FontWeight="SemiBold"/>
                   </Border>
                   <TextBlock x:Name="DlHeadline" Text="No downloads" FontSize="20" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
                 </DockPanel>
@@ -510,7 +554,7 @@
                       <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                           <DockPanel VerticalAlignment="Center">
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressText}" Width="40" TextAlignment="Right" Foreground="{StaticResource Muted}" FontSize="12"/>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressText}" Width="40" TextAlignment="Right" Foreground="{DynamicResource Muted}" FontSize="12"/>
                             <ProgressBar Value="{Binding Percent, Mode=OneWay}" Maximum="1" Height="4" Margin="0,0,8,0"/>
                           </DockPanel>
                         </DataTemplate>
@@ -519,7 +563,7 @@
                     <DataGridTextColumn Header="LEFT" Binding="{Binding RemainingText}" Width="90"/>
                   </DataGrid.Columns>
                 </DataGrid>
-                <TextBlock x:Name="JobsEmpty" Text="Nothing in the Steam download queue." Foreground="{StaticResource Faint}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                <TextBlock x:Name="JobsEmpty" Text="Nothing in the Steam download queue." Foreground="{DynamicResource Faint}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
               </Grid>
             </DockPanel>
           </Border>
@@ -562,13 +606,13 @@
           </StackPanel>
           <Grid>
             <TextBox x:Name="SearchBox" Padding="38,8,12,8" TextChanged="Search_Changed"/>
-            <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
-            <TextBlock x:Name="SearchHint" Text="Search games or app IDs" IsHitTestVisible="False" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="40,0"/>
+            <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" Foreground="{DynamicResource Faint}" VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
+            <TextBlock x:Name="SearchHint" Text="Search games or app IDs" IsHitTestVisible="False" Foreground="{DynamicResource Faint}" VerticalAlignment="Center" Margin="40,0"/>
           </Grid>
         </DockPanel>
         <Border Style="{StaticResource CardBorder}" Padding="20,18,12,10">
           <DockPanel>
-            <TextBlock x:Name="LibSummary" DockPanel.Dock="Top" Text="Scanning…" Foreground="{StaticResource Muted}" Margin="0,0,0,10"/>
+            <TextBlock x:Name="LibSummary" DockPanel.Dock="Top" Text="Scanning…" Foreground="{DynamicResource Muted}" Margin="0,0,0,10"/>
             <DataGrid x:Name="GamesGrid" MouseDoubleClick="Games_DoubleClick" ToolTip="Double-click a game to open its folder">
               <DataGrid.Columns>
                 <DataGridTextColumn Header="GAME" Binding="{Binding Name}" Width="*"/>
@@ -583,7 +627,7 @@
                 <DataGridTextColumn Header="APP ID" Binding="{Binding AppId}" Width="90">
                   <DataGridTextColumn.ElementStyle>
                     <Style TargetType="TextBlock">
-                      <Setter Property="Foreground" Value="{StaticResource Faint}"/>
+                      <Setter Property="Foreground" Value="{DynamicResource Faint}"/>
                     </Style>
                   </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
@@ -606,7 +650,7 @@
             <StackPanel Margin="0,0,4,0">
               <TextBlock Text="CURRENT DNS" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
               <TextBlock x:Name="DnsHeadline" Text="—" Style="{StaticResource Hero}" TextTrimming="CharacterEllipsis"/>
-              <TextBlock x:Name="DnsHint" Text="Pick an adapter and a DNS, then apply or jump to the fastest." Foreground="{StaticResource Muted}" Margin="0,4,0,18" TextWrapping="Wrap"/>
+              <TextBlock x:Name="DnsHint" Text="Pick an adapter and a DNS, then apply or jump to the fastest." Foreground="{DynamicResource Muted}" Margin="0,4,0,18" TextWrapping="Wrap"/>
               <TextBlock Text="Adapter" Style="{StaticResource FieldLabel}"/>
               <ComboBox x:Name="DnsAdapterBox" Margin="0,0,0,14" SelectionChanged="DnsAdapter_Changed"/>
               <TextBlock Text="Primary and secondary server" Style="{StaticResource FieldLabel}"/>
@@ -621,7 +665,7 @@
               </UniformGrid>
               <DockPanel Margin="0,10,0,0">
                 <Button DockPanel.Dock="Left" Content="Flush DNS cache" Style="{StaticResource LinkButton}" Click="DnsFlush_Click"/>
-                <TextBlock x:Name="DnsBusy" Text="" Foreground="{StaticResource AccentText}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                <TextBlock x:Name="DnsBusy" Text="" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" TextWrapping="Wrap"/>
               </DockPanel>
             </StackPanel>
           </ScrollViewer>
@@ -633,7 +677,7 @@
               <Button DockPanel.Dock="Right" Content="Ping all" Style="{StaticResource SmallButton}" Margin="0" Click="DnsPing_Click"/>
               <StackPanel>
                 <TextBlock Text="PROVIDERS" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
-                <TextBlock Text="Double-click a provider to apply it." Foreground="{StaticResource Faint}" FontSize="11"/>
+                <TextBlock Text="Double-click a provider to apply it." Foreground="{DynamicResource Faint}" FontSize="11"/>
               </StackPanel>
             </DockPanel>
             <DataGrid x:Name="DnsGrid" MouseDoubleClick="DnsGrid_DoubleClick" SelectionChanged="DnsGrid_SelectionChanged">
@@ -642,7 +686,7 @@
                 <DataGridTextColumn Header="SERVERS" Binding="{Binding Servers}" Width="1.3*">
                   <DataGridTextColumn.ElementStyle>
                     <Style TargetType="TextBlock">
-                      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+                      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
                       <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
                     </Style>
                   </DataGridTextColumn.ElementStyle>
@@ -667,7 +711,7 @@
             <StackPanel Margin="0,0,4,0">
               <TextBlock Text="LINK BONDING" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
               <TextBlock x:Name="BondHeadline" Text="Off" Style="{StaticResource Hero}" TextTrimming="CharacterEllipsis"/>
-              <TextBlock x:Name="BondHint" Foreground="{StaticResource Muted}" Margin="0,4,0,18" TextWrapping="Wrap"
+              <TextBlock x:Name="BondHint" Foreground="{DynamicResource Muted}" Margin="0,4,0,18" TextWrapping="Wrap"
                          Text="Plug in two internet connections, for example Ethernet plus your phone over USB tethering or Wi-Fi hotspot, tick both on the right, then start."/>
               <TextBlock Text="Local proxy port" Style="{StaticResource FieldLabel}"/>
               <TextBox x:Name="BondPortBox" Margin="0,0,0,14" ToolTip="Steam talks to the bonder on 127.0.0.1 at this port"/>
@@ -676,9 +720,9 @@
                 <TextBlock Style="{StaticResource OptionText}" Text="Restart Steam on start and stop so it picks up the change"/>
               </DockPanel>
               <Button x:Name="BondButton" Content="Start bonding" Style="{StaticResource WideSafe}" Click="BondToggle_Click"/>
-              <TextBlock x:Name="BondBusy" Text="" Foreground="{StaticResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+              <TextBlock x:Name="BondBusy" Text="" Foreground="{DynamicResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
               <TextBlock Text="HOW IT WORKS" Style="{StaticResource SectionLabel}" Margin="0,18,0,6"/>
-              <TextBlock Foreground="{StaticResource Faint}" FontSize="11" TextWrapping="Wrap"
+              <TextBlock Foreground="{DynamicResource Faint}" FontSize="11" TextWrapping="Wrap"
                          Text="Steam downloads a game over many connections at once. Bonding runs a small proxy on this PC and sends each new connection out a different link, so the speeds add up. One single connection still uses one link, and Windows' proxy setting is restored when you stop or close the app. Give a faster link a higher weight so it gets more connections."/>
             </StackPanel>
           </ScrollViewer>
@@ -690,7 +734,7 @@
               <Button DockPanel.Dock="Right" Content="Rescan" Style="{StaticResource SmallButton}" Margin="0" Click="BondRescan_Click"/>
               <StackPanel>
                 <TextBlock Text="INTERNET CONNECTIONS" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
-                <TextBlock x:Name="BondTotal" Text="Adapters with their own gateway show up here." Foreground="{StaticResource Faint}" FontSize="11"/>
+                <TextBlock x:Name="BondTotal" Text="Adapters with their own gateway show up here." Foreground="{DynamicResource Faint}" FontSize="11"/>
               </StackPanel>
             </DockPanel>
             <DataGrid x:Name="BondGrid">
@@ -707,7 +751,7 @@
                     <DataTemplate>
                       <StackPanel VerticalAlignment="Center" ToolTip="{Binding Hint}">
                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding Detail}" Foreground="{StaticResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
                       </StackPanel>
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
@@ -741,16 +785,16 @@
             <StackPanel Margin="0,0,4,0">
               <TextBlock Text="DOWNLOAD SPEED" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
               <TextBlock x:Name="FetchHeadline" Text="Idle" Style="{StaticResource Hero}" TextTrimming="CharacterEllipsis"/>
-              <TextBlock x:Name="FetchHint" Foreground="{StaticResource Muted}" Margin="0,4,0,16" TextWrapping="Wrap"/>
+              <TextBlock x:Name="FetchHint" Foreground="{DynamicResource Muted}" Margin="0,4,0,16" TextWrapping="Wrap"/>
 
-              <Border Background="{StaticResource Raised}" CornerRadius="12" Padding="14,12" Margin="0,0,0,16">
+              <Border Background="{DynamicResource Raised}" CornerRadius="12" Padding="14,12" Margin="0,0,0,16">
                 <StackPanel>
                   <DockPanel>
                     <ToggleButton x:Name="FetchBondBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"
                                   Click="FetchBond_Click" ToolTip="Spread every file over the connections ticked below"/>
                     <StackPanel VerticalAlignment="Center">
                       <TextBlock Text="Use all my connections" FontWeight="SemiBold"/>
-                      <TextBlock x:Name="FetchBondHint" Foreground="{StaticResource Faint}" FontSize="11" TextWrapping="Wrap" Margin="0,2,10,0"/>
+                      <TextBlock x:Name="FetchBondHint" Foreground="{DynamicResource Faint}" FontSize="11" TextWrapping="Wrap" Margin="0,2,10,0"/>
                     </StackPanel>
                   </DockPanel>
                   <ItemsControl x:Name="FetchLinks" Margin="0,10,0,0">
@@ -759,10 +803,10 @@
                         <DockPanel Margin="0,4" ToolTip="{Binding Hint}">
                           <CheckBox DockPanel.Dock="Left" IsChecked="{Binding Selected, UpdateSourceTrigger=PropertyChanged}"
                                     VerticalAlignment="Center" Margin="0,0,10,0" Click="FetchLink_Click"/>
-                          <TextBlock DockPanel.Dock="Right" Text="{Binding SpeedText}" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                          <TextBlock DockPanel.Dock="Right" Text="{Binding SpeedText}" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
                           <StackPanel VerticalAlignment="Center">
                             <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Text="{Binding Detail}" Foreground="{StaticResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
                           </StackPanel>
                         </DockPanel>
                       </DataTemplate>
@@ -779,8 +823,8 @@
               <TextBlock Text="Save to" Style="{StaticResource FieldLabel}"/>
               <DockPanel Margin="0,0,0,12">
                 <Button DockPanel.Dock="Right" Content="Change" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="FetchFolder_Click"/>
-                <Border Background="{StaticResource Raised}" CornerRadius="10" Padding="12,8">
-                  <TextBlock x:Name="FetchPath" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                <Border Background="{DynamicResource Raised}" CornerRadius="10" Padding="12,8">
+                  <TextBlock x:Name="FetchPath" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis"/>
                 </Border>
               </DockPanel>
               <UniformGrid Columns="2" Margin="0,0,0,16">
@@ -796,7 +840,7 @@
               <TextBlock Text="Speed limit" Style="{StaticResource FieldLabel}"/>
               <ComboBox x:Name="FetchLimitBox" Margin="0,0,0,16" ToolTip="Cap all downloads together, so games and calls keep some bandwidth"/>
               <Button Content="Download" Style="{StaticResource WideSafe}" Click="FetchAdd_Click"/>
-              <TextBlock x:Name="FetchBusy" Text="" Foreground="{StaticResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+              <TextBlock x:Name="FetchBusy" Text="" Foreground="{DynamicResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
 
             </StackPanel>
           </ScrollViewer>
@@ -814,24 +858,24 @@
               </StackPanel>
               <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="FILES" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
-                <TextBlock x:Name="FetchSummary" Text="" Foreground="{StaticResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="FetchSummary" Text="" Foreground="{DynamicResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
               </StackPanel>
             </DockPanel>
             <!-- Bottom of the file list, so it stays in view while downloads run. -->
-              <Border Background="{StaticResource Raised}" CornerRadius="12" Padding="14,12" Margin="0,10,8,0" DockPanel.Dock="Bottom">
+              <Border Background="{DynamicResource Raised}" CornerRadius="12" Padding="14,12" Margin="0,10,8,0" DockPanel.Dock="Bottom">
                 <StackPanel>
                   <DockPanel>
                     <ToggleButton x:Name="FetchAfterBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="FetchAfter_Click"/>
                     <StackPanel VerticalAlignment="Center">
                       <TextBlock Text="When all downloads finish" FontWeight="SemiBold"/>
-                      <TextBlock x:Name="FetchAfterHint" Text="Off. Turns itself off again after it runs." Foreground="{StaticResource Faint}" FontSize="11" TextWrapping="Wrap" Margin="0,2,10,0"/>
+                      <TextBlock x:Name="FetchAfterHint" Text="Off. Turns itself off again after it runs." Foreground="{DynamicResource Faint}" FontSize="11" TextWrapping="Wrap" Margin="0,2,10,0"/>
                     </StackPanel>
                   </DockPanel>
                   <ComboBox x:Name="FetchAfterActionBox" Margin="0,10,0,0"/>
                   <!-- One minute to change your mind before the PC goes down. -->
                   <DockPanel x:Name="FetchAfterCountdown" Margin="0,10,0,0" Visibility="Collapsed">
                     <Button DockPanel.Dock="Right" Content="Cancel" Style="{StaticResource SmallButton}" Click="FetchAfterCancel_Click"/>
-                    <TextBlock x:Name="FetchAfterCountdownText" Foreground="{StaticResource Amber}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="FetchAfterCountdownText" Foreground="{DynamicResource Amber}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap"/>
                   </DockPanel>
                 </StackPanel>
               </Border>
@@ -857,7 +901,7 @@
                       <DataTemplate>
                         <StackPanel VerticalAlignment="Center" ToolTip="{Binding Hint}">
                           <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                          <TextBlock Text="{Binding Detail}" Foreground="{StaticResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -866,7 +910,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
                         <DockPanel VerticalAlignment="Center">
-                          <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressText}" Width="38" TextAlignment="Right" Foreground="{StaticResource Muted}" FontSize="12"/>
+                          <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressText}" Width="38" TextAlignment="Right" Foreground="{DynamicResource Muted}" FontSize="12"/>
                           <ProgressBar Value="{Binding Percent, Mode=OneWay}" Maximum="1" Height="4" Margin="0,0,8,0"/>
                         </DockPanel>
                       </DataTemplate>
@@ -876,7 +920,7 @@
                   <DataGridTextColumn Header="LEFT" Binding="{Binding EtaText}" Width="62"/>
                 </DataGrid.Columns>
               </DataGrid>
-              <TextBlock x:Name="FetchEmpty" Text="Paste a link on the left to start." Foreground="{StaticResource Faint}"
+              <TextBlock x:Name="FetchEmpty" Text="Paste a link on the left to start." Foreground="{DynamicResource Faint}"
                          HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
             </Grid>
           </DockPanel>
@@ -896,15 +940,15 @@
             <StackPanel Margin="0,0,4,0">
               <TextBlock Text="MAIN CONNECTION" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
               <TextBlock x:Name="MainHeadline" Text="Automatic" Style="{StaticResource Hero}" TextTrimming="CharacterEllipsis"/>
-              <TextBlock Foreground="{StaticResource Muted}" Margin="0,4,0,18" TextWrapping="Wrap"
+              <TextBlock Foreground="{DynamicResource Muted}" Margin="0,4,0,18" TextWrapping="Wrap"
                          Text="Everything without its own route uses the main connection, including games like Valorant. Pick your steadiest link, usually Ethernet."/>
               <TextBlock Text="Connection" Style="{StaticResource FieldLabel}"/>
               <ComboBox x:Name="MainLinkBox" Margin="0,0,0,18" DisplayMemberPath="Name"/>
               <Button Content="Make main" Style="{StaticResource WideSafe}" Click="MainSet_Click"/>
               <Button Content="Restore automatic" Style="{StaticResource WideButton}" Margin="0,8,0,0" Click="MainRestore_Click"/>
-              <TextBlock x:Name="RoutesBusy" Text="" Foreground="{StaticResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+              <TextBlock x:Name="RoutesBusy" Text="" Foreground="{DynamicResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
               <TextBlock Text="HOW IT WORKS" Style="{StaticResource SectionLabel}" Margin="0,18,0,6"/>
-              <TextBlock Foreground="{StaticResource Faint}" FontSize="11" TextWrapping="Wrap"
+              <TextBlock Foreground="{DynamicResource Faint}" FontSize="11" TextWrapping="Wrap"
                          Text="Steam Stopper never touches the game, so anti-cheat has nothing to see. An app sent to another link is restarted through a small proxy pinned to that link. Discord voice also gets a Windows route to Discord's voice servers. Closing Steam Stopper restarts routed apps on the main connection."/>
             </StackPanel>
           </ScrollViewer>
@@ -919,7 +963,7 @@
               </StackPanel>
               <StackPanel>
                 <TextBlock Text="APPS" Style="{StaticResource SectionLabel}" Margin="0,0,0,2"/>
-                <TextBlock Text="Pick a connection for an app, then press Apply. The app restarts." Foreground="{StaticResource Faint}" FontSize="11"/>
+                <TextBlock Text="Pick a connection for an app, then press Apply. The app restarts." Foreground="{DynamicResource Faint}" FontSize="11"/>
               </StackPanel>
             </DockPanel>
             <DataGrid x:Name="RoutesGrid">
@@ -929,7 +973,7 @@
                     <DataTemplate>
                       <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock Text="{Binding Status}" Foreground="{StaticResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Text="{Binding Status}" Foreground="{DynamicResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
                       </StackPanel>
                     </DataTemplate>
                   </DataGridTemplateColumn.CellTemplate>
@@ -967,14 +1011,14 @@
           <StackPanel>
             <TextBlock Text="READY TO FREE" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
             <TextBlock x:Name="CleanHeadline" Text="—" Style="{StaticResource Hero}" FontSize="44"/>
-            <TextBlock x:Name="CleanHint" Text="Clears temp files, Recycle Bin, caches and Steam leftovers. Locked files are skipped." Foreground="{StaticResource Muted}" Margin="0,6,0,22" TextWrapping="Wrap"/>
+            <TextBlock x:Name="CleanHint" Text="Clears temp files, Recycle Bin, caches and Steam leftovers. Locked files are skipped." Foreground="{DynamicResource Muted}" Margin="0,6,0,22" TextWrapping="Wrap"/>
             <Button Content="Clean selected" Style="{StaticResource WideSafe}" Click="CleanRun_Click"/>
             <Button Content="Scan again" Style="{StaticResource WideButton}" Margin="0,8,0,0" Click="CleanScan_Click"/>
-            <TextBlock x:Name="CleanBusy" Text="" Foreground="{StaticResource AccentText}" Margin="0,12,0,0" TextWrapping="Wrap"/>
-            <Border Background="{StaticResource Raised}" CornerRadius="12" Padding="14,12" Margin="0,18,0,0">
+            <TextBlock x:Name="CleanBusy" Text="" Foreground="{DynamicResource AccentText}" Margin="0,12,0,0" TextWrapping="Wrap"/>
+            <Border Background="{DynamicResource Raised}" CornerRadius="12" Padding="14,12" Margin="0,18,0,0">
               <DockPanel>
-                <TextBlock DockPanel.Dock="Left" Text="&#xE946;" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource AccentText}" Margin="0,2,10,0"/>
-                <TextBlock Text="Only junk folders are touched. Games, saves and documents are never deleted." Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"/>
+                <TextBlock DockPanel.Dock="Left" Text="&#xE946;" FontFamily="{StaticResource IconFont}" Foreground="{DynamicResource AccentText}" Margin="0,2,10,0"/>
+                <TextBlock Text="Only junk folders are touched. Games, saves and documents are never deleted." Foreground="{DynamicResource Muted}" FontSize="12" TextWrapping="Wrap"/>
               </DockPanel>
             </Border>
           </StackPanel>
@@ -1023,12 +1067,12 @@
             <StackPanel Margin="0,0,4,0">
               <TextBlock Text="READY TO SORT" Style="{StaticResource SectionLabel}" Margin="0,0,0,6"/>
               <TextBlock x:Name="OrgHeadline" Text="—" Style="{StaticResource Hero}" FontSize="44"/>
-              <TextBlock x:Name="OrgHint" Text="Scanning…" Foreground="{StaticResource Muted}" Margin="0,6,0,18" TextWrapping="Wrap"/>
+              <TextBlock x:Name="OrgHint" Text="Scanning…" Foreground="{DynamicResource Muted}" Margin="0,6,0,18" TextWrapping="Wrap"/>
               <TextBlock Text="Folder" Style="{StaticResource FieldLabel}"/>
               <DockPanel Margin="0,0,0,18">
                 <Button DockPanel.Dock="Right" Content="Change" Style="{StaticResource SmallButton}" Margin="8,0,0,0" Click="OrgChange_Click"/>
-                <Border Background="{StaticResource Raised}" CornerRadius="10" Padding="12,8">
-                  <TextBlock x:Name="OrgPath" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                <Border Background="{DynamicResource Raised}" CornerRadius="10" Padding="12,8">
+                  <TextBlock x:Name="OrgPath" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis"/>
                 </Border>
               </DockPanel>
               <Button x:Name="OrgRunButton" Content="Organize now" Style="{StaticResource WideSafe}" Click="OrgRun_Click"/>
@@ -1038,12 +1082,12 @@
               </UniformGrid>
               <DockPanel Margin="0,10,0,0">
                 <Button DockPanel.Dock="Left" Content="Open folder" Style="{StaticResource LinkButton}" Click="OrgOpen_Click"/>
-                <TextBlock x:Name="OrgBusy" Text="" Foreground="{StaticResource AccentText}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                <TextBlock x:Name="OrgBusy" Text="" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" TextWrapping="Wrap"/>
               </DockPanel>
-              <Border Background="{StaticResource Raised}" CornerRadius="12" Padding="14,12" Margin="0,14,0,0">
+              <Border Background="{DynamicResource Raised}" CornerRadius="12" Padding="14,12" Margin="0,14,0,0">
                 <DockPanel>
-                  <TextBlock DockPanel.Dock="Left" Text="&#xE946;" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource AccentText}" Margin="0,2,10,0"/>
-                  <TextBlock Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"
+                  <TextBlock DockPanel.Dock="Left" Text="&#xE946;" FontFamily="{StaticResource IconFont}" Foreground="{DynamicResource AccentText}" Margin="0,2,10,0"/>
+                  <TextBlock Foreground="{DynamicResource Muted}" FontSize="12" TextWrapping="Wrap"
                              Text="Loose files go into Installers, Archives, Documents, Images, Videos, Audio, Code, Fonts, Torrents and Other. Existing folders, unfinished downloads and files changed in the last 2 minutes are left alone. Nothing is deleted, and Undo puts every file back."/>
                 </DockPanel>
               </Border>
@@ -1053,7 +1097,7 @@
         <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="20,18,12,10">
           <DockPanel>
             <DockPanel DockPanel.Dock="Top" Margin="0,0,8,10">
-              <TextBlock x:Name="OrgSummary" DockPanel.Dock="Right" Foreground="{StaticResource Faint}" VerticalAlignment="Center"/>
+              <TextBlock x:Name="OrgSummary" DockPanel.Dock="Right" Foreground="{DynamicResource Faint}" VerticalAlignment="Center"/>
               <TextBlock Text="PLAN" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" Margin="0"/>
             </DockPanel>
             <Grid>
@@ -1069,8 +1113,8 @@
                   <DataGridTemplateColumn Header="MOVES TO" Width="120">
                     <DataGridTemplateColumn.CellTemplate>
                       <DataTemplate>
-                        <Border Background="{StaticResource Selected}" CornerRadius="8" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
-                          <TextBlock Text="{Binding Category}" Foreground="{StaticResource AccentText}" FontSize="12"/>
+                        <Border Background="{DynamicResource Selected}" CornerRadius="8" Padding="8,2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Category}" Foreground="{DynamicResource AccentText}" FontSize="12"/>
                         </Border>
                       </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -1078,7 +1122,7 @@
                   <DataGridTextColumn Header="SIZE" Binding="{Binding SizeText}" Width="90"/>
                 </DataGrid.Columns>
               </DataGrid>
-              <TextBlock x:Name="OrgEmpty" Text="Nothing to sort. This folder is tidy." Foreground="{StaticResource Faint}"
+              <TextBlock x:Name="OrgEmpty" Text="Nothing to sort. This folder is tidy." Foreground="{DynamicResource Faint}"
                          HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Visibility="Collapsed"/>
             </Grid>
           </DockPanel>
@@ -1089,7 +1133,7 @@
       <Grid x:Name="PageGames" Visibility="Collapsed" AllowDrop="True" Drop="Games_Drop">
         <Grid.Resources>
           <Style x:Key="GameRow" TargetType="ListBoxItem">
-            <Setter Property="Foreground" Value="{StaticResource Text}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Text}"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
               <Setter.Value>
@@ -1099,10 +1143,10 @@
                   </Border>
                   <ControlTemplate.Triggers>
                     <Trigger Property="IsMouseOver" Value="True">
-                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource Hover}"/>
+                      <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Hover}"/>
                     </Trigger>
                     <Trigger Property="IsSelected" Value="True">
-                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource Selected}"/>
+                      <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Selected}"/>
                     </Trigger>
                   </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -1180,8 +1224,8 @@
                       </Setter>
                     </MultiTrigger>
                     <Trigger Property="IsEnabled" Value="False">
-                      <Setter TargetName="Bd" Property="Background" Value="{StaticResource Raised}"/>
-                      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+                      <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Raised}"/>
+                      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
                     </Trigger>
                   </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -1206,10 +1250,10 @@
               <Button Content="Steam" Style="{StaticResource SmallButton}" Margin="4,0,0,0" Click="GamesToSteam_Click"
                       ToolTip="Add these games to Steam as non-Steam games, with box art, so they start from your Steam library and Big Picture"/>
             </UniformGrid>
-            <TextBlock x:Name="GamesCount" DockPanel.Dock="Bottom" Foreground="{StaticResource Faint}" FontSize="11" Margin="8,8,0,0"/>
+            <TextBlock x:Name="GamesCount" DockPanel.Dock="Bottom" Foreground="{DynamicResource Faint}" FontSize="11" Margin="8,8,0,0"/>
             <Grid DockPanel.Dock="Top" Margin="0,0,4,10">
               <TextBox x:Name="GameSearchBox" TextChanged="GameSearch_Changed"/>
-              <TextBlock x:Name="GameSearchHint" Text="Search games" IsHitTestVisible="False" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="14,0"/>
+              <TextBlock x:Name="GameSearchHint" Text="Search games" IsHitTestVisible="False" Foreground="{DynamicResource Faint}" VerticalAlignment="Center" Margin="14,0"/>
             </Grid>
             <ListBox x:Name="GamesList" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource GameRow}"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="GamesList_SelectionChanged">
@@ -1217,7 +1261,7 @@
                 <GroupStyle>
                   <GroupStyle.HeaderTemplate>
                     <DataTemplate>
-                      <TextBlock Margin="8,12,0,4" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Faint}">
+                      <TextBlock Margin="8,12,0,4" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Faint}">
                         <Run Text="{Binding Name, Mode=OneWay}"/><Run Text="  ·  "/><Run Text="{Binding ItemCount, Mode=OneWay}"/>
                       </TextBlock>
                     </DataTemplate>
@@ -1250,7 +1294,7 @@
           <Grid>
             <StackPanel x:Name="GamesEmpty" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="380">
               <TextBlock Text="Your games, in one place" FontSize="24" FontWeight="Bold" FontFamily="{StaticResource DisplayFont}" HorizontalAlignment="Center"/>
-              <TextBlock Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,18"
+              <TextBlock Foreground="{DynamicResource Muted}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,18"
                          Text="Add the folder where you keep your game files, or drop files and folders here. Each game opens in the right emulator from the Emulators tab."/>
               <Button Content="Add folder" Style="{StaticResource WideSafe}" Click="GamesAdd_Click"/>
             </StackPanel>
@@ -1264,13 +1308,15 @@
                     <BlurEffect Radius="50"/>
                   </Image.Effect>
                 </Image>
-                <Border>
-                  <Border.Background>
+                <!-- Darken the top a little, fade into the card colour at the bottom (whatever the theme). -->
+                <Border Background="#33000000"/>
+                <Border Background="{DynamicResource Card}">
+                  <Border.OpacityMask>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                      <GradientStop Color="#33000000" Offset="0"/>
-                      <GradientStop Color="#1A1B1F" Offset="1"/>
+                      <GradientStop Color="Transparent" Offset="0"/>
+                      <GradientStop Color="Black" Offset="1"/>
                     </LinearGradientBrush>
-                  </Border.Background>
+                  </Border.OpacityMask>
                 </Border>
                 <DockPanel Margin="30,24,30,22" VerticalAlignment="Bottom">
                   <Grid Width="150" Height="200" Margin="0,0,24,0">
@@ -1304,15 +1350,15 @@
                   <Button x:Name="GamePlayButton" Style="{StaticResource PlayButton}" Content="PLAY" Click="GamePlay_Click" Margin="0,0,24,0"/>
                   <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <StackPanel Margin="0,0,22,0">
-                      <TextBlock Text="LAST PLAYED" Foreground="{StaticResource Faint}" FontSize="11" FontWeight="SemiBold"/>
+                      <TextBlock Text="LAST PLAYED" Foreground="{DynamicResource Faint}" FontSize="11" FontWeight="SemiBold"/>
                       <TextBlock Text="{Binding LastPlayedText}" FontSize="14" Margin="0,3,0,0"/>
                     </StackPanel>
                     <StackPanel Margin="0,0,22,0">
-                      <TextBlock Text="PLAY TIME" Foreground="{StaticResource Faint}" FontSize="11" FontWeight="SemiBold"/>
+                      <TextBlock Text="PLAY TIME" Foreground="{DynamicResource Faint}" FontSize="11" FontWeight="SemiBold"/>
                       <TextBlock Text="{Binding PlayTimeText}" FontSize="14" Margin="0,3,0,0"/>
                     </StackPanel>
                     <StackPanel x:Name="GameEmuPanel">
-                      <TextBlock Text="EMULATOR" Foreground="{StaticResource Faint}" FontSize="11" FontWeight="SemiBold"/>
+                      <TextBlock Text="EMULATOR" Foreground="{DynamicResource Faint}" FontSize="11" FontWeight="SemiBold"/>
                       <ComboBox x:Name="GameEmuBox" MinWidth="130" Margin="0,3,0,0" SelectionChanged="GameEmu_Changed"/>
                     </StackPanel>
                   </StackPanel>
@@ -1321,7 +1367,7 @@
 
               <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="30,20,30,20">
-                  <TextBlock x:Name="GameHint" Foreground="{StaticResource AccentText}" TextWrapping="Wrap" Margin="0,0,0,14"/>
+                  <TextBlock x:Name="GameHint" Foreground="{DynamicResource AccentText}" TextWrapping="Wrap" Margin="0,0,0,14"/>
                   <UniformGrid Columns="2" Margin="0,0,0,16">
                     <StackPanel Margin="0,0,12,0">
                       <TextBlock Text="Console" Style="{StaticResource FieldLabel}"/>
@@ -1329,11 +1375,11 @@
                     </StackPanel>
                     <StackPanel Margin="12,0,0,0">
                       <TextBlock Text="Size" Style="{StaticResource FieldLabel}"/>
-                      <TextBlock Text="{Binding SizeText}" Foreground="{StaticResource Muted}" Margin="0,10,0,0"/>
+                      <TextBlock Text="{Binding SizeText}" Foreground="{DynamicResource Muted}" Margin="0,10,0,0"/>
                     </StackPanel>
                   </UniformGrid>
                   <TextBlock Text="File" Style="{StaticResource FieldLabel}"/>
-                  <TextBlock Text="{Binding Path}" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,18"/>
+                  <TextBlock Text="{Binding Path}" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,0,0,18"/>
                   <WrapPanel>
                     <Button Content="Open file location" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameOpenFolder_Click"/>
                     <Button Content="Set cover image" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameCover_Click"/>
@@ -1355,16 +1401,16 @@
                   ToolTip="Look for folders left behind by apps that are no longer installed"/>
           <Grid>
             <TextBox x:Name="AppSearchBox" Padding="38,8,12,8" TextChanged="AppSearch_Changed"/>
-            <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
-            <TextBlock x:Name="AppSearchHint" Text="Search apps" IsHitTestVisible="False" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="40,0"/>
+            <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" Foreground="{DynamicResource Faint}" VerticalAlignment="Center" Margin="14,0" IsHitTestVisible="False"/>
+            <TextBlock x:Name="AppSearchHint" Text="Search apps" IsHitTestVisible="False" Foreground="{DynamicResource Faint}" VerticalAlignment="Center" Margin="40,0"/>
           </Grid>
         </DockPanel>
         <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
-          <Border x:Name="AppCatBorder" DockPanel.Dock="Left" Background="{StaticResource Raised}" CornerRadius="12" Padding="3">
+          <Border x:Name="AppCatBorder" DockPanel.Dock="Left" Background="{DynamicResource Raised}" CornerRadius="12" Padding="3">
             <StackPanel Orientation="Horizontal" x:Name="AppCatBar"/>
           </Border>
           <!-- Emulators: consoles, or PC ports (recomps), which aren't a console. -->
-          <Border x:Name="EmuTabsBorder" DockPanel.Dock="Left" Background="{StaticResource Raised}" CornerRadius="12" Padding="3" Margin="0,0,14,0" Visibility="Collapsed">
+          <Border x:Name="EmuTabsBorder" DockPanel.Dock="Left" Background="{DynamicResource Raised}" CornerRadius="12" Padding="3" Margin="0,0,14,0" Visibility="Collapsed">
             <StackPanel Orientation="Horizontal">
               <RadioButton x:Name="EmuTabConsoles" Content="Consoles" GroupName="EmuTab" Style="{StaticResource Segment}" IsChecked="True" Click="EmuTab_Click"/>
               <RadioButton x:Name="EmuTabPorts" Content="PC ports" GroupName="EmuTab" Style="{StaticResource Segment}" Click="EmuTab_Click"
@@ -1373,19 +1419,19 @@
           </Border>
           <Button x:Name="EmuBackButton" DockPanel.Dock="Left" Content="&#x2190;  All consoles" Style="{StaticResource GhostButton}"
                   Margin="0,0,14,0" Click="EmuBack_Click" Visibility="Collapsed"/>
-          <TextBlock x:Name="EmuTitle" DockPanel.Dock="Left" Foreground="{StaticResource Muted}" FontSize="13" VerticalAlignment="Center"/>
+          <TextBlock x:Name="EmuTitle" DockPanel.Dock="Left" Foreground="{DynamicResource Muted}" FontSize="13" VerticalAlignment="Center"/>
           <StackPanel x:Name="EmuAutoPanel" DockPanel.Dock="Right" Orientation="Horizontal" Margin="12,0,0,0" Visibility="Collapsed"
                       ToolTip="When a new build of an installed emulator comes out, install it in the background while the emulator is closed">
             <Button x:Name="EmuCheckButton" Content="Check for updates" Style="{StaticResource SmallButton}" Margin="0,0,16,0" Click="EmuCheck_Click"
                     ToolTip="Look for new builds of your installed emulators and ports now"/>
-            <TextBlock Text="PGO builds" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"
+            <TextBlock Text="PGO builds" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"
                        ToolTip="Download the PGO (profile-guided optimisation) build when an emulator offers one, such as Eglantine. Usually faster; turn off for the standard build."/>
             <ToggleButton x:Name="EmuPgoBox" Style="{StaticResource Switch}" Click="EmuPgo_Click" Margin="0,0,16,0"/>
-            <TextBlock Text="Auto-update" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBlock Text="Auto-update" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0"/>
             <ToggleButton x:Name="EmuAutoBox" Style="{StaticResource Switch}" Click="EmuAuto_Click"/>
           </StackPanel>
-          <TextBlock x:Name="AppCount" DockPanel.Dock="Right" Text="" Foreground="{StaticResource Faint}" VerticalAlignment="Center" Margin="12,0,0,0"/>
-          <TextBlock x:Name="AppBusy" Text="" Foreground="{StaticResource AccentText}" VerticalAlignment="Center" Margin="16,0,0,0" TextTrimming="CharacterEllipsis"/>
+          <TextBlock x:Name="AppCount" DockPanel.Dock="Right" Text="" Foreground="{DynamicResource Faint}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+          <TextBlock x:Name="AppBusy" Text="" Foreground="{DynamicResource AccentText}" VerticalAlignment="Center" Margin="16,0,0,0" TextTrimming="CharacterEllipsis"/>
         </DockPanel>
         <Grid>
         <ScrollViewer x:Name="ConsoleView" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Visibility="Collapsed">
@@ -1465,7 +1511,7 @@
                         <Border CornerRadius="12" Background="{Binding Color, Converter={StaticResource HexBrush}}">
                           <TextBlock Text="{Binding Initial}" Foreground="White" FontWeight="Bold" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
-                        <Border CornerRadius="12" Background="{StaticResource Raised}" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                        <Border CornerRadius="12" Background="{DynamicResource Raised}" BorderBrush="{DynamicResource Line}" BorderThickness="1">
                           <Border.Style>
                             <Style TargetType="Border">
                               <Style.Triggers>
@@ -1479,7 +1525,7 @@
                         </Border>
                       </Grid>
                       <TextBlock DockPanel.Dock="Top" Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                      <TextBlock Text="{Binding Subtitle}" Foreground="{StaticResource Faint}" FontSize="11" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource Faint}" FontSize="11" Margin="0,2,0,0" TextTrimming="CharacterEllipsis"/>
                     </DockPanel>
                     <DockPanel DockPanel.Dock="Bottom">
                       <Button DockPanel.Dock="Right" Click="AppCardAction_Click" Content="{Binding ActionLabel}">
@@ -1488,8 +1534,8 @@
                             <Setter Property="Margin" Value="0"/>
                             <Style.Triggers>
                               <DataTrigger Binding="{Binding ActionLabel}" Value="Uninstall">
-                                <Setter Property="Background" Value="{StaticResource Raised}"/>
-                                <Setter Property="Foreground" Value="{StaticResource Text}"/>
+                                <Setter Property="Background" Value="{DynamicResource Raised}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource Text}"/>
                               </DataTrigger>
                             </Style.Triggers>
                           </Style>
@@ -1511,19 +1557,19 @@
                         <Ellipse Width="7" Height="7" Margin="0,0,7,0" VerticalAlignment="Center">
                           <Ellipse.Style>
                             <Style TargetType="Ellipse">
-                              <Setter Property="Fill" Value="{StaticResource Faint}"/>
+                              <Setter Property="Fill" Value="{DynamicResource Faint}"/>
                               <Style.Triggers>
                                 <DataTrigger Binding="{Binding Installed}" Value="True">
-                                  <Setter Property="Fill" Value="{StaticResource Green}"/>
+                                  <Setter Property="Fill" Value="{DynamicResource Green}"/>
                                 </DataTrigger>
                               </Style.Triggers>
                             </Style>
                           </Ellipse.Style>
                         </Ellipse>
-                        <TextBlock Text="{Binding State}" Foreground="{StaticResource Muted}" FontSize="12"/>
+                        <TextBlock Text="{Binding State}" Foreground="{DynamicResource Muted}" FontSize="12"/>
                       </StackPanel>
                     </DockPanel>
-                    <TextBlock Text="{Binding Blurb}" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Top"/>
+                    <TextBlock Text="{Binding Blurb}" Foreground="{DynamicResource Muted}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Top"/>
                   </DockPanel>
                 </Border>
               </DataTemplate>

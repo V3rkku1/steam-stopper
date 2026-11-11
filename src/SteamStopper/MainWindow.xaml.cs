@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private static readonly Dictionary<string, (string Title, string Subtitle)> PageTitles = new()
     {
         ["home"] = ("Home", "Your games, downloads and Steam at a glance"),
+        ["settings"] = ("Settings", "Look, menu order and window behaviour"),
         ["control"] = ("Control", "Cut Steam off the internet and manage the client"),
         ["downloads"] = ("Downloads", "Watch downloads and act when they finish"),
         ["library"] = ("Library", "Installed games, sizes and Steam maintenance"),
@@ -93,6 +94,7 @@ public partial class MainWindow : Window
         _pages = new Dictionary<string, UIElement>
         {
             ["home"] = PageHome,
+            ["settings"] = PageSettings,
             ["control"] = PageControl,
             ["downloads"] = PageDownloads,
             ["library"] = PageLibrary,
@@ -124,6 +126,7 @@ public partial class MainWindow : Window
         FillAppCategories();
         LoadUiFromSettings();
         InitFetch();
+        InitSettings();
         RefreshAdmin();
         RefreshFirewallAsync();
         RefreshProcesses();
@@ -296,7 +299,11 @@ public partial class MainWindow : Window
 
     private void Nav_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not RadioButton { Tag: string key }) return;
+        if (sender is RadioButton { Tag: string key }) ShowPage(key);
+    }
+
+    private void ShowPage(string key)
+    {
         foreach (var (name, page) in _pages)
             // Apps and Emulators share one page, so compare pages rather than keys.
             page.Visibility = page == _pages[key] ? Visibility.Visible : Visibility.Collapsed;

@@ -134,6 +134,11 @@ public sealed class AppSettings
     public string MainLink { get; set; } = "";
     // What the window's X does: "ask", "tray" or "quit".
     public string CloseAction { get; set; } = "ask";
+    // Colour theme: "default" or "steam".
+    public string Theme { get; set; } = "default";
+    // Sidebar order as page keys; pages missing here keep their place after the listed ones.
+    public List<string> NavOrder { get; set; } = [];
+    public string StartPage { get; set; } = "home";
     // App key -> adapter name it was last pinned to.
     public Dictionary<string, string> RouteLinks { get; set; } = [];
     public string FetchFolder { get; set; } = "";
