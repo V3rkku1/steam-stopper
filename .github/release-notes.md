@@ -1,7 +1,10 @@
-## Faster Fetch
+## More games in your library
 
-- **No more crawl at 99%**: near the end, idle connections split the last pieces between them down to 128 KB, instead of leaving the final megabytes on one slow connection.
-- **Auto connections ramp up faster**: start with 6 and add 4 every 2 seconds while the download keeps getting faster (up to 32).
+- **.pkg files** are sorted into PS3, PS4 or PS Vita by reading the file. Play opens the emulator so you can install it from its File menu (RPCS3, shadPS4 and Vita3K can't start a .pkg directly).
+- **PS3 and PS4 game folders** (disc dumps and installed PSN games) are found by themselves, named from PARAM.SFO and shown with the game's own icon.
+- **RPCS3, shadPS4 and Vita3K** can now start games from the Games tab.
+- More file types: Vita **.vpk**, Switch **.nro**, 3DS **.cxi**, Wii **.wad**, GameCube **.gcm**, Famicom Disk System **.fds**.
+- PS3 and Vita games get box art.
 
 ## Downloads
 

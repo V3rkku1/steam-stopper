@@ -27,6 +27,10 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.9
+
+- **More game files in Games**: PS3, PS4 and Vita `.pkg`, Vita `.vpk`, PS3 and PS4 game folders (titled and with their own icon), plus `.nro`, `.cxi`, `.wad`, `.gcm` and `.fds`. RPCS3, shadPS4 and Vita3K can now start games.
+
 ## What's new in 2.5.8
 
 - **Faster Fetch**: no more crawl at 99% (idle connections help finish the last pieces), and Auto connections reach full speed sooner.
