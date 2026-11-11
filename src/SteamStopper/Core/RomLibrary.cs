@@ -58,21 +58,24 @@ public static class RomLibrary
 {
     private static readonly Dictionary<string, string> ByExtension = new(StringComparer.OrdinalIgnoreCase)
     {
-        [".nsp"] = "SWITCH", [".xci"] = "SWITCH",
+        [".nsp"] = "SWITCH", [".xci"] = "SWITCH", [".nro"] = "SWITCH",
         // Switch 2 archive used by Lichii and Eglantine: base game plus updates in one file (magic "NUP\x01").
         [".nup"] = "SWITCH 2",
-        [".3ds"] = "3DS", [".cci"] = "3DS", [".3dsx"] = "3DS",
+        [".3ds"] = "3DS", [".cci"] = "3DS", [".3dsx"] = "3DS", [".cxi"] = "3DS",
         [".nds"] = "DS",
         [".wua"] = "WII U", [".wux"] = "WII U", [".wud"] = "WII U", [".rpx"] = "WII U",
-        [".wbfs"] = "WII", [".rvz"] = "WII", [".gcz"] = "GAMECUBE", [".ciso"] = "GAMECUBE",
+        [".wbfs"] = "WII", [".rvz"] = "WII", [".wad"] = "WII", [".gcz"] = "GAMECUBE", [".ciso"] = "GAMECUBE", [".gcm"] = "GAMECUBE",
         [".gba"] = "GAME BOY", [".gbc"] = "GAME BOY", [".gb"] = "GAME BOY",
-        [".nes"] = "NES · SNES", [".sfc"] = "NES · SNES", [".smc"] = "NES · SNES",
+        [".nes"] = "NES · SNES", [".sfc"] = "NES · SNES", [".smc"] = "NES · SNES", [".fds"] = "NES · SNES",
         [".n64"] = "N64", [".z64"] = "N64", [".v64"] = "N64",
         [".cso"] = "PSP", [".pbp"] = "PSP",
         [".cue"] = "PS1", [".chd"] = "PS1", [".m3u"] = "PS1",
         [".gdi"] = "DREAMCAST", [".cdi"] = "DREAMCAST",
         [".xex"] = "XBOX 360",
         [".zar"] = "PS5",
+        [".vpk"] = "VITA",
+        // PS3, PS4 and Vita share .pkg; Sniff reads which from its header.
+        [".pkg"] = "",
         [".iso"] = ""
     };
 
@@ -98,6 +101,10 @@ public static class RomLibrary
         ["Project64"] = "\"{rom}\"",
         ["ares"] = "\"{rom}\"",
         ["KytyPS5"] = "--game \"{rom}\"",
+        // RPCS3 boots a game folder (PS3_GAME\USRDIR\EBOOT.BIN inside); shadPS4 boots the folder's eboot.bin.
+        ["RPCS3"] = "--no-gui \"{rom}\"",
+        ["shadPS4"] = "-g \"{rom}\\eboot.bin\"",
+        ["Vita3K"] = "",
         ["redream"] = "\"{rom}\""
     };
 
@@ -110,7 +117,7 @@ public static class RomLibrary
         ["PS1"] = ["Sony - PlayStation"], ["PS2"] = ["Sony - PlayStation 2"], ["PSP"] = ["Sony - PlayStation Portable"],
         ["GAMECUBE"] = ["Nintendo - GameCube"], ["WII"] = ["Nintendo - Wii"], ["DS"] = ["Nintendo - Nintendo DS"],
         ["3DS"] = ["Nintendo - Nintendo 3DS", "Nintendo - Nintendo 3DS (Digital)"], ["N64"] = ["Nintendo - Nintendo 64"],
-        ["DREAMCAST"] = ["Sega - Dreamcast"], ["XBOX"] = ["Microsoft - Xbox"], ["XBOX 360"] = ["Microsoft - Xbox 360"],
+        ["DREAMCAST"] = ["Sega - Dreamcast"], ["PS3"] = ["Sony - PlayStation 3"], ["VITA"] = ["Sony - PlayStation Vita"], ["XBOX"] = ["Microsoft - Xbox"], ["XBOX 360"] = ["Microsoft - Xbox 360"],
         ["NES · SNES"] = ["Nintendo - Super Nintendo Entertainment System", "Nintendo - Nintendo Entertainment System"],
         ["GAME BOY"] = ["Nintendo - Game Boy Advance", "Nintendo - Game Boy Color", "Nintendo - Game Boy"]
     };
@@ -166,14 +173,9 @@ public static class RomLibrary
             catch { continue; }
             foreach (var file in files)
             {
-                // PS5 dumps are folders: eboot.bin next to sce_sys\param.json (PS4 uses param.sfo instead).
-                if (System.IO.Path.GetFileName(file).Equals("eboot.bin", StringComparison.OrdinalIgnoreCase)
-                    && System.IO.Path.GetDirectoryName(file) is { } game && !known.Contains(game)
-                    && File.Exists(System.IO.Path.Combine(game, "sce_sys", "param.json")))
+                if (FolderGame(file) is { } dump)
                 {
-                    store.Games.Add(new Rom { Path = game, Title = Ps5Title(game), Console = "PS5" });
-                    known.Add(game);
-                    added++;
+                    if (known.Add(dump.Path)) { store.Games.Add(dump); added++; }
                     continue;
                 }
                 if (known.Contains(file) || ConsoleOf(file) is not { } console) continue;
@@ -183,6 +185,45 @@ public static class RomLibrary
             }
         }
         return added;
+    }
+
+    /// <summary>A PS3, PS4 or PS5 folder dump this eboot.bin starts, else null. The game's path is its folder.</summary>
+    public static Rom? FolderGame(string eboot)
+    {
+        if (!System.IO.Path.GetFileName(eboot).Equals("eboot.bin", StringComparison.OrdinalIgnoreCase) || System.IO.Path.GetDirectoryName(eboot) is not { } dir) return null;
+        string P(params string[] parts) => System.IO.Path.Combine([dir, .. parts]);
+        if (File.Exists(P("sce_sys", "param.json"))) return new Rom { Path = dir, Title = Ps5Title(dir), Console = "PS5" };
+        if (File.Exists(P("sce_sys", "param.sfo"))) return new Rom { Path = dir, Title = SfoTitle(P("sce_sys", "param.sfo")) ?? FolderName(dir), Console = "PS4" };
+        // PS3: disc dumps keep USRDIR inside PS3_GAME, installed PSN games keep it next to PARAM.SFO.
+        if (!System.IO.Path.GetFileName(dir).Equals("USRDIR", StringComparison.OrdinalIgnoreCase) || System.IO.Path.GetDirectoryName(dir) is not { } parent) return null;
+        var sfo = System.IO.Path.Combine(parent, "PARAM.SFO");
+        if (!File.Exists(sfo)) return null;
+        var root = System.IO.Path.GetFileName(parent).Equals("PS3_GAME", StringComparison.OrdinalIgnoreCase) ? System.IO.Path.GetDirectoryName(parent) ?? parent : parent;
+        return new Rom { Path = root, Title = SfoTitle(sfo) ?? FolderName(root), Console = "PS3" };
+    }
+
+    private static string FolderName(string folder) => System.IO.Path.GetFileName(folder.TrimEnd('\\', '/'));
+
+    /// <summary>TITLE from a PARAM.SFO (PS3, PS4, Vita, PSP), or null.</summary>
+    public static string? SfoTitle(string sfo)
+    {
+        try
+        {
+            var b = File.ReadAllBytes(sfo);
+            if (!b.AsSpan().StartsWith("\0PSF"u8)) return null;
+            int U32(int at) => BitConverter.ToInt32(b, at);
+            int keys = U32(8), data = U32(12), count = U32(16);
+            for (var i = 0; i < count; i++)
+            {
+                var e = 20 + i * 16;
+                var key = keys + BitConverter.ToUInt16(b, e);
+                if (Encoding.ASCII.GetString(b, key, Array.IndexOf(b, (byte)0, key) - key) != "TITLE") continue;
+                var title = Encoding.UTF8.GetString(b, data + U32(e + 12), U32(e + 4)).TrimEnd('\0').Replace('\n', ' ').Trim();
+                return title.Length > 0 ? title : null;
+            }
+        }
+        catch { }
+        return null;
     }
 
     /// <summary>The game's name from param.json in its default language, else the folder name.</summary>
@@ -196,7 +237,7 @@ public static class RomLibrary
             if (local.GetProperty(language).GetProperty("titleName").GetString() is { Length: > 0 } name) return name;
         }
         catch { }
-        return System.IO.Path.GetFileName(folder.TrimEnd('\\', '/'));
+        return FolderName(folder);
     }
 
     /// <summary>Cheap check for the folder watcher: could this path be (part of) a game? No file is opened.</summary>
@@ -232,6 +273,11 @@ public static class RomLibrary
         {
             using var s = File.OpenRead(file);
             var head = Read(s, 0, 1024);
+            // PS4 packages start "\x7FCNT"; PS3, PSP and Vita ones "\x7FPKG" with a platform word at 6 (1 = PS3)
+            // and a content id at 0x30 whose title id starts "PCS" for Vita games.
+            if (head.AsSpan().StartsWith("\u007FCNT"u8)) return "PS4";
+            if (head.AsSpan().StartsWith("\u007FPKG"u8))
+                return head[7] == 1 ? "PS3" : Encoding.ASCII.GetString(head, 0x37, 3) == "PCS" ? "VITA" : null;
             // Nintendo disc magic; RVZ and WBFS keep a copy of the disc header near the start.
             if (Find(head, [0xC2, 0x33, 0x9F, 0x3D])) return "GAMECUBE";
             if (Find(head, [0x5D, 0x1C, 0x9E, 0xA3])) return "WII";
@@ -279,15 +325,18 @@ public static class RomLibrary
         return clean.Length > 0 ? clean : name;
     }
 
+    // .pkg and .vpk are installers, not bootable games: Play opens the emulator so its File menu can install them.
     public static string Arguments(string emulator, string rom) =>
+        rom.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase) || rom.EndsWith(".vpk", StringComparison.OrdinalIgnoreCase) ? "" :
         LaunchArgs.TryGetValue(emulator, out var template) ? template.Replace("{rom}", rom) : $"\"{rom}\"";
 
     /// <summary>Local box art for a game, downloading it from libretro-thumbnails or GameTDB the first time.</summary>
     public static async Task<string?> CoverFor(Rom rom, HttpClient http)
     {
         if (rom.CustomCover.Length > 0 && File.Exists(rom.CustomCover)) return rom.CustomCover;
-        // PS5 folder dumps carry their own art.
-        if (Directory.Exists(rom.Path) && System.IO.Path.Combine(rom.Path, "sce_sys", "icon0.png") is var icon && File.Exists(icon)) return icon;
+        // PS3, PS4 and PS5 folder dumps carry their own art.
+        if (Directory.Exists(rom.Path) && new[] { @"sce_sys\icon0.png", @"PS3_GAME\ICON0.PNG", "ICON0.PNG" }
+            .Select(i => System.IO.Path.Combine(rom.Path, i)).FirstOrDefault(File.Exists) is { } icon) return icon;
         var hasThumbs = ThumbSystems.TryGetValue(rom.Console, out var systems);
         var hasTdb = TdbSystems.TryGetValue(rom.Console, out var tdb);
         if (!hasThumbs && !hasTdb) return null;

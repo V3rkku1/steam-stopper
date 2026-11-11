@@ -30,6 +30,64 @@ if (args is ["--live"])
 }
 
 
+// dotnet run -- --roms: game library sniffing of .pkg files, PARAM.SFO titles and PS3/PS4 folder dumps.
+if (args is ["--roms"])
+{
+    var root = Path.Combine(Path.GetTempPath(), "roms-" + Guid.NewGuid().ToString("N"));
+    static byte[] Sfo(string title)
+    {
+        var key = "TITLE\0"u8.ToArray();
+        var value = System.Text.Encoding.UTF8.GetBytes(title + "\0");
+        var b = new byte[20 + 16 + key.Length + value.Length];
+        "\0PSF"u8.CopyTo(b);
+        BitConverter.GetBytes(36).CopyTo(b, 8);
+        BitConverter.GetBytes(36 + key.Length).CopyTo(b, 12);
+        BitConverter.GetBytes(1).CopyTo(b, 16);
+        BitConverter.GetBytes(value.Length).CopyTo(b, 24);
+        key.CopyTo(b, 36);
+        value.CopyTo(b, 36 + key.Length);
+        return b;
+    }
+    void Put(string path, byte[] bytes) { Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllBytes(path, bytes); }
+    byte[] Pkg(string magic, byte platform, string contentId)
+    {
+        var b = new byte[2048];
+        System.Text.Encoding.Latin1.GetBytes(magic).CopyTo(b, 0);
+        b[7] = platform;
+        System.Text.Encoding.ASCII.GetBytes(contentId).CopyTo(b, 0x30);
+        return b;
+    }
+    Put(Path.Combine(root, "ps4", "eboot.bin"), [1]);
+    Put(Path.Combine(root, "ps4", "sce_sys", "param.sfo"), Sfo("Bloodborne"));
+    Put(Path.Combine(root, "ps3disc", "PS3_GAME", "USRDIR", "EBOOT.BIN"), [1]);
+    Put(Path.Combine(root, "ps3disc", "PS3_GAME", "PARAM.SFO"), Sfo("Demon's Souls"));
+    Put(Path.Combine(root, "NPUB30001", "USRDIR", "EBOOT.BIN"), [1]);
+    Put(Path.Combine(root, "NPUB30001", "PARAM.SFO"), Sfo("Flower"));
+    Put(Path.Combine(root, "a.pkg"), Pkg("\u007FCNT", 0, ""));
+    Put(Path.Combine(root, "b.pkg"), Pkg("\u007FPKG", 1, "UP9000-BCUS98174_00-0000000000000000"));
+    Put(Path.Combine(root, "c.pkg"), Pkg("\u007FPKG", 2, "UP9000-PCSA00001_00-0000000000000000"));
+    Put(Path.Combine(root, "d.pkg"), Pkg("\u007FPKG", 2, "UP9000-ULUS10041_00-0000000000000000"));
+    Put(Path.Combine(root, "e.pkg"), [1, 2, 3]);
+    Put(Path.Combine(root, "f.vpk"), [1]);
+    var pkgStore = new RomLibrary.Store { Folders = [root] };
+    RomLibrary.Scan(pkgStore);
+    var got = pkgStore.Games.ToDictionary(g => Path.GetRelativePath(root, g.Path), g => $"{g.Console}|{g.Title}");
+    var want = new Dictionary<string, string>
+    {
+        ["ps4"] = "PS4|Bloodborne", ["ps3disc"] = "PS3|Demon's Souls", ["NPUB30001"] = "PS3|Flower",
+        ["a.pkg"] = "PS4|a", ["b.pkg"] = "PS3|b", ["c.pkg"] = "VITA|c", ["d.pkg"] = "|d", ["e.pkg"] = "|e", ["f.vpk"] = "VITA|f"
+    };
+    var bad = want.Where(w => !got.TryGetValue(w.Key, out var g) || g != w.Value).Select(w => $"{w.Key}: want {w.Value}, got {got.GetValueOrDefault(w.Key)}")
+        .Concat(got.Keys.Except(want.Keys).Select(k => $"unexpected {k}")).ToList();
+    if (RomLibrary.Arguments("RPCS3", Path.Combine(root, "b.pkg")) != "") bad.Add("pkg should launch without arguments");
+    if (RomLibrary.Arguments("shadPS4", "C:\\g") != "-g \"C:\\g\\eboot.bin\"") bad.Add("shadPS4 args");
+    Directory.Delete(root, true);
+    bad.ForEach(Console.WriteLine);
+    Console.WriteLine(bad.Count == 0 ? "ROMS OK" : $"{bad.Count} ROM CHECKS FAILED");
+    return bad.Count;
+}
+
+
 var data = RandomNumberGenerator.GetBytes(40 * 1024 * 1024 + 12345);
 var sha = Convert.ToHexString(SHA256.HashData(data));
 var rnd = new Random(1);
@@ -320,11 +378,11 @@ Check("titles put a moved article back in front", RomLibrary.TitleOf("Legend of 
 Check("titles drop region and dump tags", RomLibrary.TitleOf("Super Mario 64 (USA) [!].z64") == "Super Mario 64" && RomLibrary.TitleOf("Zelda_TOTK.nsp") == "Zelda TOTK");
 var store = new RomLibrary.Store { Folders = [roms] };
 var found = RomLibrary.Scan(store);
-Check("PS5 folder dump: titled from param.json; PS4 folder and its eboot not added",
+Check("PS5 folder dump: titled from param.json; PS4 folder named after itself without a title; no eboot added",
     store.Games.Any(g => g.Path == astro && g.Title == "ASTRO BOT" && g.Console == "PS5")
-    && !store.Games.Any(g => g.Path.StartsWith(ps4)) && !store.Games.Any(g => g.Path.EndsWith("eboot.bin")));
+    && store.Games.Any(g => g.Path == ps4 && g.Title == "CUSA00001" && g.Console == "PS4") && !store.Games.Any(g => g.Path.EndsWith("eboot.bin")));
 Check(".zar is PS5", store.Games.Any(g => g.Title == "Demon's Souls" && g.Console == "PS5"));
-Check($"scan finds 13 games, second scan finds none (got {found})", found == 13 && RomLibrary.Scan(store) == 0);
+Check($"scan finds 14 games, second scan finds none (got {found})", found == 14 && RomLibrary.Scan(store) == 0);
 var art = RomLibrary.ByKey(["Legend of Zelda, The - Ocarina of Time (Europe)", "Legend of Zelda, The - Ocarina of Time (USA) (Beta)",
     "Legend of Zelda, The - Ocarina of Time (USA)", "Mario Kart 64 (USA)"]);
 Check("cover art matches loose file names, USA release first",

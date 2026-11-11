@@ -588,7 +588,7 @@ public static class AppHub
             "Microsoft", "WindowsApps", "winget.exe");
         if (File.Exists(local)) return local;
         var result = Run("where", "winget");
-        var line = result.Text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        var line = result.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
         return File.Exists(line) ? line : null;
     }
 
@@ -670,7 +670,7 @@ public static class AppHub
 
     private static string Trim(string text)
     {
-        var line = text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+        var line = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .LastOrDefault(s => s.Trim().Length > 0);
         return line?.Trim() ?? "";
     }
