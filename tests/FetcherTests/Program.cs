@@ -145,7 +145,7 @@ var jAuto = new FetchJob { Url = $"http://127.0.0.1:{port}/files/auto.bin", Fold
 var autoRun = fetcher.Run(jAuto, 0, CancellationToken.None);
 while (!autoRun.IsCompleted) { peak = Math.Max(peak, jAuto.Connections); await Task.WhenAny(autoRun, Task.Delay(200)); }
 await autoRun;
-Check($"auto connections: finishes, grew past the start ({peak} at most)", Same(jAuto) && peak > 4);
+Check($"auto connections: finishes, grew past the start ({peak} at most)", Same(jAuto) && peak > 6);
 
 Console.WriteLine("2a) pause and resume the same download without reloading it");
 var jp = await RunJob(new FetchJob { Url = $"http://127.0.0.1:{port}/files/pause.bin", Folder = dir }, 8, 1000);
@@ -445,6 +445,10 @@ BondLink.Rebalance([fastLink, slowLink]);
 Check($"auto-balance: shares follow measured speed ({fastLink.Share:0.##} vs {slowLink.Share:0.##})", fastLink.Share == 1 && slowLink.Share == 0.2);
 BondLink.AutoBalance = false; BondLink.Rebalance([fastLink, slowLink]); BondLink.AutoBalance = true;
 Check("auto-balance off: weight only", fastLink.Share == 1 && slowLink.Share == 1);
+var tail = new FetchJob { Url = "http://x/tail", Ranged = true, Total = 4 << 20, Segments = [new FetchSegment { Pos = (4 << 20) - (1536 << 10), End = 4 << 20, Busy = true }] };
+var normalSplit = tail.Take(1 << 20);
+var endgame = tail.Take(128 << 10);
+Check("endgame: a 1.5 MB tail isn't split normally, but is in endgame", normalSplit is null && endgame is not null && endgame.End == 4 << 20 && tail.Segments[0].End == endgame.Pos);
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",

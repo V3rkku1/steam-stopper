@@ -213,6 +213,9 @@ internal sealed class FatalFetchException(string message) : Exception(message);
 public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
 {
     private const long MinSplit = 1 << 20;
+    // Endgame: once nothing 2 MB+ is left to split, idle connections still halve what remains down to this,
+    // so the last pieces aren't left to one slow connection (the crawl at 99%).
+    private const long EndgameSplit = 128 << 10;
     private const int MaxFailures = 25;
     private const string UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
     private static readonly TimeSpan Stall = TimeSpan.FromSeconds(20);
@@ -299,10 +302,10 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
         }
     }
 
-    private const int AutoStart = 4, AutoMax = 32;
+    private const int AutoStart = 6, AutoStep = 4, AutoMax = 32;
 
     /// <summary>
-    /// Auto connections: every 3 s, if the speed rose by more than 8% since the last step, add two more.
+    /// Auto connections: every 2 s, if the speed rose by more than 8% since the last step, add four more.
     /// Two steps without a gain (or the server refusing more) and it stops growing.
     /// </summary>
     private static async Task Grow(FetchJob job, Action spawn, Func<int> count, CancellationToken cancel)
@@ -313,12 +316,12 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
         var last = job.Received;
         while (flat < 2 && count() < AutoMax)
         {
-            try { await Task.Delay(3000, cancel); }
+            try { await Task.Delay(2000, cancel); }
             catch (OperationCanceledException) { return; }
             var now = job.Received;
-            var rate = (now - last) / 3.0;
+            var rate = (now - last) / 2.0;
             last = now;
-            if (rate > best * 1.08) { spawn(); spawn(); flat = 0; }
+            if (rate > best * 1.08) { for (var i = 0; i < AutoStep; i++) spawn(); flat = 0; }
             else flat++;
             best = Math.Max(best, rate);
             job.Connections = count();
@@ -436,7 +439,7 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
         while (true)
         {
             cancel.ThrowIfCancellationRequested();
-            var segment = job.Take(MinSplit);
+            var segment = job.Take(MinSplit) ?? job.Take(EndgameSplit);
             if (segment is null) return;
             var link = Pick();
             try
