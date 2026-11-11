@@ -141,6 +141,10 @@ public sealed class AppSettings
     public int FetchAtOnce { get; set; } = 2;
     // Spread Fetch downloads over the links ticked on the Bond page; off uses Windows' normal route.
     public bool FetchBond { get; set; } = true;
+    // Fetch speed limit in KB/s, 0 for none.
+    public int FetchLimitKbps { get; set; }
+    // What "When downloads finish" does; the switch itself is off at every start, so a PC never shuts down by surprise.
+    public string FetchAfterAction { get; set; } = "shutdown";
     // Release the user chose to skip; the banner stays quiet for it.
     public string SkippedVersion { get; set; } = "";
     // Update portable emulators (Lichii, Cemu...) in the background when a new build is out and they aren't running.

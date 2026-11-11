@@ -122,6 +122,13 @@ Check("both links used", hits.ContainsKey("127.0.0.1") && hits.ContainsKey("127.
 Check("no leftovers", !File.Exists(j1.PartPath) && !File.Exists(j1.StatePath));
 Console.WriteLine($"  hits: {string.Join(", ", hits.Select(h => h.Key + "=" + h.Value))}");
 
+Console.WriteLine("1b) speed limit 4 MB/s for 2 s");
+fetcher.LimitBps = 4 << 20;
+var jl = await RunJob(new FetchJob { Url = $"http://127.0.0.1:{port}/files/limited.bin", Folder = dir }, 8, 2000);
+fetcher.LimitBps = 0;
+Check($"limit holds the speed down (got {Format.Bytes(jl.Received)} in 2 s)", jl.Received > 4L << 20 && jl.Received < 11L << 20);
+jl.DeleteLeftovers();
+
 slow = 40; Console.WriteLine("2) pause after 1s, reload from state, resume");
 var j2 = await RunJob(new FetchJob { Url = $"http://127.0.0.1:{port}/files/test%20file.bin", Folder = dir }, 8, 1000);
 Check("paused", j2.State == FetchState.Paused && File.Exists(j2.StatePath));

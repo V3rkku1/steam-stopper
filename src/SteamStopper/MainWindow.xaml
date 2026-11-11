@@ -608,7 +608,7 @@
       </Grid>
 
       <!-- ===================== FETCH ===================== -->
-      <Grid x:Name="PageFetch" Visibility="Collapsed">
+      <Grid x:Name="PageFetch" Visibility="Collapsed" AllowDrop="True" Drop="Fetch_Drop">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="0.85*"/>
           <ColumnDefinition Width="14"/>
@@ -671,8 +671,11 @@
                   <ComboBox x:Name="FetchAtOnceBox"/>
                 </StackPanel>
               </UniformGrid>
+              <TextBlock Text="Speed limit" Style="{StaticResource FieldLabel}"/>
+              <ComboBox x:Name="FetchLimitBox" Margin="0,0,0,16" ToolTip="Cap all downloads together, so games and calls keep some bandwidth"/>
               <Button Content="Download" Style="{StaticResource WideSafe}" Click="FetchAdd_Click"/>
               <TextBlock x:Name="FetchBusy" Text="" Foreground="{StaticResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+
             </StackPanel>
           </ScrollViewer>
         </Border>
@@ -692,9 +695,40 @@
                 <TextBlock x:Name="FetchSummary" Text="" Foreground="{StaticResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis"/>
               </StackPanel>
             </DockPanel>
+            <!-- Bottom of the file list, so it stays in view while downloads run. -->
+              <Border Background="{StaticResource Raised}" CornerRadius="12" Padding="14,12" Margin="0,10,8,0" DockPanel.Dock="Bottom">
+                <StackPanel>
+                  <DockPanel>
+                    <ToggleButton x:Name="FetchAfterBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="FetchAfter_Click"/>
+                    <StackPanel VerticalAlignment="Center">
+                      <TextBlock Text="When all downloads finish" FontWeight="SemiBold"/>
+                      <TextBlock x:Name="FetchAfterHint" Text="Off. Turns itself off again after it runs." Foreground="{StaticResource Faint}" FontSize="11" TextWrapping="Wrap" Margin="0,2,10,0"/>
+                    </StackPanel>
+                  </DockPanel>
+                  <ComboBox x:Name="FetchAfterActionBox" Margin="0,10,0,0"/>
+                  <!-- One minute to change your mind before the PC goes down. -->
+                  <DockPanel x:Name="FetchAfterCountdown" Margin="0,10,0,0" Visibility="Collapsed">
+                    <Button DockPanel.Dock="Right" Content="Cancel" Style="{StaticResource SmallButton}" Click="FetchAfterCancel_Click"/>
+                    <TextBlock x:Name="FetchAfterCountdownText" Foreground="{StaticResource Amber}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                  </DockPanel>
+                </StackPanel>
+              </Border>
             <Grid>
               <DataGrid x:Name="FetchGrid" SelectionMode="Extended" RowHeight="48" MouseDoubleClick="FetchGrid_DoubleClick"
-                        ToolTip="Double-click a finished file to open it, or a paused one to resume">
+                        ToolTip="Double-click a finished file to open it, or a paused one to resume. Right-click for more.">
+                <DataGrid.ContextMenu>
+                  <ContextMenu Opened="FetchMenu_Opened">
+                    <MenuItem Header="Open" Click="FetchMenuOpen_Click"/>
+                    <MenuItem Header="Show in folder" Click="FetchOpen_Click"/>
+                    <MenuItem Header="Copy link" Click="FetchCopyLink_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Resume" Click="FetchResume_Click"/>
+                    <MenuItem Header="Pause" Click="FetchPause_Click"/>
+                    <MenuItem Header="Download next" Click="FetchTop_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Remove" Click="FetchRemove_Click"/>
+                  </ContextMenu>
+                </DataGrid.ContextMenu>
                 <DataGrid.Columns>
                   <DataGridTemplateColumn Header="FILE" Width="*" MinWidth="160">
                     <DataGridTemplateColumn.CellTemplate>

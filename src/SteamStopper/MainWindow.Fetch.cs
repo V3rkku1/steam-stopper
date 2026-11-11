@@ -2,6 +2,9 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shell;
 using SteamStopper.Core;
 
 namespace SteamStopper;
@@ -11,6 +14,18 @@ public partial class MainWindow
 {
     private static readonly int[] FetchConnChoices = [1, 2, 4, 8, 16, 32];
     private static readonly int[] FetchAtOnceChoices = [1, 2, 3, 4, 6];
+    private static readonly Dictionary<int, string> FetchLimits = new()
+    {
+        [0] = "No limit", [512] = "500 KB/s", [1024] = "1 MB/s", [2048] = "2 MB/s", [5120] = "5 MB/s",
+        [10240] = "10 MB/s", [25600] = "25 MB/s", [51200] = "50 MB/s"
+    };
+    private static readonly Dictionary<string, string> FetchAfterActions = new()
+    {
+        ["shutdown"] = "Shut down PC", ["sleep"] = "Sleep", ["hibernate"] = "Hibernate", ["restart"] = "Restart PC", ["notify"] = "Just tell me"
+    };
+    // Downloads the "when all finish" action waits for: the ones running or queued since it was switched on.
+    private readonly HashSet<FetchJob> _fetchAfterJobs = [];
+    private int _fetchAfterRun;
     private readonly ObservableCollection<FetchJob> _fetchJobs = [];
     private readonly Dictionary<FetchJob, CancellationTokenSource> _fetchRuns = [];
     private readonly HashSet<FetchJob> _fetchRemoved = [];
@@ -29,6 +44,25 @@ public partial class MainWindow
         FetchAtOnceBox.SelectionChanged += (_, _) => { SaveFetchSettings(); PumpFetch(); };
         FetchConnBox.SelectionChanged += (_, _) => SaveFetchSettings();
         FetchGrid.ItemsSource = _fetchJobs;
+        FetchGrid.PreviewMouseRightButtonDown += FetchGrid_RightDown;
+        // Plain labels: the app's ComboBox template shows the item itself, not a DisplayMemberPath.
+        FetchLimitBox.ItemsSource = FetchLimits.Values.ToList();
+        FetchLimitBox.SelectedItem = FetchLimits.GetValueOrDefault(_settings.FetchLimitKbps, "No limit");
+        FetchEngine.LimitBps = FetchLimits.ContainsKey(_settings.FetchLimitKbps) ? _settings.FetchLimitKbps * 1024L : 0;
+        FetchLimitBox.SelectionChanged += (_, _) =>
+        {
+            _settings.FetchLimitKbps = FetchLimits.FirstOrDefault(p => p.Value == FetchLimitBox.SelectedItem as string).Key;
+            FetchEngine.LimitBps = _settings.FetchLimitKbps * 1024L;
+            _settings.Save();
+        };
+        FetchAfterActionBox.ItemsSource = FetchAfterActions.Values.ToList();
+        FetchAfterActionBox.SelectedItem = FetchAfterActions.GetValueOrDefault(_settings.FetchAfterAction, "Shut down PC");
+        FetchAfterActionBox.SelectionChanged += (_, _) =>
+        {
+            _settings.FetchAfterAction = FetchAfterKey();
+            _settings.Save();
+            PaintFetchAfter();
+        };
         FetchBondBox.IsChecked = _settings.FetchBond;
         _fetchJobs.CollectionChanged += (_, _) => PaintFetch();
 
@@ -116,7 +150,21 @@ public partial class MainWindow
         var total = running.Sum(j => j.Bps);
         FetchHeadline.Text = running.Count == 0 ? "Idle" : Format.Speed(total);
         FetchHeadline.Foreground = Brush(running.Count == 0 ? "Muted" : "Green");
-        if (running.Count > 0) PaintFetch();
+        if (running.Count > 0)
+        {
+            PaintFetch();
+            // Whole-queue time left: everything not done yet, at today's combined speed.
+            var left = _fetchJobs.Where(j => j.State != FetchState.Done && j.Total > 0 && (j.Running || j.State == FetchState.Queued))
+                .Sum(j => j.Total - j.Received);
+            if (total > 1024 && left > 0) FetchHint.Text += $"  {Format.Bytes(left)} left, about {Format.Duration(left / total)}.";
+            if (_settings.FetchLimitKbps > 0) FetchHint.Text += $"  Limited to {FetchLimits.GetValueOrDefault(_settings.FetchLimitKbps)}.";
+        }
+        // Progress on the taskbar button, like a browser download.
+        TaskbarItemInfo ??= new TaskbarItemInfo();
+        var sized = running.Where(j => j.Total > 0).ToList();
+        TaskbarItemInfo.ProgressState = running.Count == 0 ? TaskbarItemProgressState.None
+            : sized.Count == 0 ? TaskbarItemProgressState.Indeterminate : TaskbarItemProgressState.Normal;
+        if (sized.Count > 0) TaskbarItemInfo.ProgressValue = sized.Sum(j => j.Received) / (double)sized.Sum(j => j.Total);
     }
 
     private void FetchBond_Click(object sender, RoutedEventArgs e)
@@ -152,12 +200,24 @@ public partial class MainWindow
             FetchBusy.Text = "Paste an http:// or https:// link.";
             return;
         }
+        AddFetchLinks(urls);
+        FetchUrlBox.Clear();
+    }
+
+    private void AddFetchLinks(List<string> urls)
+    {
         if (_bondRows.Count == 0) RefreshBondUi();
         var folder = FetchFolder();
         foreach (var url in urls) _fetchJobs.Add(new FetchJob { Url = url, Folder = folder });
-        FetchUrlBox.Clear();
         FetchBusy.Text = urls.Count == 1 ? "Added 1 download." : $"Added {urls.Count} downloads.";
         PumpFetch();
+    }
+
+    // Links dragged from a browser's address bar or a page arrive as text.
+    private void Fetch_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.UnicodeText) is string text && ParseLinks(text) is { Count: > 0 } urls)
+            AddFetchLinks(urls);
     }
 
     private void PumpFetch()
@@ -171,6 +231,7 @@ public partial class MainWindow
         SaveFetchSettings();
         _settings.Save();
         PaintFetch();
+        CheckFetchAfter();
     }
 
     private async Task RunFetch(FetchJob job)
@@ -186,6 +247,136 @@ public partial class MainWindow
         if (_fetchRemoved.Remove(job)) job.DeleteLeftovers();
         else if (job.State == FetchState.Done) StatusText.Text = $"Downloaded {job.FileName}.";
         else if (job.State == FetchState.Failed) StatusText.Text = $"{job.Name}: {job.Error}";
+        PumpFetch();
+    }
+
+    private void FetchAfter_Click(object sender, RoutedEventArgs e)
+    {
+        _fetchAfterJobs.Clear();
+        _fetchAfterRun++;
+        FetchAfterCountdown.Visibility = Visibility.Collapsed;
+        CheckFetchAfter();
+    }
+
+    private void FetchAfterCancel_Click(object sender, RoutedEventArgs e)
+    {
+        FetchAfterBox.IsChecked = false;
+        FetchAfter_Click(sender, e);
+        StatusText.Text = "Cancelled. Nothing will happen when the downloads finish.";
+    }
+
+    private string FetchAfterKey() =>
+        FetchAfterActions.FirstOrDefault(p => p.Value == FetchAfterActionBox.SelectedItem as string).Key ?? "shutdown";
+
+    private void PaintFetchAfter()
+    {
+        var action = FetchAfterActions[FetchAfterKey()];
+        var waiting = _fetchAfterJobs.Count(j => j.State is not (FetchState.Done or FetchState.Failed));
+        FetchAfterHint.Text = FetchAfterBox.IsChecked != true ? "Off. Turns itself off again after it runs."
+            : _fetchAfterJobs.Count == 0 ? $"{action} once a download has run and all are done."
+            : waiting == 0 ? "All downloads finished."
+            : $"{action} after {waiting} more download{(waiting == 1 ? "" : "s")}. Paused ones are waited for.";
+    }
+
+    /// <summary>Start the countdown once every download the action is waiting for has finished or failed.</summary>
+    private void CheckFetchAfter()
+    {
+        if (FetchAfterBox.IsChecked != true)
+        {
+            PaintFetchAfter();
+            return;
+        }
+        foreach (var job in _fetchJobs.Where(j => j.Running || j.State == FetchState.Queued)) _fetchAfterJobs.Add(job);
+        _fetchAfterJobs.RemoveWhere(j => !_fetchJobs.Contains(j));
+        PaintFetchAfter();
+        if (FetchAfterCountdown.Visibility == Visibility.Visible || _fetchAfterJobs.Count == 0
+            || _fetchAfterJobs.Any(j => j.State is not (FetchState.Done or FetchState.Failed))
+            || !_fetchAfterJobs.Any(j => j.State == FetchState.Done))
+            return;
+        _ = FetchAfterCountdownAsync(++_fetchAfterRun);
+    }
+
+    private async Task FetchAfterCountdownAsync(int run)
+    {
+        var key = FetchAfterKey();
+        var failed = _fetchAfterJobs.Count(j => j.State == FetchState.Failed);
+        var note = failed > 0 ? $" ({failed} failed)" : "";
+        if (key != "notify")
+        {
+            FetchAfterCountdown.Visibility = Visibility.Visible;
+            Activate();
+            for (var left = 60; left > 0; left--)
+            {
+                if (run != _fetchAfterRun) return;
+                FetchAfterCountdownText.Text = $"Downloads finished{note}. {FetchAfterActions[key]} in {left} s.";
+                await Task.Delay(1000);
+            }
+            if (run != _fetchAfterRun) return;
+        }
+        FetchAfterBox.IsChecked = false;
+        FetchAfterCountdown.Visibility = Visibility.Collapsed;
+        _fetchAfterJobs.Clear();
+        PaintFetchAfter();
+        var root = _steamRoot;
+        var message = await Task.Run(() => Power.Run(key, root));
+        StatusText.Text = message + note;
+        if (key == "notify") MessageBox.Show(this, "All downloads finished" + note + ".", "Steam Stopper");
+    }
+
+    private void FetchGrid_RightDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        // Right-clicking a row that isn't selected acts on that row, like Explorer.
+        for (var d = e.OriginalSource as DependencyObject; d is not null; d = VisualTreeHelper.GetParent(d))
+        {
+            if (d is not DataGridRow row) continue;
+            if (!row.IsSelected)
+            {
+                FetchGrid.SelectedItems.Clear();
+                row.IsSelected = true;
+            }
+            return;
+        }
+    }
+
+    private void FetchMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        var picked = SelectedFetchJobs();
+        // Found by header: names inside a ContextMenu aren't wired to fields.
+        foreach (var item in ((ContextMenu)sender).Items.OfType<MenuItem>())
+            item.IsEnabled = item.Header switch
+            {
+                "Open" => picked.Any(j => j.State == FetchState.Done && File.Exists(j.FinalPath)),
+                "Resume" => picked.Count == 0 ? _fetchJobs.Any(j => j.CanResume) : picked.Any(j => j.CanResume),
+                "Pause" => picked.Any(j => j.Running || j.State == FetchState.Queued),
+                "Remove" or "Show in folder" => true,
+                _ => picked.Count > 0
+            };
+    }
+
+    private void FetchMenuOpen_Click(object sender, RoutedEventArgs e)
+    {
+        if (SelectedFetchJobs().FirstOrDefault(j => j.State == FetchState.Done && File.Exists(j.FinalPath)) is { } job)
+            Process.Start(new ProcessStartInfo(job.FinalPath) { UseShellExecute = true })?.Dispose();
+    }
+
+    private void FetchCopyLink_Click(object sender, RoutedEventArgs e)
+    {
+        var links = SelectedFetchJobs().Select(j => j.Url).ToList();
+        if (links.Count == 0) return;
+        try { Clipboard.SetText(string.Join(Environment.NewLine, links)); }
+        catch { return; } // another app holding the clipboard
+        StatusText.Text = links.Count == 1 ? "Link copied." : $"{links.Count} links copied.";
+    }
+
+    /// <summary>Move the selected files to the top of the queue; PumpFetch starts queued files in list order.</summary>
+    private void FetchTop_Click(object sender, RoutedEventArgs e)
+    {
+        var picked = SelectedFetchJobs().OrderBy(_fetchJobs.IndexOf).ToList();
+        for (var i = 0; i < picked.Count; i++)
+        {
+            _fetchJobs.Move(_fetchJobs.IndexOf(picked[i]), i);
+            if (picked[i].CanResume) picked[i].SetState(FetchState.Queued);
+        }
         PumpFetch();
     }
 
