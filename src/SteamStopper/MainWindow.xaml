@@ -1428,6 +1428,8 @@
               <Button Content="Steam" Style="{StaticResource SmallButton}" Margin="4,0,0,0" Click="GamesToSteam_Click"
                       ToolTip="Add these games to Steam as non-Steam games, with box art, so they start from your Steam library and Big Picture"/>
             </UniformGrid>
+            <Button DockPanel.Dock="Bottom" Content="Find missing covers" Style="{StaticResource LinkButton}" HorizontalAlignment="Left" Margin="8,6,0,0" Click="GamesFixCovers_Click"
+                    ToolTip="Pick box art for every game that has none, one after another"/>
             <TextBlock x:Name="GamesCount" DockPanel.Dock="Bottom" Foreground="{DynamicResource Faint}" FontSize="11" Margin="8,8,0,0"/>
             <Grid DockPanel.Dock="Top" Margin="0,0,4,10">
               <TextBox x:Name="GameSearchBox" TextChanged="GameSearch_Changed"/>
@@ -1593,6 +1595,7 @@
                   <TextBlock Text="{Binding Path}" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,0,0,18"/>
                   <WrapPanel>
                     <Button Content="Open file location" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameOpenFolder_Click"/>
+                    <Button Content="Rename" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameRename_Click"/>
                     <Button Content="Change cover" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameCover_Click"
                             ToolTip="Search box art for this game and pick one, or use an image file."/>
                     <Button Content="Back up saves" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameSaves_Click"

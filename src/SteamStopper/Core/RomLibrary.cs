@@ -14,9 +14,14 @@ public sealed class Rom : INotifyPropertyChanged
 {
     private string _console = "";
     private string? _cover;
+    private string _title = "";
 
     public string Path { get; set; } = "";
-    public string Title { get; set; } = "";
+    public string Title
+    {
+        get => _title;
+        set { _title = value; OnChanged(); OnChanged(nameof(Initials)); }
+    }
     public string Console
     {
         get => _console;
@@ -104,7 +109,9 @@ public static class RomLibrary
         // RPCS3 boots a game folder (PS3_GAME\USRDIR\EBOOT.BIN inside); shadPS4 boots the folder's eboot.bin.
         ["RPCS3"] = "--no-gui \"{rom}\"",
         ["shadPS4"] = "-g \"{rom}\\eboot.bin\"",
-        ["Vita3K"] = "",
+        // Vita3K runs an installed game by its title id (the folder name under ux0\app).
+        ["Vita3K"] = "-r {id}",
+        ["RetroArch"] = "-L \"cores\\{core}_libretro.dll\" \"{rom}\"",
         ["redream"] = "\"{rom}\""
     };
 
@@ -163,11 +170,12 @@ public static class RomLibrary
     }
 
     /// <summary>Add every game file under the folders that isn't in the library yet. Returns how many were added.</summary>
-    public static int Scan(Store store)
+    /// <param name="extra">More folders to look in that aren't the user's, such as where emulators install games.</param>
+    public static int Scan(Store store, IEnumerable<string>? extra = null)
     {
         var known = new HashSet<string>(store.Games.Select(g => g.Path), StringComparer.OrdinalIgnoreCase);
         var added = 0;
-        foreach (var folder in store.Folders.Where(Directory.Exists))
+        foreach (var folder in store.Folders.Concat(extra ?? []).Distinct(StringComparer.OrdinalIgnoreCase).Where(Directory.Exists))
         {
             IEnumerable<string> files;
             try { files = Directory.EnumerateFiles(folder, "*", new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true }); }
@@ -194,11 +202,15 @@ public static class RomLibrary
         if (!System.IO.Path.GetFileName(eboot).Equals("eboot.bin", StringComparison.OrdinalIgnoreCase) || System.IO.Path.GetDirectoryName(eboot) is not { } dir) return null;
         string P(params string[] parts) => System.IO.Path.Combine([dir, .. parts]);
         if (File.Exists(P("sce_sys", "param.json"))) return new Rom { Path = dir, Title = Ps5Title(dir), Console = "PS5" };
-        if (File.Exists(P("sce_sys", "param.sfo"))) return new Rom { Path = dir, Title = SfoTitle(P("sce_sys", "param.sfo")) ?? FolderName(dir), Console = "PS4" };
+        // PS4 and Vita both keep sce_sys\param.sfo; Vita title ids start with PCS.
+        if (File.Exists(P("sce_sys", "param.sfo")))
+            return new Rom { Path = dir, Title = SfoTitle(P("sce_sys", "param.sfo")) ?? FolderName(dir),
+                Console = (SfoValue(P("sce_sys", "param.sfo"), "TITLE_ID") ?? FolderName(dir)).StartsWith("PCS") ? "VITA" : "PS4" };
         // PS3: disc dumps keep USRDIR inside PS3_GAME, installed PSN games keep it next to PARAM.SFO.
         if (!System.IO.Path.GetFileName(dir).Equals("USRDIR", StringComparison.OrdinalIgnoreCase) || System.IO.Path.GetDirectoryName(dir) is not { } parent) return null;
         var sfo = System.IO.Path.Combine(parent, "PARAM.SFO");
-        if (!File.Exists(sfo)) return null;
+        // Updates and DLC in RPCS3's game folder are game data (GD), not games.
+        if (!File.Exists(sfo) || SfoValue(sfo, "CATEGORY") == "GD") return null;
         var root = System.IO.Path.GetFileName(parent).Equals("PS3_GAME", StringComparison.OrdinalIgnoreCase) ? System.IO.Path.GetDirectoryName(parent) ?? parent : parent;
         return new Rom { Path = root, Title = SfoTitle(sfo) ?? FolderName(root), Console = "PS3" };
     }
@@ -206,7 +218,10 @@ public static class RomLibrary
     private static string FolderName(string folder) => System.IO.Path.GetFileName(folder.TrimEnd('\\', '/'));
 
     /// <summary>TITLE from a PARAM.SFO (PS3, PS4, Vita, PSP), or null.</summary>
-    public static string? SfoTitle(string sfo)
+    public static string? SfoTitle(string sfo) => SfoValue(sfo, "TITLE")?.Replace('\n', ' ').Trim() is { Length: > 0 } t ? t : null;
+
+    /// <summary>A text value from a PARAM.SFO, or null.</summary>
+    public static string? SfoValue(string sfo, string name)
     {
         try
         {
@@ -218,9 +233,8 @@ public static class RomLibrary
             {
                 var e = 20 + i * 16;
                 var key = keys + BitConverter.ToUInt16(b, e);
-                if (Encoding.ASCII.GetString(b, key, Array.IndexOf(b, (byte)0, key) - key) != "TITLE") continue;
-                var title = Encoding.UTF8.GetString(b, data + U32(e + 12), U32(e + 4)).TrimEnd('\0').Replace('\n', ' ').Trim();
-                return title.Length > 0 ? title : null;
+                if (Encoding.ASCII.GetString(b, key, Array.IndexOf(b, (byte)0, key) - key) != name) continue;
+                return Encoding.UTF8.GetString(b, data + U32(e + 12), U32(e + 4)).TrimEnd('\0');
             }
         }
         catch { }
@@ -253,8 +267,21 @@ public static class RomLibrary
         if (console == "SWITCH 2") return HasMagic(file, "NUP\x01"u8) ? console : null;
         // Multi-disc .m3u lists and loose .cue sheets: one entry per game, not per disc track.
         if (console == "PS1" && !file.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) && InM3u(file)) return null;
+        // .chd, .cue and .m3u are PS1 unless a folder says otherwise; telling them apart by content means decompressing.
+        if (console == "PS1" && FolderHint(file) is { } hinted) return hinted;
         return console.Length > 0 && console is not ("WII" or "GAMECUBE") ? console : Sniff(file) ?? console;
     }
+
+    private static readonly Dictionary<string, string> FolderHints = new()
+    {
+        ["ps2"] = "PS2", ["playstation2"] = "PS2", ["sonyplaystation2"] = "PS2",
+        ["dreamcast"] = "DREAMCAST", ["dc"] = "DREAMCAST", ["segadreamcast"] = "DREAMCAST",
+        ["psp"] = "PSP", ["playstationportable"] = "PSP"
+    };
+
+    private static string? FolderHint(string file) =>
+        System.IO.Path.GetDirectoryName(file)?.Split('\\', '/').Reverse()
+            .Select(d => FolderHints.GetValueOrDefault(Regex.Replace(d.ToLowerInvariant(), "[^a-z0-9]", ""))).FirstOrDefault(c => c is not null);
 
     private static bool InM3u(string cue)
     {
@@ -326,10 +353,57 @@ public static class RomLibrary
         return clean.Length > 0 ? clean : name;
     }
 
-    // .pkg and .vpk are installers, not bootable games: Play opens the emulator so its File menu can install them.
-    public static string Arguments(string emulator, string rom) =>
-        rom.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase) || rom.EndsWith(".vpk", StringComparison.OrdinalIgnoreCase) ? "" :
-        LaunchArgs.TryGetValue(emulator, out var template) ? template.Replace("{rom}", rom) : $"\"{rom}\"";
+    // RetroArch core per console, started from its cores folder (the game starts in RetroArch's own folder).
+    private static readonly Dictionary<string, string> RetroCores = new()
+    {
+        ["PS1"] = "swanstation", ["PSP"] = "ppsspp", ["N64"] = "mupen64plus_next", ["GAME BOY"] = "mgba",
+        ["NES · SNES"] = "snes9x", ["DREAMCAST"] = "flycast", ["ARCADE"] = "fbneo"
+    };
+
+    /// <summary>.pkg and .vpk are installers, not bootable games.</summary>
+    public static bool InstallOnly(string path) => path.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".vpk", StringComparison.OrdinalIgnoreCase);
+
+    // Installers start the emulator alone so its File menu can install them.
+    public static string Arguments(string emulator, string rom, string console = "") =>
+        InstallOnly(rom) ? "" :
+        emulator == "RetroArch" ? RetroCores.TryGetValue(console, out var core)
+            ? LaunchArgs["RetroArch"].Replace("{core}", rom.EndsWith(".nes", StringComparison.OrdinalIgnoreCase) || rom.EndsWith(".fds", StringComparison.OrdinalIgnoreCase) ? "mesen" : core).Replace("{rom}", rom)
+            : $"\"{rom}\"" :
+        LaunchArgs.TryGetValue(emulator, out var template) ? template.Replace("{rom}", rom).Replace("{id}", FolderName(rom)) : $"\"{rom}\"";
+
+    /// <summary>Where an emulator keeps the games it installed from .pkg files, so they join the library by themselves.</summary>
+    public static IEnumerable<string> EmulatorGameFolders(string emulator, string exe)
+    {
+        var dir = System.IO.Path.GetDirectoryName(exe) ?? "";
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        IEnumerable<string> found = emulator switch
+        {
+            "RPCS3" => [System.IO.Path.Combine(dir, "dev_hdd0", "game")],
+            // Vita3K's pref-path in config.yml, else next to the exe or in AppData.
+            "Vita3K" => new[] { Setting(System.IO.Path.Combine(dir, "config.yml"), @"^pref-path:\s*['""]?([^'""\r\n]+)").FirstOrDefault(), dir, System.IO.Path.Combine(appData, "Vita3K", "Vita3K") }
+                .OfType<string>().Select(p => System.IO.Path.Combine(p, "ux0", "app")),
+            // shadPS4 lists its install folders in config.toml (portable user folder, else AppData).
+            "shadPS4" => new[] { System.IO.Path.Combine(dir, "user", "config.toml"), System.IO.Path.Combine(appData, "shadPS4", "config.toml") }
+                .SelectMany(c => Setting(c, @"^installDirs?\s*=\s*(\[[^\]]*\]|""[^""]*"")"))
+                .SelectMany(v => Regex.Matches(v, @"""((?:[^""\\]|\\.)*)""").Select(m => m.Groups[1].Value.Replace(@"\\", @"\"))),
+            _ => []
+        };
+        return found.Where(p => p.Length > 0 && Directory.Exists(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static IEnumerable<string> Setting(string file, string pattern)
+    {
+        try { return File.Exists(file) ? Regex.Matches(File.ReadAllText(file), pattern, RegexOptions.Multiline).Select(m => m.Groups[1].Value.Trim()).ToList() : []; }
+        catch { return []; }
+    }
+
+    /// <summary>.pkg files whose game is installed: a game folder with the same title id. The folder is the one that plays.</summary>
+    public static List<Rom> InstalledPackages(IEnumerable<Rom> games)
+    {
+        var list = games.ToList();
+        var installed = list.Where(g => Directory.Exists(g.Path)).Select(g => TitleId(g.Path)).OfType<string>().ToHashSet();
+        return installed.Count == 0 ? [] : list.Where(g => InstallOnly(g.Path) && TitleId(g.Path) is { } id && installed.Contains(id)).ToList();
+    }
 
     /// <summary>Local box art for a game, downloading it from libretro-thumbnails or GameTDB the first time.</summary>
     public static async Task<string?> CoverFor(Rom rom, HttpClient http)
@@ -500,6 +574,21 @@ public static class RomLibrary
             .ThenBy(p => p[2] == "US" ? 0 : p[2] == "EN" ? 1 : 2)
             .Select(p => ((string, string)?)(p[1], p[2]))
             .FirstOrDefault();
+
+    /// <summary>
+    /// The real name for a game titled after its id (a .pkg named "UP9000-NPUA80490_00-…" or a folder named "NPUA80490"),
+    /// from GameTDB. Null when the title isn't the id, so a name the user typed is kept.
+    /// </summary>
+    public static async Task<string?> NameFromId(Rom rom, HttpClient http)
+    {
+        if (TitleId(rom.Path) is not { } id || !rom.Title.Contains(id) || !TdbSystems.TryGetValue(rom.Console, out var tdb)) return null;
+        try
+        {
+            return (await TdbIndexOf(tdb.Db, http))[Key(id)].Select(l => l.Split('|')).FirstOrDefault(p => p[1] == id) is { } game
+                ? TitleOf(System.Net.WebUtility.HtmlDecode(game[0]) + ".x") : null;
+        }
+        catch { return null; }
+    }
 
     /// <summary>A PS3 title id like NPUA80490 from the file or folder name, else from a .pkg's content id.</summary>
     public static string? TitleId(string path)

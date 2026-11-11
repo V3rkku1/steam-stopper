@@ -15,7 +15,8 @@ namespace SteamStopper;
 /// </summary>
 public static class CoverPicker
 {
-    public static string? Show(Window owner, Rom rom, HttpClient http)
+    /// <param name="step">For one-after-another picking, like "3 of 12"; adds a Stop button that calls <paramref name="stop"/>.</param>
+    public static string? Show(Window owner, Rom rom, HttpClient http, string? step = null, Action? stop = null)
     {
         string? result = null;
         var window = new Window
@@ -56,11 +57,18 @@ public static class CoverPicker
         searchRow.Children.Add(query);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
         buttons.Children.Add(file);
+        if (stop is not null)
+        {
+            var halt = new Button { Content = "Stop", MinWidth = 96, Margin = new Thickness(8, 0, 0, 0), Style = (Style)window.FindResource("GhostButton") };
+            halt.Click += (_, _) => { stop(); window.Close(); };
+            buttons.Children.Add(halt);
+            cancel.Content = "Skip";
+        }
         buttons.Children.Add(cancel);
         var top = new StackPanel();
         top.Children.Add(new TextBlock
         {
-            Text = $"Cover for {rom.Title}", FontSize = 16, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 12),
+            Text = $"Cover for {rom.Title}{(step is null ? "" : "  ·  " + step)}", FontSize = 16, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 12),
             FontFamily = (FontFamily)window.FindResource("DisplayFont"), Foreground = Res("Text"), TextTrimming = TextTrimming.CharacterEllipsis
         });
         top.Children.Add(searchRow);

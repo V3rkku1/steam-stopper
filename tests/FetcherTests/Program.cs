@@ -41,18 +41,30 @@ if (args is ["--covers", var q, var console])
 if (args is ["--roms"])
 {
     var root = Path.Combine(Path.GetTempPath(), "roms-" + Guid.NewGuid().ToString("N"));
-    static byte[] Sfo(string title)
+    // A PARAM.SFO with text values: header, one 16-byte entry per value, then the key and data tables.
+    static byte[] Sfo(string title, params (string Key, string Value)[] more)
     {
-        var key = "TITLE\0"u8.ToArray();
-        var value = System.Text.Encoding.UTF8.GetBytes(title + "\0");
-        var b = new byte[20 + 16 + key.Length + value.Length];
+        var all = more.Prepend((Key: "TITLE", Value: title)).ToArray();
+        var keys = all.Select(a => System.Text.Encoding.ASCII.GetBytes(a.Key + "\0")).ToArray();
+        var values = all.Select(a => System.Text.Encoding.UTF8.GetBytes(a.Value + "\0")).ToArray();
+        int keyStart = 20 + 16 * all.Length, dataStart = keyStart + keys.Sum(k => k.Length);
+        var b = new byte[dataStart + values.Sum(v => v.Length)];
         "\0PSF"u8.CopyTo(b);
-        BitConverter.GetBytes(36).CopyTo(b, 8);
-        BitConverter.GetBytes(36 + key.Length).CopyTo(b, 12);
-        BitConverter.GetBytes(1).CopyTo(b, 16);
-        BitConverter.GetBytes(value.Length).CopyTo(b, 24);
-        key.CopyTo(b, 36);
-        value.CopyTo(b, 36 + key.Length);
+        BitConverter.GetBytes(keyStart).CopyTo(b, 8);
+        BitConverter.GetBytes(dataStart).CopyTo(b, 12);
+        BitConverter.GetBytes(all.Length).CopyTo(b, 16);
+        int k = 0, d = 0;
+        for (var i = 0; i < all.Length; i++)
+        {
+            var e = 20 + i * 16;
+            BitConverter.GetBytes((ushort)k).CopyTo(b, e);
+            BitConverter.GetBytes(values[i].Length).CopyTo(b, e + 4);
+            BitConverter.GetBytes(d).CopyTo(b, e + 12);
+            keys[i].CopyTo(b, keyStart + k);
+            values[i].CopyTo(b, dataStart + d);
+            k += keys[i].Length;
+            d += values[i].Length;
+        }
         return b;
     }
     void Put(string path, byte[] bytes) { Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllBytes(path, bytes); }
@@ -76,18 +88,38 @@ if (args is ["--roms"])
     Put(Path.Combine(root, "d.pkg"), Pkg("\u007FPKG", 2, "UP9000-ULUS10041_00-0000000000000000"));
     Put(Path.Combine(root, "e.pkg"), [1, 2, 3]);
     Put(Path.Combine(root, "f.vpk"), [1]);
+    Put(Path.Combine(root, "PCSE00001", "eboot.bin"), [1]);
+    Put(Path.Combine(root, "PCSE00001", "sce_sys", "param.sfo"), Sfo("Gravity Rush", ("TITLE_ID", "PCSE00001")));
+    Put(Path.Combine(root, "BLUS30443", "USRDIR", "EBOOT.BIN"), [1]);
+    Put(Path.Combine(root, "BLUS30443", "PARAM.SFO"), Sfo("Demon's Souls update", ("CATEGORY", "GD")));
+    Put(Path.Combine(root, "BCUS98174", "USRDIR", "EBOOT.BIN"), [1]);
+    Put(Path.Combine(root, "BCUS98174", "PARAM.SFO"), Sfo("Uncharted", ("CATEGORY", "HG")));
+    Put(Path.Combine(root, "ps2", "Okami.chd"), [1]);
+    Put(Path.Combine(root, "Sega Dreamcast", "Shenmue.m3u"), [1]);
+    Put(Path.Combine(root, "Crash.chd"), [1]);
     var pkgStore = new RomLibrary.Store { Folders = [root] };
     RomLibrary.Scan(pkgStore);
     var got = pkgStore.Games.ToDictionary(g => Path.GetRelativePath(root, g.Path), g => $"{g.Console}|{g.Title}");
     var want = new Dictionary<string, string>
     {
         ["ps4"] = "PS4|Bloodborne", ["ps3disc"] = "PS3|Demon's Souls", ["NPUB30001"] = "PS3|Flower",
-        ["a.pkg"] = "PS4|a", ["b.pkg"] = "PS3|b", ["c.pkg"] = "VITA|c", ["d.pkg"] = "|d", ["e.pkg"] = "|e", ["f.vpk"] = "VITA|f"
+        ["a.pkg"] = "PS4|a", ["b.pkg"] = "PS3|b", ["c.pkg"] = "VITA|c", ["d.pkg"] = "|d", ["e.pkg"] = "|e", ["f.vpk"] = "VITA|f",
+        ["PCSE00001"] = "VITA|Gravity Rush", ["BCUS98174"] = "PS3|Uncharted",
+        [Path.Combine("ps2", "Okami.chd")] = "PS2|Okami", [Path.Combine("Sega Dreamcast", "Shenmue.m3u")] = "DREAMCAST|Shenmue", ["Crash.chd"] = "PS1|Crash"
     };
     var bad = want.Where(w => !got.TryGetValue(w.Key, out var g) || g != w.Value).Select(w => $"{w.Key}: want {w.Value}, got {got.GetValueOrDefault(w.Key)}")
         .Concat(got.Keys.Except(want.Keys).Select(k => $"unexpected {k}")).ToList();
     if (RomLibrary.Arguments("RPCS3", Path.Combine(root, "b.pkg")) != "") bad.Add("pkg should launch without arguments");
     if (RomLibrary.Arguments("shadPS4", "C:\\g") != "-g \"C:\\g\\eboot.bin\"") bad.Add("shadPS4 args");
+    if (RomLibrary.InstalledPackages(pkgStore.Games).Select(g => Path.GetFileName(g.Path)).SingleOrDefault() != "b.pkg") bad.Add("installed b.pkg should be the one hidden");
+    if (RomLibrary.Arguments("Vita3K", "/g/ux0/app/PCSE00001") != "-r PCSE00001") bad.Add("Vita3K args");
+    if (RomLibrary.Arguments("RetroArch", "x.cue", "PS1") != "-L \"cores\\swanstation_libretro.dll\" \"x.cue\""
+        || !RomLibrary.Arguments("RetroArch", "x.nes", "NES · SNES").Contains("mesen_libretro") || RomLibrary.Arguments("RetroArch", "x", "PS2") != "\"x\"") bad.Add("RetroArch args");
+    var emu = Path.Combine(root, "emu");
+    Put(Path.Combine(emu, "user", "config.toml"), System.Text.Encoding.UTF8.GetBytes($"[GUI]\ninstallDirs = [\"{root.Replace("\\", "\\\\")}\", \"/nope\"]\n"));
+    Directory.CreateDirectory(Path.Combine(emu, "dev_hdd0", "game"));
+    if (!RomLibrary.EmulatorGameFolders("shadPS4", Path.Combine(emu, "shadPS4.exe")).SequenceEqual([root])) bad.Add("shadPS4 install dirs from config.toml");
+    if (!RomLibrary.EmulatorGameFolders("RPCS3", Path.Combine(emu, "rpcs3.exe")).SequenceEqual([Path.Combine(emu, "dev_hdd0", "game")])) bad.Add("RPCS3 game folder");
     Directory.Delete(root, true);
     bad.ForEach(Console.WriteLine);
     Console.WriteLine(bad.Count == 0 ? "ROMS OK" : $"{bad.Count} ROM CHECKS FAILED");

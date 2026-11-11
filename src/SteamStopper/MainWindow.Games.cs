@@ -15,6 +15,9 @@ public partial class MainWindow
     private RomLibrary.Store? _library;
     private ICollectionView? _gamesView;
     private List<AppOffer> _emuInstalled = [];
+    private bool _emuGamesScanned;
+
+    private List<string> EmulatorGameFolders() => _emuInstalled.SelectMany(e => RomLibrary.EmulatorGameFolders(e.Name, e.LaunchPath!)).ToList();
     private bool _gamesFilling;
     private readonly Dictionary<Rom, Process> _playing = [];
     private static readonly HttpClient CoverHttp = new() { Timeout = TimeSpan.FromSeconds(60) }; // art folder listings are a few MB
@@ -37,6 +40,8 @@ public partial class MainWindow
         }
         // Emulators may have been installed or removed on the Emulators tab since last time.
         _emuInstalled = AppHub.Snapshot(AppHub.Emulators).Where(e => e.LaunchPath is not null).ToList();
+        // Games installed inside RPCS3, shadPS4 or Vita3K since last time; once per run, the folder watcher covers the rest.
+        if (!_emuGamesScanned && EmulatorGameFolders().Count > 0) { _emuGamesScanned = true; _ = AddToLibrary([], [], quiet: true); }
         _ = CheckEmulatorUpdates();
         PaintGames();
         ShowGame(GamesList.SelectedItem as Rom);
@@ -192,7 +197,7 @@ public partial class MainWindow
         // KytyPS5's Play button opens its launcher; games start in its emulator exe next to it.
         if (RomLibrary.GameExe.TryGetValue(emu.Name, out var gameExe) && Path.Combine(Path.GetDirectoryName(exe)!, gameExe) is var direct && File.Exists(direct))
             exe = direct;
-        return (emu, exe, RomLibrary.Arguments(emu.Name, rom.Path));
+        return (emu, exe, RomLibrary.Arguments(emu.Name, rom.Path, rom.Console));
     }
 
     private async void GamesToSteam_Click(object sender, RoutedEventArgs e)
@@ -203,7 +208,8 @@ public partial class MainWindow
             StatusText.Text = "Steam or a Steam login wasn't found on this PC.";
             return;
         }
-        var games = _library.Games.Where(g => g.Exists && g.Tile is not null)
+        // .pkg/.vpk shortcuts would only open the emulator.
+        var games = _library.Games.Where(g => g.Exists && g.Tile is not null && !RomLibrary.InstallOnly(g.Path))
             .Select(g => (Rom: g, Launch: LaunchFor(g)))
             .Where(x => x.Launch is not null)
             .Select(x => new SteamGame(x.Rom.Title, x.Launch!.Value.Exe, x.Launch.Value.Args, x.Rom.Cover, x.Rom.ConsoleName))
@@ -211,7 +217,7 @@ public partial class MainWindow
         var skipped = _library.Games.Count - games.Count;
         var running = SteamClient.IsRunning();
         var message = $"Add {games.Count} game(s) to Steam as non-Steam games, with their box art?"
-            + (skipped > 0 ? $"\n\n{skipped} game(s) are skipped because no emulator for them is installed." : "")
+            + (skipped > 0 ? $"\n\n{skipped} game(s) are skipped: no emulator for them is installed, or they are .pkg/.vpk installers." : "")
             + "\n\nGames added earlier by Steam Multitool are replaced, so this also removes ones you took off the library. Your other non-Steam games stay."
             + (running ? "\n\nSteam will close and reopen to pick them up." : "");
         if (Dialog.Show(message, "Add to Steam", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
@@ -312,6 +318,7 @@ public partial class MainWindow
             if (!store.Folders.Contains(folder, StringComparer.OrdinalIgnoreCase)) { store.Folders.Add(folder); newFolder = true; }
         if (newFolder) WatchLibrary();
         var before = store.Games.Count;
+        var extra = EmulatorGameFolders();
         if (!quiet) StatusText.Text = "Looking for games…";
         // Scan into a copy off the UI thread; the list the UI shows is only touched here.
         var scanned = await Task.Run(() =>
@@ -320,10 +327,15 @@ public partial class MainWindow
             foreach (var file in files)
                 if (RomLibrary.ConsoleOf(file) is { } console && !copy.Games.Any(g => g.Path.Equals(file, StringComparison.OrdinalIgnoreCase)))
                     copy.Games.Add(new Rom { Path = file, Title = RomLibrary.TitleOf(file), Console = console });
-            RomLibrary.Scan(copy);
+            RomLibrary.Scan(copy, extra);
             return copy.Games.Skip(before).ToList();
         });
         store.Games.AddRange(scanned);
+        foreach (var package in RomLibrary.InstalledPackages(store.Games))
+        {
+            store.Games.Remove(package);
+            scanned.Remove(package);
+        }
         RomLibrary.Save(store);
         PaintGames();
         if (!quiet || scanned.Count > 0)
@@ -387,11 +399,14 @@ public partial class MainWindow
     /// <summary>Fill in box art one game at a time, so a big library doesn't flood the art server.</summary>
     private async Task LoadCoversAsync(List<Rom> roms)
     {
+        var renamed = false;
         foreach (var rom in roms)
         {
+            if (await RomLibrary.NameFromId(rom, CoverHttp) is { } name) { rom.Title = name; renamed = true; }
             if (rom.Cover is not null) continue;
             rom.Cover = await RomLibrary.CoverFor(rom, CoverHttp);
         }
+        if (renamed && _library is not null) { RomLibrary.Save(_library); _gamesView?.Refresh(); }
         // Covers can arrive after start; the game theme waits for them.
         if (_settings.Theme == "game") ApplyTheme();
     }
@@ -409,6 +424,37 @@ public partial class MainWindow
         rom.CustomCover = path;
         rom.Cover = path;
         RomLibrary.Save(_library);
+    }
+
+    private void GameRename_Click(object sender, RoutedEventArgs e)
+    {
+        if (GameDetail.DataContext is not Rom rom || _library is null) return;
+        if (Dialog.Ask(this, "The name shown in your library and on Steam. Covers are searched by it too.", "Rename game", rom.Title) is not { } name) return;
+        rom.Title = name;
+        RomLibrary.Save(_library);
+        _gamesView?.Refresh();
+    }
+
+    private void GamesFixCovers_Click(object sender, RoutedEventArgs e)
+    {
+        if (_library is null) return;
+        var missing = _library.Games.Where(g => g.Cover is null && g.Exists && RomLibrary.HasCoverSource(g.Console)).ToList();
+        if (missing.Count == 0)
+        {
+            StatusText.Text = "Every game that has a cover source already has a cover.";
+            return;
+        }
+        var stop = false;
+        var set = 0;
+        for (var i = 0; i < missing.Count && !stop; i++)
+        {
+            if (CoverPicker.Show(this, missing[i], CoverHttp, $"{i + 1} of {missing.Count}", () => stop = true) is not { } path) continue;
+            missing[i].CustomCover = path;
+            missing[i].Cover = path;
+            set++;
+        }
+        RomLibrary.Save(_library);
+        StatusText.Text = $"Set {set} cover(s).";
     }
 
     private void GameRemove_Click(object sender, RoutedEventArgs e)
