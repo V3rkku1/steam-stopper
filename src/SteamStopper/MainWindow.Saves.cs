@@ -81,7 +81,7 @@ public partial class MainWindow
             Title = $"Choose a {row.Name} backup", Filter = "Save backups|*.zip", InitialDirectory = SaveBackup.FolderFor(row.Name)
         };
         if (dialog.ShowDialog(this) != true) return;
-        if (MessageBox.Show(this,
+        if (Dialog.Show(this,
                 $"Restore {row.Name} saves from {Path.GetFileName(dialog.FileName)}?\n\nSaves with the same name are replaced. Your current saves are zipped into the \"Before restore\" folder first, so you can undo this.",
                 "Restore saves", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;

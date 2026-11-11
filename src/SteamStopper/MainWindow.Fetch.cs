@@ -320,7 +320,7 @@ public partial class MainWindow
         var root = _steamRoot;
         var message = await Task.Run(() => Power.Run(key, root));
         StatusText.Text = message + note;
-        if (key == "notify") MessageBox.Show(this, "All downloads finished" + note + ".", "Steam Multitool");
+        if (key == "notify") Dialog.Show(this, "All downloads finished" + note + ".", "Steam Multitool");
     }
 
     private void FetchGrid_RightDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -439,7 +439,7 @@ public partial class MainWindow
             if (picked.Count == 0) return;
         }
         var unfinished = picked.Count(j => j.State != FetchState.Done);
-        if (unfinished > 0 && MessageBox.Show(
+        if (unfinished > 0 && Dialog.Show(
                 $"Remove {picked.Count} download(s)?\n\n{unfinished} unfinished file(s) will be deleted. Finished files stay on disk.",
                 "Remove downloads", MessageBoxButton.YesNo) != MessageBoxResult.Yes)
             return;

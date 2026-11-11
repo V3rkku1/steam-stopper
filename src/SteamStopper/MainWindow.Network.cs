@@ -109,7 +109,7 @@ public partial class MainWindow
     private async void NetBlock_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { DataContext: NetRow row } button || row.Path.Length == 0) return;
-        if (!row.Blocked && MessageBox.Show(this,
+        if (!row.Blocked && Dialog.Show(this,
                 $"Block {row.Name} from the internet?\n\n{row.Path}\n\nIt stays blocked, even after a restart, until you press Unblock here.",
                 "Block app", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;

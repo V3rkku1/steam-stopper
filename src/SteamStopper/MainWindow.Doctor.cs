@@ -53,7 +53,7 @@ public partial class MainWindow
 
     private void DoctorFlush_Click(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show(this,
+        if (Dialog.Show(this,
                 "Clear Steam's download cache?\n\nSteam shows its own confirmation, then restarts. Installed games are not touched, but you may need to log in to Steam again.",
                 "Download doctor", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         try { Process.Start(new ProcessStartInfo("steam://flushconfig") { UseShellExecute = true })?.Dispose(); }
