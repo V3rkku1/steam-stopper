@@ -139,6 +139,14 @@ Check("unique name", r2.FileName == "test file (1).bin");
 await RunJob(r2, 8);
 Check("resumed hash", Same(r2));
 
+Console.WriteLine("1c) auto connections: starts small, adds while the speed rises");
+var peak = 0;
+var jAuto = new FetchJob { Url = $"http://127.0.0.1:{port}/files/auto.bin", Folder = dir };
+var autoRun = fetcher.Run(jAuto, 0, CancellationToken.None);
+while (!autoRun.IsCompleted) { peak = Math.Max(peak, jAuto.Connections); await Task.WhenAny(autoRun, Task.Delay(200)); }
+await autoRun;
+Check($"auto connections: finishes, grew past the start ({peak} at most)", Same(jAuto) && peak > 4);
+
 Console.WriteLine("2a) pause and resume the same download without reloading it");
 var jp = await RunJob(new FetchJob { Url = $"http://127.0.0.1:{port}/files/pause.bin", Folder = dir }, 8, 1000);
 await RunJob(jp, 8);
@@ -417,6 +425,26 @@ var recent = Cheevos.ParseRecent("""
 [{"Date":"2026-11-11 10:00:00","AchievementID":42,"Title":"First Steps","Description":"Leave the house","Points":5,"BadgeName":"9001","GameTitle":"Ocarina of Time"}]
 """);
 Check("retroachievements: recent unlocks parsed", recent is [(42, { Title: "First Steps", Points: 5, Earned: true }, "Ocarina of Time")] && Cheevos.ParseRecent("{}").Count == 0);
+// A real reply for example.com: question, then a CNAME (skipped) and two A records with name pointers.
+var dnsQuery = LinkDns.Query("example.com", 0x1234);
+Check("link dns: query encodes the name", dnsQuery.Length == 29 && dnsQuery[12] == 7 && dnsQuery[20] == 3 && dnsQuery[24] == 0);
+byte[] dnsReply = [.. dnsQuery[..2], 0x81, 0x80, 0, 1, 0, 3, 0, 0, 0, 0, .. dnsQuery[12..],
+    0xC0, 0x0C, 0, 5, 0, 1, 0, 0, 0, 30, 0, 2, 0xC0, 0x0C,
+    0xC0, 0x0C, 0, 1, 0, 1, 0, 0, 1, 0, 0, 4, 93, 184, 216, 34,
+    0xC0, 0x0C, 0, 1, 0, 1, 0, 0, 0, 90, 0, 4, 1, 2, 3, 4];
+var (dnsAddresses, dnsTtl) = LinkDns.Parse(dnsReply, 0x1234);
+Check("link dns: A records and shortest TTL, CNAME skipped", dnsAddresses.Select(a => a.ToString()).SequenceEqual(["93.184.216.34", "1.2.3.4"]) && dnsTtl == 90);
+Check("link dns: another id is ignored", LinkDns.Parse(dnsReply, 0x9999).Addresses.Length == 0);
+Check("power plan: plugged-in value read", NetTuning.ParsePowerIndex("Current AC Power Setting Index: 0x00000003\nCurrent DC Power Setting Index: 0x00000002") == 3 && NetTuning.ParsePowerIndex("") is null);
+Check("tcp tuning: only disabled or restricted counts as limited", NetTuning.AutoTuningLimited("Disabled") && NetTuning.AutoTuningLimited("Restricted") && !NetTuning.AutoTuningLimited("Normal") && !NetTuning.AutoTuningLimited(null));
+var fastLink = new BondLink { Name = "fast" };
+var slowLink = new BondLink { Name = "slow" };
+Interlocked.Add(ref fastLink.ByteCount, 10_000_000); fastLink.Sample(1);
+Interlocked.Add(ref slowLink.ByteCount, 1_000_000); slowLink.Sample(1);
+BondLink.Rebalance([fastLink, slowLink]);
+Check($"auto-balance: shares follow measured speed ({fastLink.Share:0.##} vs {slowLink.Share:0.##})", fastLink.Share == 1 && slowLink.Share == 0.2);
+BondLink.AutoBalance = false; BondLink.Rebalance([fastLink, slowLink]); BondLink.AutoBalance = true;
+Check("auto-balance off: weight only", fastLink.Share == 1 && slowLink.Share == 1);
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",
@@ -516,6 +544,8 @@ if (OperatingSystem.IsWindows())
         net.Stop();
         Check("network monitor stops", !net.Running);
     }
+    var live = await LinkDns.Resolve("github.com", IPAddress.Parse("8.8.8.8"), IPAddress.Any, CancellationToken.None);
+    Check($"link dns: live lookup through a chosen server ({string.Join(", ", live.Select(a => a.ToString()))})", live.Length > 0);
 }
 
 Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");

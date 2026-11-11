@@ -34,12 +34,49 @@ public partial class MainWindow
                 DoctorServers.Children.Add(Chip(s.PingMs is { } ms ? $"{s.City}  {ms:0} ms  ·  load {s.Load}%" : $"{s.City}  no answer"));
             DoctorFixes.Text = string.Join(Environment.NewLine, fixes.Select(f => "•  " + f));
             DoctorResults.Visibility = Visibility.Visible;
+            await PaintWindowsChecks();
         }
         catch (Exception ex)
         {
             DoctorVerdict.Text = "The check didn't finish: " + ex.Message;
         }
         finally { DoctorButton.IsEnabled = true; }
+    }
+
+    /// <summary>Two Windows settings that cap speed without saying so; each gets a Fix button when it's wrong.</summary>
+    private async Task PaintWindowsChecks()
+    {
+        DoctorChecks.Children.Clear();
+        var wifi = System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable()
+            && _bondRows.Any(l => l.Kind.Contains("Wi", StringComparison.OrdinalIgnoreCase));
+        var (tuning, saving) = await Task.Run(() => (NetTuning.AutoTuning(), wifi ? NetTuning.WifiSaving() : null));
+        if (tuning is not null)
+            DoctorChecks.Children.Add(NetTuning.AutoTuningLimited(tuning)
+                ? Problem($"Windows network tuning is {tuning.ToLowerInvariant()}: it caps each connection's speed.", "Fix", NetTuning.FixAutoTuning)
+                : Chip("Windows network tuning  ✓"));
+        if (saving is { } level)
+            DoctorChecks.Children.Add(level > 0
+                ? Problem("Wi-Fi power saving is on while plugged in: it can halve Wi-Fi speed.", "Fix", NetTuning.FixWifi)
+                : Chip("Wi-Fi power saving off  ✓"));
+    }
+
+    private Border Problem(string text, string action, Action fix)
+    {
+        var button = new Button { Content = action, Style = (Style)FindResource("SmallPrimary"), Margin = new Thickness(10, 0, 0, 0), Padding = new Thickness(12, 2, 12, 2) };
+        button.Click += async (_, _) =>
+        {
+            button.IsEnabled = false;
+            await Task.Run(fix);
+            StatusText.Text = "Fixed. It applies to new connections right away.";
+            await PaintWindowsChecks();
+        };
+        var chip = Chip(text);
+        chip.Background = Brush("Selected");
+        var label = chip.Child;
+        chip.Child = null; // detach before it moves into the panel
+        DockPanel.SetDock(button, Dock.Right);
+        chip.Child = new DockPanel { Children = { button, label } };
+        return chip;
     }
 
     private Border Chip(string text) => new()

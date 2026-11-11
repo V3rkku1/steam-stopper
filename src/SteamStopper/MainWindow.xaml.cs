@@ -147,6 +147,7 @@ public partial class MainWindow : Window
         _pollTimer.Tick += (_, _) => PollWatch();
         _pollTimer.Tick += (_, _) => PaintBondSpeed();
         _pollTimer.Tick += (_, _) => PaintFetchSpeed();
+        _pollTimer.Tick += (_, _) => { if (++_probeTick % 2 == 0) ProbeLinks(); };
         _pollTimer.Tick += (_, _) => { if (PageHome.IsVisible) PaintHome(); };
         _pollTimer.Tick += (_, _) => { if (PageNetwork.IsVisible) PaintNetwork(); };
         _pollTimer.Start();
@@ -220,6 +221,8 @@ public partial class MainWindow : Window
         RestartAfterBox.IsChecked = _settings.RestartAfterUnblock;
         BondPortBox.Text = _settings.BondPort.ToString();
         BondRestartBox.IsChecked = _settings.BondRestartSteam;
+        BondAutoBox.IsChecked = BondLink.AutoBalance = _settings.BondAutoBalance;
+        BondGamesBox.IsChecked = _bonder.KeepGamesOnOneLink = _settings.BondKeepGames;
         ApplyWatcherSettings();
         _suppress = false;
         ActionBox.SelectionChanged += WatchSettings_Changed;
@@ -1226,6 +1229,26 @@ public partial class MainWindow : Window
     }
 
     private async void BondToggle_Click(object sender, RoutedEventArgs e) => await ToggleBondAsync();
+
+    private void BondOptions_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.BondAutoBalance = BondLink.AutoBalance = BondAutoBox.IsChecked == true;
+        _settings.BondKeepGames = _bonder.KeepGamesOnOneLink = BondGamesBox.IsChecked == true;
+        _settings.Save();
+    }
+
+    private bool _probing;
+    private int _probeTick;
+
+    /// <summary>Every 2 s while links carry traffic: is each one still online, and how quick? Dead ones drop out.</summary>
+    private async void ProbeLinks()
+    {
+        if (_probing || _bondRows.Count < 2 || !(_bonder.Running || _fetchRuns.Count > 0)) return;
+        _probing = true;
+        try { await LinkHealth.Probe(_bondRows); }
+        catch { } // a link vanished mid-probe; the next round sees the new list
+        finally { _probing = false; }
+    }
 
     private async Task ToggleBondAsync()
     {

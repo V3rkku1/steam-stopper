@@ -129,6 +129,8 @@ public sealed class AppSettings
     // Adapter name -> weight 1-4, or 0 when the adapter is left out of bonding.
     public Dictionary<string, int> BondLinks { get; set; } = [];
     public bool BondRestartSteam { get; set; } = true;
+    public bool BondAutoBalance { get; set; } = true;
+    public bool BondKeepGames { get; set; } = true;
     // Adapters whose interface metric the Routes page changed, so it can put them back on automatic.
     public List<string> MainLinkAdapters { get; set; } = [];
     public string MainLink { get; set; } = "";
@@ -152,7 +154,8 @@ public sealed class AppSettings
     // App key -> adapter name it was last pinned to.
     public Dictionary<string, string> RouteLinks { get; set; } = [];
     public string FetchFolder { get; set; } = "";
-    public int FetchConnections { get; set; } = 8;
+    // 0 is Auto.
+    public int FetchConnections { get; set; }
     public int FetchAtOnce { get; set; } = 2;
     // Spread Fetch downloads over the links ticked on the Bond page; off uses Windows' normal route.
     public bool FetchBond { get; set; } = true;
