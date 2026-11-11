@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace SteamStopper.Core;
 
 /// <summary>
-/// Puts the internet back when Steam Stopper dies without closing normally (crash, Task Manager, power button).
+/// Puts the internet back when Steam Multitool dies without closing normally (crash, Task Manager, power button).
 /// Bonding points the Windows proxy at this process and routed apps run through proxies inside it,
 /// so once it is gone browsers and Discord can't connect. A second copy of the app ("--watchdog pid")
 /// waits for this one to exit and undoes both. A normal exit cleans up first, leaving it nothing to do.

@@ -24,6 +24,9 @@ public partial class MainWindow : Window
 
     private static readonly Dictionary<string, (string Title, string Subtitle)> PageTitles = new()
     {
+        ["home"] = ("Home", "Your games, downloads and Steam at a glance"),
+        ["settings"] = ("Settings", "Look, menu order and window behaviour"),
+        ["network"] = ("Network", "Which apps use your internet right now"),
         ["control"] = ("Control", "Cut Steam off the internet and manage the client"),
         ["downloads"] = ("Downloads", "Watch downloads and act when they finish"),
         ["library"] = ("Library", "Installed games, sizes and Steam maintenance"),
@@ -87,10 +90,17 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        SourceInitialized += (_, _) => DarkTitleBar.Apply(this);
+        SourceInitialized += (_, _) =>
+        {
+            DarkTitleBar.Apply(this);
+            ApplyBackdrop();
+        };
         StateChanged += (_, _) => UpdateCaptionButtons();
         _pages = new Dictionary<string, UIElement>
         {
+            ["home"] = PageHome,
+            ["settings"] = PageSettings,
+            ["network"] = PageNetwork,
             ["control"] = PageControl,
             ["downloads"] = PageDownloads,
             ["library"] = PageLibrary,
@@ -114,21 +124,31 @@ public partial class MainWindow : Window
 
         SteamPathText.Text = _steamRoot ?? "Not found";
         SteamPathText.ToolTip = _steamRoot;
-        ShowPageHeader("control");
+        ShowPageHeader("home");
         VersionText.Text = "Version " + Updater.Version;
         Loaded += (_, _) => StartUpdateChecks();
+        ContentRendered += (_, _) =>
+        {
+            PlayIntro();
+            RefreshHome();
+            if (_settings.Theme == "game") ApplyTheme();
+        };
         FillComboBoxes();
         FillAppCategories();
         LoadUiFromSettings();
         InitFetch();
+        InitSettings();
         RefreshAdmin();
         RefreshFirewallAsync();
-        RefreshProcesses();
+        // Not needed for the first frame: let the window (and the Home page) draw first.
+        Dispatcher.BeginInvoke(RefreshProcesses, System.Windows.Threading.DispatcherPriority.Background);
         RescanLibrary();
 
         _pollTimer.Tick += (_, _) => PollWatch();
         _pollTimer.Tick += (_, _) => PaintBondSpeed();
         _pollTimer.Tick += (_, _) => PaintFetchSpeed();
+        _pollTimer.Tick += (_, _) => { if (PageHome.IsVisible) PaintHome(); };
+        _pollTimer.Tick += (_, _) => { if (PageNetwork.IsVisible) PaintNetwork(); };
         _pollTimer.Start();
         _tray = new TrayIcon(
             isBlocked: () => _steamBlocked,
@@ -156,6 +176,8 @@ public partial class MainWindow : Window
             _tray?.Dispose();
             _tray = null;
             StopFetchJobs();
+            // A real-time trace session outlives the process unless stopped.
+            StopNetwork();
             PersistSettings();
             _pollTimer.Stop();
             _bonder.Stop();
@@ -254,7 +276,7 @@ public partial class MainWindow : Window
         Hide();
         if (_trayTipShown) return;
         _trayTipShown = true;
-        _tray?.ShowTip("Steam Stopper is still running", "Right-click the tray icon to block Steam, toggle bonding or quit.");
+        _tray?.ShowTip("Steam Multitool is still running", "Right-click the tray icon to block Steam, toggle bonding or quit.");
     }
 
     private void ShowFromTray()
@@ -274,7 +296,7 @@ public partial class MainWindow : Window
     private async Task TrayRun(Func<Task> action)
     {
         await action();
-        if (!IsVisible) _tray?.ShowTip("Steam Stopper", StatusText.Text);
+        if (!IsVisible) _tray?.ShowTip("Steam Multitool", StatusText.Text);
     }
 
     private void Min_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -292,11 +314,18 @@ public partial class MainWindow : Window
 
     private void Nav_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not RadioButton { Tag: string key }) return;
+        if (sender is RadioButton { Tag: string key }) ShowPage(key);
+    }
+
+    private void ShowPage(string key)
+    {
         foreach (var (name, page) in _pages)
             // Apps and Emulators share one page, so compare pages rather than keys.
             page.Visibility = page == _pages[key] ? Visibility.Visible : Visibility.Collapsed;
+        SlideIn(_pages[key]);
         ShowPageHeader(key);
+        if (key == "home") RefreshHome();
+        if (key == "network") StartNetwork(); else StopNetwork();
         if (key == "control") RefreshProcesses();
         if (key == "dns") RefreshDnsUi();
         if (key == "bond") RefreshBondUi();
@@ -683,7 +712,7 @@ public partial class MainWindow : Window
                 StatusText.Text = message;
                 RefreshFirewallAsync();
                 if (key is "notify" or "exit_steam" or "block_internet")
-                    MessageBox.Show(message, "Steam Stopper");
+                    MessageBox.Show(message, "Steam Multitool");
                 return;
             }
             CountdownLabel.Text = $"{_finishReason}  ·  {ActionBox.SelectedItem} in {left}s";
@@ -882,7 +911,7 @@ public partial class MainWindow : Window
     {
         var action = (sender as FrameworkElement)?.Tag as string ?? "";
         var label = Power.Actions.FirstOrDefault(a => a.Key == action).Label ?? action;
-        if (MessageBox.Show($"{label} now?", "Steam Stopper", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (MessageBox.Show($"{label} now?", "Steam Multitool", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         var root = _steamRoot;
         StatusText.Text = await Task.Run(() => Power.Run(action, root));
     }

@@ -15,8 +15,35 @@ internal static class DarkTitleBar
     private const int DwmwaTextColor = 36;
     private const int DwmwcpRound = 2;
 
+    private const int DwmwaSystemBackdropType = 38;
+
     [DllImport("dwmapi.dll", PreserveSig = true)]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Margins { public int Left, Right, Top, Bottom; }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmExtendFrameIntoClientArea(IntPtr hwnd, ref Margins margins);
+
+    /// <summary>
+    /// Windows 11 (22H2+) backdrop behind the window: "acrylic" (blurred desktop) or "mica" (tinted wallpaper),
+    /// seen through the theme's see-through background. False when Windows can't, so the caller goes solid.
+    /// </summary>
+    public static bool SetBackdrop(Window window, string kind)
+    {
+        var hwnd = new WindowInteropHelper(window).EnsureHandle();
+        var type = kind switch { "acrylic" => 3, "mica" => 2, _ => 1 };
+        if (Environment.OSVersion.Version.Build < 22621) return type == 1;
+        // The chrome keeps re-applying its glass frame, so the frame size goes through it too.
+        if (WindowChrome.GetWindowChrome(window) is { } chrome) chrome.GlassFrameThickness = new Thickness(type == 1 ? 0 : -1);
+        // WPF paints its own black behind the content unless told not to.
+        if (HwndSource.FromHwnd(hwnd)?.CompositionTarget is { } target)
+            target.BackgroundColor = type == 1 ? System.Windows.Media.Colors.Black : System.Windows.Media.Colors.Transparent;
+        var margins = type == 1 ? new Margins() : new Margins { Left = -1, Right = -1, Top = -1, Bottom = -1 };
+        _ = DwmExtendFrameIntoClientArea(hwnd, ref margins);
+        return DwmSetWindowAttribute(hwnd, DwmwaSystemBackdropType, ref type, sizeof(int)) == 0 || type == 1;
+    }
 
     public static void Apply(Window window)
     {

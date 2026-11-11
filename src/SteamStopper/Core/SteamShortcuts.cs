@@ -7,12 +7,14 @@ public sealed record SteamGame(string Name, string Exe, string Args, string? Cov
 
 /// <summary>
 /// Adds library games to Steam as non-Steam games: userdata\&lt;user&gt;\config\shortcuts.vdf (binary VDF)
-/// plus box art in config\grid. Entries this app made carry a "Steam Stopper" tag, so a later sync replaces
+/// plus box art in config\grid. Entries this app made carry a "Steam Multitool" tag (or the earlier "Steam Stopper"), so a later sync replaces
 /// them and leaves the user's own shortcuts alone. Steam must be closed while the file is written.
 /// </summary>
 public static class SteamShortcuts
 {
-    public const string Tag = "Steam Stopper";
+    public const string Tag = "Steam Multitool";
+    // The app's earlier name; shortcuts tagged with it are ours too and get replaced.
+    private const string OldTag = "Steam Stopper";
     private const byte Map = 0, Text = 1, Int = 2, Float = 3, UInt64 = 7, End = 8;
 
     /// <summary>Folder of the Steam account that logged in last (from config\loginusers.vdf), or the newest userdata folder.</summary>
@@ -93,7 +95,7 @@ public static class SteamShortcuts
     }
 
     private static bool HasTag(Dictionary<string, object> entry) =>
-        entry.TryGetValue("tags", out var t) && t is Dictionary<string, object> tags && tags.Values.Contains(Tag);
+        entry.TryGetValue("tags", out var t) && t is Dictionary<string, object> tags && (tags.Values.Contains(Tag) || tags.Values.Contains(OldTag));
 
     private static string Quote(string path) => $"\"{path}\"";
 

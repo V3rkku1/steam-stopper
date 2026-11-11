@@ -17,7 +17,7 @@ internal sealed class TrayIcon : IDisposable
         Action open, Func<Task> toggleBlock, Func<Task> toggleBond, Action toggleAsk, Action checkUpdates, Action quit)
     {
         var menu = new Forms.ContextMenuStrip { Renderer = new DarkRenderer(), ShowImageMargin = false, ShowCheckMargin = true };
-        var openItem = new Forms.ToolStripMenuItem("Open Steam Stopper", null, (_, _) => open())
+        var openItem = new Forms.ToolStripMenuItem("Open Steam Multitool", null, (_, _) => open())
         {
             Font = new Drawing.Font(menu.Font, Drawing.FontStyle.Bold)
         };
@@ -50,7 +50,7 @@ internal sealed class TrayIcon : IDisposable
         _icon = new Forms.NotifyIcon
         {
             Icon = LoadIcon(),
-            Text = "Steam Stopper",
+            Text = "Steam Multitool",
             ContextMenuStrip = menu,
             Visible = true
         };

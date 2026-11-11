@@ -1,9 +1,9 @@
 @echo off
 setlocal
-title Pack Steam Stopper
+title Pack Steam Multitool
 cd /d "%~dp0"
 set "PATH=C:\Program Files\dotnet;%PATH%"
-set "VER=2.5.4"
+set "VER=2.5.5"
 set "PUB=%~dp0dist\app\"
 set "PORT=%~dp0dist\portable\"
 
@@ -11,7 +11,7 @@ if exist dist\app rmdir /s /q dist\app
 if exist dist\portable rmdir /s /q dist\portable
 if not exist dist mkdir dist
 
-echo Publishing Steam Stopper %VER%...
+echo Publishing Steam Multitool %VER%...
 dotnet publish "src\SteamStopper\SteamStopper.csproj" -c Release -p:Version=%VER% -p:AssemblyVersion=%VER% -p:FileVersion=%VER% -p:SelfContained=false -o "dist\app"
 if errorlevel 1 (
   echo Publish failed.
@@ -48,9 +48,9 @@ if exist "dist\portable\*.pdb" del /Q "dist\portable\*.pdb" >nul 2>&1
 
 echo Creating zip packages...
 powershell -NoProfile -Command "Compress-Archive -Path 'dist\app\*' -DestinationPath 'dist\SteamStopper.zip' -Force"
-powershell -NoProfile -Command "Compress-Archive -Path 'dist\app\*' -DestinationPath 'dist\Steam Stopper Setup.zip' -Force"
+powershell -NoProfile -Command "Compress-Archive -Path 'dist\app\*' -DestinationPath 'dist\Steam Multitool Setup.zip' -Force"
 powershell -NoProfile -Command "Compress-Archive -Path 'dist\portable\*' -DestinationPath 'dist\SteamStopper-portable.zip' -Force"
-copy /Y "dist\Steam Stopper Setup.zip" "%USERPROFILE%\Desktop\Steam Stopper Setup.zip" >nul
+copy /Y "dist\Steam Multitool Setup.zip" "%USERPROFILE%\Desktop\Steam Multitool Setup.zip" >nul
 copy /Y "dist\SteamStopper-portable.zip" "%USERPROFILE%\Desktop\SteamStopper-portable.zip" >nul
 
 echo.

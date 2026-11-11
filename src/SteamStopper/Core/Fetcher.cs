@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -211,6 +212,12 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
     private static readonly TimeSpan FailPenalty = TimeSpan.FromSeconds(20);
     private readonly Dictionary<string, HttpClient> _clients = [];
     private readonly object _pickGate = new();
+    private readonly object _limitGate = new();
+    // When the limit lets the next byte through, in seconds on the Stopwatch clock.
+    private double _nextFree;
+
+    /// <summary>Speed limit for all downloads together, bytes per second; 0 is no limit.</summary>
+    public long LimitBps { get; set; }
 
     public async Task Run(FetchJob job, int connections, CancellationToken cancel)
     {
@@ -427,6 +434,7 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
             job.Add(gained, name);
             if (link is not null) Interlocked.Add(ref link.ByteCount, gained);
             if (done) return;
+            await Throttle(take, cancel);
         }
 
         lock (job.Gate)
@@ -440,6 +448,23 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
             }
             if (segment.Pos < segment.End) throw new IOException("Connection closed early.");
         }
+    }
+
+    /// <summary>Hold a worker back when all workers together are ahead of the speed limit.</summary>
+    private async Task Throttle(int bytes, CancellationToken cancel)
+    {
+        var limit = LimitBps;
+        if (limit <= 0) return;
+        double wait;
+        lock (_limitGate)
+        {
+            var now = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
+            // Idle time earns at most a tenth of a second of burst, so a pause isn't followed by a spike.
+            _nextFree = Math.Max(_nextFree, now - 0.1) + bytes / (double)limit;
+            wait = _nextFree - now;
+        }
+        // Under the 20 s stall timeout, so a slow limit never looks like a dead connection.
+        if (wait > 0) await Task.Delay(TimeSpan.FromSeconds(Math.Min(wait, 10)), cancel);
     }
 
     // Weighted least-connections over the links ticked on the Bond page, healthy ones first.

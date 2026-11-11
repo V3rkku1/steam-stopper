@@ -51,9 +51,10 @@ public partial class MainWindow
         GamesEmpty.Visibility = _library.Games.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // Radius 15: the card's 16 minus its 1px border. Bottom corners round too but fade into the card colour there.
+    // The card radius minus its 1px border. Bottom corners round too but fade into the card colour there.
     private void GameHero_SizeChanged(object sender, SizeChangedEventArgs e) =>
-        ((Grid)sender).Clip = new System.Windows.Media.RectangleGeometry(new Rect(e.NewSize), 15, 15);
+        ((Grid)sender).Clip = new System.Windows.Media.RectangleGeometry(new Rect(e.NewSize),
+            ((CornerRadius)FindResource("CardRadius")).TopLeft - 1, ((CornerRadius)FindResource("CardRadius")).TopLeft - 1);
 
     private void GameSearch_Changed(object sender, TextChangedEventArgs e)
     {
@@ -77,6 +78,7 @@ public partial class MainWindow
         GameEmuPanel.Visibility = choices.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         _gamesFilling = false;
         PaintPlay(rom);
+        ShowCheevos(rom);
     }
 
     /// <summary>Installed emulators that can open this game, the one the user picked first.</summary>
@@ -145,9 +147,20 @@ public partial class MainWindow
         rom.Refresh();
         PaintPlay(rom);
         StatusText.Text = $"Playing {rom.Title} in {emu.Name}.";
+        List<string> boosted = [];
+        if (_settings.GameBoost && _settings.GameBoostApps.Count > 0)
+        {
+            var names = _settings.GameBoostApps.ToList();
+            var gamePid = process.Id;
+            boosted = await Task.Run(() => GameBoost.Close(names, gamePid));
+            if (boosted.Count > 0)
+                StatusText.Text = $"Playing {rom.Title} in {emu.Name}. Closed {string.Join(", ", boosted.Select(Path.GetFileNameWithoutExtension))} until you stop.";
+        }
         using (process) await process.WaitForExitAsync();
+        if (boosted.Count > 0) _ = Task.Run(() => GameBoost.Reopen(boosted));
         _playing.Remove(rom);
         rom.PlaySeconds += (DateTime.Now - started).TotalSeconds;
+        if (_settings.Theme == "game") ApplyTheme();
         RomLibrary.Save(_library);
         rom.Refresh();
         if (GameDetail.DataContext == rom) PaintPlay(rom);
@@ -196,7 +209,7 @@ public partial class MainWindow
         var running = SteamClient.IsRunning();
         var message = $"Add {games.Count} game(s) to Steam as non-Steam games, with their box art?"
             + (skipped > 0 ? $"\n\n{skipped} game(s) are skipped because no emulator for them is installed." : "")
-            + "\n\nGames added earlier by Steam Stopper are replaced, so this also removes ones you took off the library. Your other non-Steam games stay."
+            + "\n\nGames added earlier by Steam Multitool are replaced, so this also removes ones you took off the library. Your other non-Steam games stay."
             + (running ? "\n\nSteam will close and reopen to pick them up." : "");
         if (MessageBox.Show(message, "Add to Steam", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         StatusText.Text = "Adding games to Steam…";
@@ -241,8 +254,7 @@ public partial class MainWindow
         BindApps();
     }
 
-    private RadioButton? FindNav(string key) =>
-        FindVisualChildren<RadioButton>(this).FirstOrDefault(r => r.Tag as string == key && r.Style == FindResource("NavItem"));
+    private RadioButton? FindNav(string key) => NavItems.FirstOrDefault(r => r.Tag as string == key);
 
     private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
     {
@@ -333,6 +345,8 @@ public partial class MainWindow
             if (rom.Cover is not null) continue;
             rom.Cover = await RomLibrary.CoverFor(rom, CoverHttp);
         }
+        // Covers can arrive after start; the game theme waits for them.
+        if (_settings.Theme == "game") ApplyTheme();
     }
 
     private void GameOpenFolder_Click(object sender, RoutedEventArgs e)

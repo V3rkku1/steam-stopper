@@ -38,13 +38,13 @@ public partial class MainWindow
             _updateResult = info is null ? $"Up to date ({Updater.Version})" : $"{info.Version} available";
             if (info is null)
             {
-                if (manual) StatusText.Text = $"Steam Stopper {Updater.Version} is up to date.";
+                if (manual) StatusText.Text = $"Steam Multitool {Updater.Version} is up to date.";
                 return;
             }
             if (!manual && info.Version.ToString() == _settings.SkippedVersion) return;
             _update = info;
             ShowUpdateBanner();
-            if (manual) StatusText.Text = $"Steam Stopper {info.Version} is available.";
+            if (manual) StatusText.Text = $"Steam Multitool {info.Version} is available.";
         }
         catch (Exception ex)
         {
@@ -94,7 +94,7 @@ public partial class MainWindow
     {
         if (_update is not { } info) return;
         UpdateBanner.Visibility = Visibility.Visible;
-        UpdateTitle.Text = downloading ? $"Updating to {info.Version}" : $"Steam Stopper {info.Version} is available";
+        UpdateTitle.Text = downloading ? $"Updating to {info.Version}" : $"Steam Multitool {info.Version} is available";
         // First line of the release notes, without markdown markers.
         var note = info.Notes.Split('\n').Select(l => l.Trim().TrimStart('#', '-', '*', ' ').Replace("**", "")).FirstOrDefault(l => l.Length > 0 && l != "New");
         UpdateDetail.Text = detail ?? $"You have {Updater.Version}.{(note is null ? "" : "  " + note)}";
@@ -169,7 +169,7 @@ public partial class MainWindow
             .Trim();
         var open = MessageBox.Show(
             $"{notes}\n\nOpen the release page?",
-            $"What's new in Steam Stopper {info.Version}", MessageBoxButton.YesNo, MessageBoxImage.Information);
+            $"What's new in Steam Multitool {info.Version}", MessageBoxButton.YesNo, MessageBoxImage.Information);
         if (open == MessageBoxResult.Yes && info.PageUrl.Length > 0)
             Process.Start(new ProcessStartInfo(info.PageUrl) { UseShellExecute = true })?.Dispose();
     }

@@ -1,4 +1,4 @@
-Steam Stopper — portable
+Steam Multitool — portable
 
 Run SteamStopper.exe.
 

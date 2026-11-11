@@ -122,6 +122,13 @@ Check("both links used", hits.ContainsKey("127.0.0.1") && hits.ContainsKey("127.
 Check("no leftovers", !File.Exists(j1.PartPath) && !File.Exists(j1.StatePath));
 Console.WriteLine($"  hits: {string.Join(", ", hits.Select(h => h.Key + "=" + h.Value))}");
 
+Console.WriteLine("1b) speed limit 4 MB/s for 2 s");
+fetcher.LimitBps = 4 << 20;
+var jl = await RunJob(new FetchJob { Url = $"http://127.0.0.1:{port}/files/limited.bin", Folder = dir }, 8, 2000);
+fetcher.LimitBps = 0;
+Check($"limit holds the speed down (got {Format.Bytes(jl.Received)} in 2 s)", jl.Received > 4L << 20 && jl.Received < 11L << 20);
+jl.DeleteLeftovers();
+
 slow = 40; Console.WriteLine("2) pause after 1s, reload from state, resume");
 var j2 = await RunJob(new FetchJob { Url = $"http://127.0.0.1:{port}/files/test%20file.bin", Folder = dir }, 8, 1000);
 Check("paused", j2.State == FetchState.Paused && File.Exists(j2.StatePath));
@@ -321,6 +328,68 @@ Check("switch covers: scene file name finds the US release",
     RomLibrary.TdbPick("Super Mario Odyssey [0100000000010000][v0]", "Super Mario Odyssey", tdbGames) == ("AAACA", "US")
     && RomLibrary.TdbPick("Mario and Sonic", "Mario and Sonic", tdbGames) == ("AT4AB", "EN")
     && RomLibrary.TdbPick("Unknown Game", "Unknown Game", tdbGames) is null);
+var saveApp = Path.Combine(Path.GetTempPath(), "ss-saves-" + Guid.NewGuid().ToString("N"));
+SaveBackup.Places["TestEmu"] = [@"{app}\saves", @"{app}\missing"];
+Directory.CreateDirectory(Path.Combine(saveApp, "saves", "slot1"));
+File.WriteAllText(Path.Combine(saveApp, "saves", "slot1", "game.sav"), "v1");
+Check("save folders: only existing ones count", SaveBackup.Found("TestEmu", saveApp).Count == 1);
+var backup = SaveBackup.Create("TestEmu", saveApp, Path.Combine(saveApp, "backups"))!;
+File.WriteAllText(Path.Combine(saveApp, "saves", "slot1", "game.sav"), "v2-broken");
+var restored = SaveBackup.Restore("TestEmu", saveApp, backup);
+Check("save backup restores the old file", restored == 1 && File.ReadAllText(Path.Combine(saveApp, "saves", "slot1", "game.sav")) == "v1");
+var evil = Path.Combine(saveApp, "evil.zip");
+using (var z = System.IO.Compression.ZipFile.Open(evil, System.IO.Compression.ZipArchiveMode.Create))
+{
+    using (var w = new StreamWriter(z.CreateEntry("steamstopper-backup.json").Open())) w.Write("[\"{app}\\\\saves\"]");
+    using (var w = new StreamWriter(z.CreateEntry("0/../../escaped.txt").Open())) w.Write("x");
+}
+SaveBackup.Restore("TestEmu", saveApp, evil);
+Check("restore never writes outside the save folder", !File.Exists(Path.Combine(saveApp, "..", "escaped.txt")) && !File.Exists(Path.Combine(saveApp, "escaped.txt")));
+Directory.Delete(saveApp, true);
+// Restore also left a "Before restore" zip in the real backups folder.
+if (Directory.Exists(SaveBackup.FolderFor("TestEmu"))) Directory.Delete(SaveBackup.FolderFor("TestEmu"), true);
+if (Directory.Exists(SaveBackup.Root) && !Directory.EnumerateFileSystemEntries(SaveBackup.Root).Any()) Directory.Delete(SaveBackup.Root);
+SaveBackup.Places.Remove("TestEmu");
+var raList = """
+[{"Title":"Legend of Zelda, The: Ocarina of Time ~Hack~ Master Quest","ID":900,"ConsoleID":2},
+ {"Title":"Legend of Zelda, The: Ocarina of Time","ID":3,"ConsoleID":2},
+ {"Title":"Mario Kart 64","ID":10,"ConsoleID":2}]
+""";
+Check("retroachievements: title match prefers the main set",
+    Cheevos.Match(raList, "Legend of Zelda, The - Ocarina of Time (USA)", "The Legend of Zelda - Ocarina of Time") == 3
+    && Cheevos.Match(raList, "Pilotwings 64 (USA)", "Pilotwings 64") is null);
+var raProgress = Cheevos.ParseProgress("""
+{"ID":3,"Title":"Legend of Zelda, The: Ocarina of Time","Achievements":{
+ "1":{"Title":"Kokiri","Description":"Get the sword","Points":5,"BadgeName":"111","DateEarned":"2025-01-01 10:00:00"},
+ "2":{"Title":"Master","Description":"Beat Ganon","Points":50,"BadgeName":"222"}}}
+""");
+Check("retroachievements: progress counts earned and lists earned first",
+    raProgress.Total == 2 && raProgress.Earned == 1 && raProgress.List[0].Title == "Kokiri"
+    && raProgress.List[1].BadgeUrl.EndsWith("222_lock.png") && raProgress.List[0].BadgeUrl.EndsWith("111.png"));
+var steamServers = DownloadDoctor.ParseServers("""
+{"response":{"servers":[
+ {"type":"SteamCache","cell_id":64,"load":55,"host":"cache5-lax2.steamcontent.com"},
+ {"type":"SteamCache","cell_id":64,"load":40,"host":"cache9-lax2.steamcontent.com"},
+ {"type":"SteamCache","cell_id":76,"load":47,"host":"cache2-msp-mice.steamcontent.com"},
+ {"type":"OpenCache","cell_id":1,"load":1,"host":"lancache.local"}]}}
+""");
+Check("download doctor: one server per city, least loaded, caches only",
+    steamServers.Count == 2 && steamServers[0].Host == "cache9-lax2.steamcontent.com" && steamServers[0].City == "Los Angeles" && steamServers[1].City == "Minneapolis");
+steamServers[0].PingMs = 20;
+Check("download doctor: slow line is blamed on the line", DownloadDoctor.Diagnose(steamServers, 1_000_000, 0).Verdict.StartsWith("Your internet is the limit"));
+Check("download doctor: Steam using half the line is blamed on Steam", DownloadDoctor.Diagnose(steamServers, 50_000_000, 5_000_000).Verdict.StartsWith("Steam is using only"));
+var css = CssTheme.Parse("""
+/* my theme */
+:root { --bg: #112233; --Accent: rgba(10, 132, 255, .5); --radius: 22; }
+.ignored { color: red; }
+:root { --bg: #abc; }
+""");
+Check("css theme: variables, later wins, comments and other rules ignored",
+    css.Count == 3 && css["bg"] == "#abc" && css["accent"] == "rgba(10, 132, 255, .5)" && css["radius"] == "22");
+Check("css theme: colour forms",
+    CssTheme.Color("#abc") == (255, 0xAA, 0xBB, 0xCC) && CssTheme.Color("#11223380") == (0x80, 0x11, 0x22, 0x33)
+    && CssTheme.Color("rgba(10, 132, 255, .5)") == (128, 10, 132, 255) && CssTheme.Color("rgb(1 2 3 / 50%)") == (128, 1, 2, 3)
+    && CssTheme.Color("transparent") == (0, 0, 0, 0) && CssTheme.Color("blue") is null && CssTheme.Color("#12345") is null);
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",
@@ -404,5 +473,23 @@ Check("appid has the top bit set and matches the stored int; box art named <id>p
 Check("backup of the previous file kept", File.Exists(Path.Combine(cfg!, "shortcuts.vdf.bak")));
 
 Directory.Delete(dir, true);
+// The kernel network trace only exists on Windows (CI runs there, as administrator).
+if (OperatingSystem.IsWindows())
+{
+    using var net = new NetMonitor();
+    var netError = net.Start();
+    Check($"network monitor starts ({netError ?? "ok"})", netError is null);
+    if (netError is null)
+    {
+        using var web = new HttpClient();
+        var got = (await web.GetByteArrayAsync("https://github.com/")).Length;
+        await Task.Delay(3000);
+        var netMine = net.Snapshot().GetValueOrDefault(Environment.ProcessId);
+        Check($"network monitor counts this process ({netMine.Received} of {got} bytes received, {netMine.Sent} sent)", netMine.Received > got / 2 && netMine.Sent > 0);
+        net.Stop();
+        Check("network monitor stops", !net.Running);
+    }
+}
+
 Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");
 return fails;

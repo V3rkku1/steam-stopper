@@ -134,6 +134,21 @@ public sealed class AppSettings
     public string MainLink { get; set; } = "";
     // What the window's X does: "ask", "tray" or "quit".
     public string CloseAction { get; set; } = "ask";
+    // Colour theme: "default" or "steam".
+    public string Theme { get; set; } = "default";
+    // Sidebar order as page keys; pages missing here keep their place after the listed ones.
+    public List<string> NavOrder { get; set; } = [];
+    public string StartPage { get; set; } = "home";
+    // Menu "side" (sidebar) or "top" (tab bar like Steam).
+    public string NavPosition { get; set; } = "side";
+    // Programs blocked on the Network page (full paths).
+    public List<string> BlockedApps { get; set; } = [];
+    // Game boost: close these background apps while a game from the Games tab runs.
+    public bool GameBoost { get; set; }
+    // RetroAchievements login; the Web API key is DPAPI-encrypted for this Windows user.
+    public string RaUser { get; set; } = "";
+    public string RaKeyProtected { get; set; } = "";
+    public List<string> GameBoostApps { get; set; } = [.. Core.GameBoost.Suggested];
     // App key -> adapter name it was last pinned to.
     public Dictionary<string, string> RouteLinks { get; set; } = [];
     public string FetchFolder { get; set; } = "";
@@ -141,6 +156,10 @@ public sealed class AppSettings
     public int FetchAtOnce { get; set; } = 2;
     // Spread Fetch downloads over the links ticked on the Bond page; off uses Windows' normal route.
     public bool FetchBond { get; set; } = true;
+    // Fetch speed limit in KB/s, 0 for none.
+    public int FetchLimitKbps { get; set; }
+    // What "When downloads finish" does; the switch itself is off at every start, so a PC never shuts down by surprise.
+    public string FetchAfterAction { get; set; } = "shutdown";
     // Release the user chose to skip; the banner stays quiet for it.
     public string SkippedVersion { get; set; } = "";
     // Update portable emulators (Lichii, Cemu...) in the background when a new build is out and they aren't running.
