@@ -1,14 +1,14 @@
 ## New
 
-- **Tidier menu**: 15 items become six groups: Home, Steam (Control, Downloads, Library), Games (Games, Emulators), Fetch, Network (Network, Bond, Routes, DNS) and Tools (Clean, Organize, Apps). A group's pages show as tabs at the top of the window, and it reopens on the page you used last.
-- **Continue with a new link** (Fetch, right-click): when a download's link expires or breaks, copy a fresh link to the same file and continue from where it stopped. A link to a different file is refused.
-- **Achievement banners**: with RetroAchievements connected, new unlocks pop up in the bottom-right corner while a game from the Games tab runs.
-
-## Fixed
-
-- Fetch: pausing and resuming a download in the same session could stop with "Download stopped before the end of the file".
-- Fetch: a connection's speed sometimes disappeared from a file's details and the connection list.
-- Covers on Home and console tiles were cut off at the top when hovered.
+- **Faster bonding** (Network > Bond):
+  - Connections are shared by each link's measured speed, not only the weight you set (switch: Balance by measured speed).
+  - A link that stops answering drops out within about 4 seconds and is used again once it's back; the list shows "offline".
+  - Each link asks its own DNS, so it downloads from the server nearest to its provider.
+  - Games, emulators and Discord stay on the link with the lowest ping instead of being spread (switch: Keep games and voice chat on the quickest link).
+- **Fetch Auto connections** (new default): starts with 4 and adds more while the download keeps getting faster, up to 32.
+- **Download doctor** checks Windows TCP auto-tuning and Wi-Fi power saving when plugged in, with a Fix button for each.
+- **Folder watch**: games dropped or copied into your games folders appear by themselves, with covers.
+- **Themed pop-ups**: every question and message now matches your theme instead of Windows' white box.
 
 ## Downloads
 

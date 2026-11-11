@@ -27,6 +27,13 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.7
+
+- **Faster bonding**: links share connections by their measured speed, a dead link drops out within seconds, each link uses its own DNS to reach its nearest server, and games and voice chat stay on the quickest link.
+- **Fetch Auto connections**: adds connections while the download keeps getting faster.
+- **Download doctor** checks Windows network tuning and Wi-Fi power saving, with one-click fixes.
+- **Games** appear by themselves when you drop them into your games folder; every pop-up now matches your theme.
+
 ## What's new in 2.5.6
 
 - **Tidier menu**: six groups (Home, Steam, Games, Fetch, Network, Tools); a group's pages are tabs at the top of the window.
