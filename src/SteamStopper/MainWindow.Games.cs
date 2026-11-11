@@ -241,8 +241,7 @@ public partial class MainWindow
         BindApps();
     }
 
-    private RadioButton? FindNav(string key) =>
-        FindVisualChildren<RadioButton>(this).FirstOrDefault(r => r.Tag as string == key && r.Style == FindResource("NavItem"));
+    private RadioButton? FindNav(string key) => NavItems.FirstOrDefault(r => r.Tag as string == key);
 
     private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
     {

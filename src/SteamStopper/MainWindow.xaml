@@ -7,7 +7,7 @@
         WindowStartupLocation="CenterScreen" Background="{DynamicResource Bg}"
         BorderBrush="{DynamicResource Line}" BorderThickness="1">
   <DockPanel>
-    <Border DockPanel.Dock="Left" Width="212" Background="{DynamicResource Sidebar}"
+    <Border x:Name="SidebarPanel" DockPanel.Dock="Left" Width="212" Background="{DynamicResource Sidebar}"
             BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
       <DockPanel>
         <DockPanel DockPanel.Dock="Top" Height="56" Margin="18,0,12,0">
@@ -161,6 +161,11 @@
       </StackPanel>
     </Grid>
 
+    <!-- Menu on top (Settings): the sidebar's menu moves here as a tab bar. -->
+    <Border x:Name="TopNav" DockPanel.Dock="Top" Visibility="Collapsed" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="20,0,20,0">
+      <ScrollViewer x:Name="TopNavHost" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"/>
+    </Border>
+
     <Border x:Name="UpdateBanner" DockPanel.Dock="Top" Visibility="Collapsed" Margin="28,0,28,12" CornerRadius="12" Padding="16,10"
             Background="{DynamicResource Selected}" BorderBrush="{DynamicResource Accent}" BorderThickness="1">
       <DockPanel>
@@ -204,6 +209,48 @@
               <Border Background="{DynamicResource Raised}" CornerRadius="12" Padding="3" HorizontalAlignment="Left">
                 <StackPanel x:Name="ThemeBar" Orientation="Horizontal"/>
               </Border>
+              <TextBlock Text="Menu" FontWeight="SemiBold" Margin="0,16,0,0"/>
+              <TextBlock Text="On top puts the pages in a tab bar across the window, like Steam." Foreground="{DynamicResource Faint}" FontSize="12" Margin="0,2,0,10"/>
+              <Border Background="{DynamicResource Raised}" CornerRadius="12" Padding="3" HorizontalAlignment="Left">
+                <StackPanel Orientation="Horizontal">
+                  <RadioButton x:Name="NavSideButton" Content="On the left" GroupName="NavPos" Style="{StaticResource Segment}" Click="NavPosition_Click"/>
+                  <RadioButton x:Name="NavTopButton" Content="On top" GroupName="NavPos" Style="{StaticResource Segment}" Click="NavPosition_Click"/>
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+            <StackPanel>
+              <DockPanel Margin="0,0,0,10">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                  <Button Content="Open backups folder" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="SavesOpen_Click"/>
+                  <Button x:Name="SavesAllButton" Content="Back up all" Style="{StaticResource SmallPrimary}" Click="SavesAll_Click"/>
+                </StackPanel>
+                <StackPanel>
+                  <TextBlock Text="SAVE BACKUPS" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                  <TextBlock Text="Zips your emulator and PC port saves into Documents\Steam Stopper Backups. The last 10 are kept."
+                             Foreground="{DynamicResource Faint}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,0"/>
+                </StackPanel>
+              </DockPanel>
+              <ItemsControl x:Name="SavesList">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,0,0,6">
+                      <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                          <Button Content="Back up" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="SaveBackup_Click" IsEnabled="{Binding HasSaves}"/>
+                          <Button Content="Restore…" Style="{StaticResource SmallButton}" Click="SaveRestore_Click" IsEnabled="{Binding HasBackups}"/>
+                        </StackPanel>
+                        <StackPanel VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                          <TextBlock Text="{Binding Detail}" Foreground="{DynamicResource Faint}" FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding Folders}"/>
+                        </StackPanel>
+                      </DockPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock x:Name="SavesEmpty" Text="Install an emulator or PC port first; its saves show up here." Foreground="{DynamicResource Muted}" Visibility="Collapsed"/>
             </StackPanel>
           </Border>
           <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
@@ -213,7 +260,7 @@
                 <Button DockPanel.Dock="Right" Content="Reset order" Style="{StaticResource SmallButton}" VerticalAlignment="Center" Click="NavReset_Click"/>
                 <StackPanel>
                   <TextBlock Text="Menu order" FontWeight="SemiBold"/>
-                  <TextBlock Text="Drag any item in the menu on the left up or down to move it." Foreground="{DynamicResource Faint}" FontSize="12" Margin="0,2,12,0" TextWrapping="Wrap"/>
+                  <TextBlock Text="Drag any item in the menu to a new place to move it." Foreground="{DynamicResource Faint}" FontSize="12" Margin="0,2,12,0" TextWrapping="Wrap"/>
                 </StackPanel>
               </DockPanel>
               <TextBlock Text="Open on" FontWeight="SemiBold" Margin="0,16,0,6"/>
@@ -227,6 +274,7 @@
               <ComboBox x:Name="CloseActionBox" Width="240" HorizontalAlignment="Left" SelectionChanged="CloseAction_Changed"/>
             </StackPanel>
           </Border>
+          <TextBlock x:Name="SettingsAbout" Foreground="{DynamicResource Faint}" FontSize="11" Margin="4,12,0,0" TextWrapping="Wrap"/>
         </StackPanel>
       </ScrollViewer>
 
@@ -1383,6 +1431,8 @@
                   <WrapPanel>
                     <Button Content="Open file location" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameOpenFolder_Click"/>
                     <Button Content="Set cover image" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameCover_Click"/>
+                    <Button Content="Back up saves" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameSaves_Click"
+                            ToolTip="Zip the saves of this game's emulator. Restore is in Settings."/>
                     <Button Content="Remove from library" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameRemove_Click"
                             ToolTip="Takes it off this list. The game file stays on disk."/>
                   </WrapPanel>

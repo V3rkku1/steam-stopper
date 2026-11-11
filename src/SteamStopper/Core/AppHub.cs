@@ -314,7 +314,7 @@ public static class AppHub
         new("ARCADE", "Arcade machines", "#8E44AD", ["MAME", "RetroArch"]),
         new("ALL-IN-ONE", "Many consoles in one app", "#4A4A55", ["RetroArch", "ares", "ES-DE"]),
         // Native PC ports rebuilt from decompiled or recompiled games; each needs the player's own copy of the game.
-        new("RECOMP", "PC ports and recomps", "#B8860B", ["Hookshot", "Dusklight"])
+        new("RECOMP", "PC ports and recomps", "#B8860B", ["Hookshot", "Dusklight", "Zelda64Recomp", "Ship of Harkinian", "2Ship2Harkinian", "Starship"])
     ];
 
     public static ConsoleTile Recomp => Consoles.First(c => c.Name == "RECOMP");
@@ -357,6 +357,11 @@ public static class AppHub
         // Hookshot ships HookshotBuilder.exe bare (older releases zipped it); its Play button starts the game.
         new() { Name = "Hookshot", Source = new("NotRexed/Hookshot", [@"^HookshotBuilder\.exe$", @"^Hookshot-.*Windows-x64\.zip$"], @"^hookshotbuilder\.exe$"), Kind = "site", Url = "https://github.com/NotRexed/Hookshot/releases", Category = "Recomp", Systems = "Ocarina of Time", Color = "#3E8E41", Blurb = "PC port built from your own Switch 2 .nup. Needs a Vulkan 1.3 GPU and 60 GB free." },
         new() { Name = "Dusklight", Source = new("TwilitRealm/dusklight", [@"win32-x86_64\.zip$"], @"^dusklight\.exe$"), Kind = "site", Url = "https://twilitrealm.dev/install/", Category = "Recomp", Systems = "Twilight Princess", Color = "#6B4E9B", Blurb = "PC port that runs from your own GameCube or Wii disc dump (.iso, .rvz)." },
+        // HarbourMasters ports and Zelda64Recomp: each asks for your own N64 ROM the first time it starts.
+        new() { Name = "Zelda64Recomp", Source = new("Zelda64Recomp/Zelda64Recomp", [@"-Windows\.zip$"], @"^zelda64recompiled\.exe$"), Kind = "site", Url = "https://github.com/Zelda64Recomp/Zelda64Recomp/releases", Category = "Recomp", Systems = "Majora's Mask", Color = "#7A3E9D", Blurb = "Majora's Mask recompiled for PC, with mods and high frame rates. Needs your own US ROM." },
+        new() { Name = "Ship of Harkinian", Source = new("HarbourMasters/Shipwright", [@"-Win64\.zip$"], @"^soh\.exe$"), Kind = "site", Url = "https://www.shipofharkinian.com", Category = "Recomp", Systems = "Ocarina of Time (N64)", Color = "#2E7D5B", Blurb = "Ocarina of Time PC port with enhancements and randomizer. Needs your own N64 ROM." },
+        new() { Name = "2Ship2Harkinian", Source = new("HarbourMasters/2ship2harkinian", [@"-Win64\.zip$"], @"^2ship\.exe$"), Kind = "site", Url = "https://github.com/HarbourMasters/2ship2harkinian/releases", Category = "Recomp", Systems = "Majora's Mask", Color = "#A0522D", Blurb = "Majora's Mask PC port from the Ship of Harkinian team. Needs your own N64 ROM." },
+        new() { Name = "Starship", Source = new("HarbourMasters/Starship", [@"-Windows\.zip$"], @"^starship\.exe$"), Kind = "site", Url = "https://github.com/HarbourMasters/Starship/releases", Category = "Recomp", Systems = "Star Fox 64", Color = "#1E5AA8", Blurb = "Star Fox 64 PC port with widescreen and high frame rates. Needs your own N64 ROM." },
         new() { Name = "ES-DE", Id = "ES-DE.EmulationStation-DE", Match = "ES-DE", Category = "All-in-one", Systems = "Game library frontend", Color = "#B03A2E", Blurb = "Console-style menu that launches your emulators and games." }
     ];
 

@@ -139,6 +139,8 @@ public sealed class AppSettings
     // Sidebar order as page keys; pages missing here keep their place after the listed ones.
     public List<string> NavOrder { get; set; } = [];
     public string StartPage { get; set; } = "home";
+    // Menu "side" (sidebar) or "top" (tab bar like Steam).
+    public string NavPosition { get; set; } = "side";
     // App key -> adapter name it was last pinned to.
     public Dictionary<string, string> RouteLinks { get; set; } = [];
     public string FetchFolder { get; set; } = "";

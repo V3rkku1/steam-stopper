@@ -16,13 +16,16 @@ public partial class MainWindow
     private RadioButton? _navDragged;
     private Point _navDragStart;
     private bool _settingsFilling;
+    private Panel? _navSideHost;
 
     private IEnumerable<RadioButton> NavItems => NavList.Children.OfType<RadioButton>();
 
     private void InitSettings()
     {
         _defaultNavOrder = NavItems.Select(n => (string)n.Tag).ToList();
+        _navSideHost = (Panel)NavList.Parent;
         ApplyNavOrder(_settings.NavOrder);
+        ApplyNavPosition(_settings.NavPosition == "top");
         NavList.PreviewMouseLeftButtonDown += NavList_MouseDown;
         NavList.PreviewMouseMove += NavList_MouseMove;
         NavList.DragOver += NavList_DragOver;
@@ -44,6 +47,7 @@ public partial class MainWindow
             ThemeBar.Children.Add(button);
         }
 
+        SettingsAbout.Text = $"Steam Stopper {Core.Updater.Version}  ·  Steam folder: {_steamRoot ?? "not found"}";
         _settingsFilling = true;
         StartPageBox.ItemsSource = _defaultNavOrder.Select(k => PageTitles[k].Title).ToList();
         StartPageBox.SelectedItem = PageTitles.GetValueOrDefault(_settings.StartPage, PageTitles["home"]).Title;
@@ -65,6 +69,7 @@ public partial class MainWindow
         _settingsFilling = true;
         CloseActionBox.SelectedItem = CloseActions.GetValueOrDefault(_settings.CloseAction, CloseActions["ask"]);
         _settingsFilling = false;
+        RefreshSaves();
         ShowPage("settings");
     }
 
@@ -80,6 +85,35 @@ public partial class MainWindow
         if (_settingsFilling || CloseActionBox.SelectedItem is not string label) return;
         _settings.CloseAction = CloseActions.First(p => p.Value == label).Key;
         _settings.Save();
+    }
+
+    private void NavPosition_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.NavPosition = NavTopButton.IsChecked == true ? "top" : "side";
+        _settings.Save();
+        ApplyNavPosition(_settings.NavPosition == "top");
+    }
+
+    /// <summary>Move the one menu between the sidebar and the tab bar under the title, restyling its items.</summary>
+    private void ApplyNavPosition(bool top)
+    {
+        NavTopButton.IsChecked = top;
+        NavSideButton.IsChecked = !top;
+        if (NavList.Parent is Panel panel) panel.Children.Remove(NavList);
+        else if (NavList.Parent is ScrollViewer viewer) viewer.Content = null;
+        if (top) TopNavHost.Content = NavList;
+        else _navSideHost!.Children.Add(NavList);
+        NavList.Orientation = top ? Orientation.Horizontal : Orientation.Vertical;
+        var style = (Style)FindResource(top ? "NavTab" : "NavItem");
+        foreach (var item in NavItems)
+        {
+            item.Style = style;
+            // Tabs are text only, like Steam's; the sidebar keeps its icons.
+            if (item.Content is StackPanel { Children.Count: > 1 } content) content.Children[0].Visibility = top ? Visibility.Collapsed : Visibility.Visible;
+        }
+        // The sidebar holds nothing else that matters on top: updates are on Home, the rest in Settings.
+        SidebarPanel.Visibility = top ? Visibility.Collapsed : Visibility.Visible;
+        TopNav.Visibility = top ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ApplyNavOrder(List<string> order)
@@ -121,7 +155,8 @@ public partial class MainWindow
     {
         if (_navDragged is null || e.LeftButton != MouseButtonState.Pressed) return;
         // A real drag, not a click with a shaky hand.
-        if (Math.Abs(e.GetPosition(NavList).Y - _navDragStart.Y) < SystemParameters.MinimumVerticalDragDistance * 2) return;
+        var moved = e.GetPosition(NavList) - _navDragStart;
+        if (Math.Max(Math.Abs(moved.X), Math.Abs(moved.Y)) < SystemParameters.MinimumVerticalDragDistance * 2) return;
         var item = _navDragged;
         _navDragged = null;
         item.Opacity = 0.5;

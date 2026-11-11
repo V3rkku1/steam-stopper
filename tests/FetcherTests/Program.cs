@@ -328,6 +328,25 @@ Check("switch covers: scene file name finds the US release",
     RomLibrary.TdbPick("Super Mario Odyssey [0100000000010000][v0]", "Super Mario Odyssey", tdbGames) == ("AAACA", "US")
     && RomLibrary.TdbPick("Mario and Sonic", "Mario and Sonic", tdbGames) == ("AT4AB", "EN")
     && RomLibrary.TdbPick("Unknown Game", "Unknown Game", tdbGames) is null);
+var saveApp = Path.Combine(Path.GetTempPath(), "ss-saves-" + Guid.NewGuid().ToString("N"));
+SaveBackup.Places["TestEmu"] = [@"{app}\saves", @"{app}\missing"];
+Directory.CreateDirectory(Path.Combine(saveApp, "saves", "slot1"));
+File.WriteAllText(Path.Combine(saveApp, "saves", "slot1", "game.sav"), "v1");
+Check("save folders: only existing ones count", SaveBackup.Found("TestEmu", saveApp).Count == 1);
+var backup = SaveBackup.Create("TestEmu", saveApp, Path.Combine(saveApp, "backups"))!;
+File.WriteAllText(Path.Combine(saveApp, "saves", "slot1", "game.sav"), "v2-broken");
+var restored = SaveBackup.Restore("TestEmu", saveApp, backup);
+Check("save backup restores the old file", restored == 1 && File.ReadAllText(Path.Combine(saveApp, "saves", "slot1", "game.sav")) == "v1");
+var evil = Path.Combine(saveApp, "evil.zip");
+using (var z = System.IO.Compression.ZipFile.Open(evil, System.IO.Compression.ZipArchiveMode.Create))
+{
+    using (var w = new StreamWriter(z.CreateEntry("steamstopper-backup.json").Open())) w.Write("[\"{app}\\\\saves\"]");
+    using (var w = new StreamWriter(z.CreateEntry("0/../../escaped.txt").Open())) w.Write("x");
+}
+SaveBackup.Restore("TestEmu", saveApp, evil);
+Check("restore never writes outside the save folder", !File.Exists(Path.Combine(saveApp, "..", "escaped.txt")) && !File.Exists(Path.Combine(saveApp, "escaped.txt")));
+Directory.Delete(saveApp, true);
+SaveBackup.Places.Remove("TestEmu");
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",
