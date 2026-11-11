@@ -320,7 +320,7 @@ public partial class MainWindow
         var root = _steamRoot;
         var message = await Task.Run(() => Power.Run(key, root));
         StatusText.Text = message + note;
-        if (key == "notify") MessageBox.Show(this, "All downloads finished" + note + ".", "Steam Stopper");
+        if (key == "notify") MessageBox.Show(this, "All downloads finished" + note + ".", "Steam Multitool");
     }
 
     private void FetchGrid_RightDown(object sender, System.Windows.Input.MouseButtonEventArgs e)

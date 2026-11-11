@@ -1,11 +1,11 @@
-# Steam Stopper
+# Steam Multitool
 
 <p align="center">
-  <img src="docs/logo.png" width="96" alt="Steam Stopper">
+  <img src="docs/logo.png" width="96" alt="Steam Multitool">
 </p>
 
 <p align="center">
-  <strong>Windows desktop app for your Steam client</strong><br>
+  <strong>Windows desktop app for your Steam client</strong> (formerly Steam Stopper)<br>
   Firewall kill switch · download watcher · DNS jumper · link bonding · download manager · emulators · per-app routes · cleaner · Downloads organizer · app installer
 </p>
 
@@ -23,7 +23,7 @@
   <a href="https://github.com/V3rkku1/steam-stopper/releases/latest/download/SteamStopper-portable.zip"><strong>Download portable (.zip)</strong></a>
 </p>
 
-Steam Stopper is a local Windows utility for managing your Steam client: cut or restore internet access, watch downloads and act when they finish, combine two internet connections for faster downloads, choose which connection each app uses, switch DNS, clean junk, and install common tools.
+Steam Multitool is a local Windows utility for managing your Steam client: cut or restore internet access, watch downloads and act when they finish, combine two internet connections for faster downloads, choose which connection each app uses, switch DNS, clean junk, and install common tools.
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
@@ -56,7 +56,7 @@ It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s ow
 - **Games**: a Steam-style library for your own game files. Pick a game on the left, press the big green Play button on the right, and it opens in the right emulator. Box art, last played and play time included.
 - **Emulators**: pick a console from the tiles and install its emulator in one click. Downloads go through Fetch, so bonding speeds them up, and installed emulators get a Play button.
 - **Better updater**: asks before updating, checks the download, and puts the old version back if anything goes wrong. Portable copies update too.
-- **Safer bonding**: if Steam Stopper crashes or is closed from Task Manager while bonding or routes are on, your internet is put back automatically.
+- **Safer bonding**: if Steam Multitool crashes or is closed from Task Manager while bonding or routes are on, your internet is put back automatically.
 - **Fetch**: turn bonding on and pick connections right on the page; downloads from GitHub no longer fail when their link expires.
 
 ## What's new in 2.4
@@ -78,7 +78,7 @@ It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s ow
 
 1. Download [`SteamStopper.msi`](https://github.com/V3rkku1/steam-stopper/releases/latest/download/SteamStopper.msi)
 2. Run the installer
-3. Open **Steam Stopper** from the Start menu or Desktop
+3. Open **Steam Multitool** from the Start menu or Desktop
 
 Installs to Program Files, creates shortcuts, and installs the .NET 8 Desktop Runtime if needed. Checks for updates at launch and every few hours, and asks before installing. **Check for updates** in the sidebar (or the tray menu) checks the app and your emulators right away and shows when it last checked; **What's new** shows the release notes in the app.
 
@@ -122,9 +122,9 @@ The **Bond** page lets Steam download over two or more internet connections at o
 3. Tick the connections to combine. Give a faster one a higher **weight** so it gets more of the traffic.
 4. Press **Start bonding**. Steam restarts and its downloads are spread across the links. The per-link speed columns show it working.
 
-How it works: Steam Stopper runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and the proxy sends each new connection out a different link, so the speeds add up. A single connection still runs over one link, so one big HTTPS file in a browser will not get faster. If a link drops, new connections move to the others.
+How it works: Steam Multitool runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and the proxy sends each new connection out a different link, so the speeds add up. A single connection still runs over one link, so one big HTTPS file in a browser will not get faster. If a link drops, new connections move to the others.
 
-Stopping bonding or closing the app puts your old proxy setting back. If the app crashes, it is restored the next time Steam Stopper starts. Mobile data counts against your phone plan, so watch the totals.
+Stopping bonding or closing the app puts your old proxy setting back. If the app crashes, it is restored the next time Steam Multitool starts. Mobile data counts against your phone plan, so watch the totals.
 
 ## Fetch (download manager)
 
@@ -145,9 +145,9 @@ The **Routes** page chooses which internet connection each app uses, for example
 1. **Main connection**: pick your steadiest link (usually Ethernet) and press **Make main**. Everything without its own route uses it, including games. **Restore automatic** undoes it.
 2. **Apps**: pick a connection next to Discord, Chrome, Edge, Brave, Opera GX or Spotify and press **Apply**. The app restarts on that link.
 
-How it works: Steam Stopper never touches the game, so anti-cheat such as Vanguard has nothing to see. A routed app is restarted with `--proxy-server` pointing at a local proxy pinned to its link. Discord voice runs over UDP, which a proxy can't carry, so Discord also gets a Windows route that sends Discord's voice servers (`66.22.192.0/18`) out the same link. That route disappears on reboot.
+How it works: Steam Multitool never touches the game, so anti-cheat such as Vanguard has nothing to see. A routed app is restarted with `--proxy-server` pointing at a local proxy pinned to its link. Discord voice runs over UDP, which a proxy can't carry, so Discord also gets a Windows route that sends Discord's voice servers (`66.22.192.0/18`) out the same link. That route disappears on reboot.
 
-Closing Steam Stopper or pressing **Reset all** restarts routed apps on the main connection. If the routed link drops, that app goes offline until you switch it back.
+Closing Steam Multitool or pressing **Reset all** restarts routed apps on the main connection. If the routed link drops, that app goes offline until you switch it back.
 
 ## Requirements
 

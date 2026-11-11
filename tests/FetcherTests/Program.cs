@@ -366,6 +366,18 @@ var raProgress = Cheevos.ParseProgress("""
 Check("retroachievements: progress counts earned and lists earned first",
     raProgress.Total == 2 && raProgress.Earned == 1 && raProgress.List[0].Title == "Kokiri"
     && raProgress.List[1].BadgeUrl.EndsWith("222_lock.png") && raProgress.List[0].BadgeUrl.EndsWith("111.png"));
+var steamServers = DownloadDoctor.ParseServers("""
+{"response":{"servers":[
+ {"type":"SteamCache","cell_id":64,"load":55,"host":"cache5-lax2.steamcontent.com"},
+ {"type":"SteamCache","cell_id":64,"load":40,"host":"cache9-lax2.steamcontent.com"},
+ {"type":"SteamCache","cell_id":76,"load":47,"host":"cache2-msp-mice.steamcontent.com"},
+ {"type":"OpenCache","cell_id":1,"load":1,"host":"lancache.local"}]}}
+""");
+Check("download doctor: one server per city, least loaded, caches only",
+    steamServers.Count == 2 && steamServers[0].Host == "cache9-lax2.steamcontent.com" && steamServers[0].City == "Los Angeles" && steamServers[1].City == "Minneapolis");
+steamServers[0].PingMs = 20;
+Check("download doctor: slow line is blamed on the line", DownloadDoctor.Diagnose(steamServers, 1_000_000, 0).Verdict.StartsWith("Your internet is the limit"));
+Check("download doctor: Steam using half the line is blamed on Steam", DownloadDoctor.Diagnose(steamServers, 50_000_000, 5_000_000).Verdict.StartsWith("Steam is using only"));
 Check("KytyPS5 starts games with --game", RomLibrary.Arguments("KytyPS5", "D:\\g\\x.zar") == "--game \"D:\\g\\x.zar\"");
 Check("launch args", RomLibrary.Arguments("Dolphin", @"C:\g\a.iso") == "-b -e \"C:\\g\\a.iso\"" && RomLibrary.Arguments("Unknown", "x") == "\"x\"");
 Check("every console tile has emulators, all in the catalog",

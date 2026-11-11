@@ -173,7 +173,7 @@ public static class Updater
         try
         {
             using var old = Process.GetProcessById(pid);
-            if (!old.WaitForExit(60_000)) throw new IOException("Steam Stopper did not close, so it could not be updated.");
+            if (!old.WaitForExit(60_000)) throw new IOException("Steam Multitool did not close, so it could not be updated.");
         }
         catch (ArgumentException) { } // Already gone.
         var until = DateTime.UtcNow.AddSeconds(30);

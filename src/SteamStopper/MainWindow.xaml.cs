@@ -123,7 +123,7 @@ public partial class MainWindow : Window
         ShowPageHeader("home");
         VersionText.Text = "Version " + Updater.Version;
         Loaded += (_, _) => StartUpdateChecks();
-        Loaded += (_, _) =>
+        ContentRendered += (_, _) =>
         {
             RefreshHome();
             if (_settings.Theme == "game") ApplyTheme();
@@ -135,7 +135,8 @@ public partial class MainWindow : Window
         InitSettings();
         RefreshAdmin();
         RefreshFirewallAsync();
-        RefreshProcesses();
+        // Not needed for the first frame: let the window (and the Home page) draw first.
+        Dispatcher.BeginInvoke(RefreshProcesses, System.Windows.Threading.DispatcherPriority.Background);
         RescanLibrary();
 
         _pollTimer.Tick += (_, _) => PollWatch();
@@ -270,7 +271,7 @@ public partial class MainWindow : Window
         Hide();
         if (_trayTipShown) return;
         _trayTipShown = true;
-        _tray?.ShowTip("Steam Stopper is still running", "Right-click the tray icon to block Steam, toggle bonding or quit.");
+        _tray?.ShowTip("Steam Multitool is still running", "Right-click the tray icon to block Steam, toggle bonding or quit.");
     }
 
     private void ShowFromTray()
@@ -290,7 +291,7 @@ public partial class MainWindow : Window
     private async Task TrayRun(Func<Task> action)
     {
         await action();
-        if (!IsVisible) _tray?.ShowTip("Steam Stopper", StatusText.Text);
+        if (!IsVisible) _tray?.ShowTip("Steam Multitool", StatusText.Text);
     }
 
     private void Min_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -705,7 +706,7 @@ public partial class MainWindow : Window
                 StatusText.Text = message;
                 RefreshFirewallAsync();
                 if (key is "notify" or "exit_steam" or "block_internet")
-                    MessageBox.Show(message, "Steam Stopper");
+                    MessageBox.Show(message, "Steam Multitool");
                 return;
             }
             CountdownLabel.Text = $"{_finishReason}  ·  {ActionBox.SelectedItem} in {left}s";
@@ -904,7 +905,7 @@ public partial class MainWindow : Window
     {
         var action = (sender as FrameworkElement)?.Tag as string ?? "";
         var label = Power.Actions.FirstOrDefault(a => a.Key == action).Label ?? action;
-        if (MessageBox.Show($"{label} now?", "Steam Stopper", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (MessageBox.Show($"{label} now?", "Steam Multitool", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         var root = _steamRoot;
         StatusText.Text = await Task.Run(() => Power.Run(action, root));
     }

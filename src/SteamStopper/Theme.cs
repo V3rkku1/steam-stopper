@@ -9,7 +9,7 @@ namespace SteamStopper;
 /// </summary>
 public static class Theme
 {
-    public static readonly Dictionary<string, string> Names = new() { ["default"] = "Steam Stopper", ["steam"] = "Steam", ["game"] = "From my game" };
+    public static readonly Dictionary<string, string> Names = new() { ["default"] = "Steam Multitool", ["steam"] = "Steam", ["game"] = "From my game" };
 
     // Steam's own client colours: navy panels, Steam blue for actions.
     private static readonly Dictionary<string, string> Steam = new()

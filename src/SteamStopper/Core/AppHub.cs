@@ -649,6 +649,7 @@ public static class AppHub
     internal static bool NameMatches(string displayName, string match)
         => !string.IsNullOrWhiteSpace(match)
            && !displayName.StartsWith("Steam Stopper", StringComparison.OrdinalIgnoreCase)
+           && !displayName.StartsWith("Steam Multitool", StringComparison.OrdinalIgnoreCase)
            && Regex.IsMatch(displayName, $@"(?<![A-Za-z0-9]){Regex.Escape(match)}(?![A-Za-z0-9])", RegexOptions.IgnoreCase);
 
     private static (string File, string Args) SplitCommand(string command)

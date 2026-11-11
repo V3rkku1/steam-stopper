@@ -10,7 +10,7 @@ public partial class MainWindow
 {
     private static readonly Dictionary<string, string> CloseActions = new()
     {
-        ["ask"] = "Ask every time", ["tray"] = "Keep running in the tray", ["quit"] = "Quit Steam Stopper"
+        ["ask"] = "Ask every time", ["tray"] = "Keep running in the tray", ["quit"] = "Quit Steam Multitool"
     };
     private List<string>? _defaultNavOrder;
     private RadioButton? _navDragged;
@@ -50,7 +50,7 @@ public partial class MainWindow
         InitCheevos();
         BoostBox.IsChecked = _settings.GameBoost;
         BoostAppsBox.Text = string.Join(Environment.NewLine, _settings.GameBoostApps);
-        SettingsAbout.Text = $"Steam Stopper {Core.Updater.Version}  ·  Steam folder: {_steamRoot ?? "not found"}";
+        SettingsAbout.Text = $"Steam Multitool {Core.Updater.Version}  ·  Steam folder: {_steamRoot ?? "not found"}";
         _settingsFilling = true;
         StartPageBox.ItemsSource = _defaultNavOrder.Select(k => PageTitles[k].Title).ToList();
         StartPageBox.SelectedItem = PageTitles.GetValueOrDefault(_settings.StartPage, PageTitles["home"]).Title;

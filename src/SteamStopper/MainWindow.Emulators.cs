@@ -32,7 +32,7 @@ public partial class MainWindow
     {
         try
         {
-            // Steam Stopper runs as admin; going through explorer starts the emulator as the normal user,
+            // Steam Multitool runs as admin; going through explorer starts the emulator as the normal user,
             // so its saves, drag and drop and controller prompts behave as if opened from the Start menu.
             Process.Start(new ProcessStartInfo("explorer.exe", $"\"{exe}\"") { UseShellExecute = false })?.Dispose();
             StatusText.Text = $"Started {app.Name}.";
@@ -87,7 +87,7 @@ public partial class MainWindow
                 AppBusy.Text = "";
                 var answer = MessageBox.Show(
                     $"{app.Name} couldn't be downloaded automatically ({lookupError ?? "no Windows build matched on its release page"}).\n\n"
-                    + $"Yes: choose a {app.Name} .zip or .7z you already downloaded, and Steam Stopper installs it.\n"
+                    + $"Yes: choose a {app.Name} .zip or .7z you already downloaded, and Steam Multitool installs it.\n"
                     + "No: open the download page first.",
                     $"Install {app.Name}", MessageBoxButton.YesNoCancel, MessageBoxImage.Information);
                 if (answer == MessageBoxResult.No && app.Url.Length > 0)

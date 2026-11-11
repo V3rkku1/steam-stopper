@@ -70,7 +70,7 @@ public sealed class NetMonitor : IDisposable
                 StopSession();
                 error = StartTraceW(out _, SessionName, properties);
             }
-            if (error != 0) return error == 5 ? "Needs Steam Stopper to run as administrator." : $"Windows refused the network trace (error {error}).";
+            if (error != 0) return error == 5 ? "Needs Steam Multitool to run as administrator." : $"Windows refused the network trace (error {error}).";
         }
         finally { Marshal.FreeHGlobal(properties); }
 

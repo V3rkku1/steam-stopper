@@ -42,7 +42,19 @@ public static class SaveBackup
     private const int Keep = 10;
     private const string Manifest = "steamstopper-backup.json";
 
-    public static string Root => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Steam Stopper Backups");
+    public static string Root
+    {
+        get
+        {
+            var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            var root = Path.Combine(docs, "Steam Multitool Backups");
+            // Backups made under the app's earlier name move over once.
+            var old = Path.Combine(docs, "Steam Stopper Backups");
+            if (!Directory.Exists(root) && Directory.Exists(old))
+                try { Directory.Move(old, root); } catch { return old; }
+            return root;
+        }
+    }
 
     public static string Resolve(string place, string appDir) => place
         .Replace("{app}", appDir)
@@ -67,7 +79,7 @@ public static class SaveBackup
             ? Directory.GetFiles(FolderFor(emulator), "*.zip").OrderByDescending(File.GetLastWriteTimeUtc).ToList()
             : [];
 
-    /// <summary>Zip every save folder found into Documents\Steam Stopper Backups\name. Returns the zip, or null when there was nothing.</summary>
+    /// <summary>Zip every save folder found into Documents\Steam Multitool Backups\name. Returns the zip, or null when there was nothing.</summary>
     public static string? Create(string emulator, string appDir, string? folder = null)
     {
         var found = Found(emulator, appDir);
@@ -107,7 +119,7 @@ public static class SaveBackup
     public static int Restore(string emulator, string appDir, string zipPath)
     {
         using var zip = ZipFile.OpenRead(zipPath);
-        var manifest = zip.GetEntry(Manifest) ?? throw new InvalidDataException("This zip isn't a Steam Stopper save backup.");
+        var manifest = zip.GetEntry(Manifest) ?? throw new InvalidDataException("This zip isn't a Steam Multitool save backup.");
         string[] places;
         using (var reader = new StreamReader(manifest.Open()))
             places = JsonSerializer.Deserialize<string[]>(reader.ReadToEnd()) ?? [];

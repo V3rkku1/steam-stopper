@@ -10,9 +10,13 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>SteamStopper</AssemblyName>
     <RootNamespace>SteamStopper</RootNamespace>
-    <Product>Steam Stopper</Product>
-    <ApplicationTitle>Steam Stopper</ApplicationTitle>
+    <Product>Steam Multitool</Product>
+    <ApplicationTitle>Steam Multitool</ApplicationTitle>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <!-- Precompiled (ReadyToRun) so start-up doesn't wait for the JIT; needs a runtime, so it is set here. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishReadyToRun>true</PublishReadyToRun>
     <Version>2.5.4</Version>
     <FileVersion>2.5.4</FileVersion>
     <AssemblyVersion>2.5.4</AssemblyVersion>
@@ -26,5 +30,7 @@
     <Content Include="FeedUrl.txt" CopyToOutputDirectory="PreserveNewest" />
     <Resource Include="Assets\app.ico" />
     <Resource Include="Assets\apps\*.png" />
+    <!-- Shown by WPF the moment the process starts, before the window is built; closes itself when it appears. -->
+    <SplashScreen Include="Assets\splash.png" />
   </ItemGroup>
 </Project>

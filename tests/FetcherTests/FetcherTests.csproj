@@ -19,5 +19,6 @@
     <Compile Include="../../src/SteamStopper/Core/SaveBackup.cs" />
     <Compile Include="../../src/SteamStopper/Core/NetMonitor.cs" />
     <Compile Include="../../src/SteamStopper/Core/Cheevos.cs" />
+    <Compile Include="../../src/SteamStopper/Core/DownloadDoctor.cs" />
   </ItemGroup>
 </Project>

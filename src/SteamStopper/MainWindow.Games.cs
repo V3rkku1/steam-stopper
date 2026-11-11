@@ -208,7 +208,7 @@ public partial class MainWindow
         var running = SteamClient.IsRunning();
         var message = $"Add {games.Count} game(s) to Steam as non-Steam games, with their box art?"
             + (skipped > 0 ? $"\n\n{skipped} game(s) are skipped because no emulator for them is installed." : "")
-            + "\n\nGames added earlier by Steam Stopper are replaced, so this also removes ones you took off the library. Your other non-Steam games stay."
+            + "\n\nGames added earlier by Steam Multitool are replaced, so this also removes ones you took off the library. Your other non-Steam games stay."
             + (running ? "\n\nSteam will close and reopen to pick them up." : "");
         if (MessageBox.Show(message, "Add to Steam", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         StatusText.Text = "Adding games to Steam…";

@@ -13,7 +13,7 @@ public partial class App : Application
             var error = Updater.Install(updatingPid, AppContext.BaseDirectory, dest);
             if (error is not null)
                 MessageBox.Show($"The update could not be installed, so the previous version was kept.\n\n{error}",
-                    "Steam Stopper update", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    "Steam Multitool update", MessageBoxButton.OK, MessageBoxImage.Warning);
             Shutdown();
             return;
         }
@@ -34,7 +34,7 @@ public partial class App : Application
         DispatcherUnhandledException += (_, args) =>
         {
             args.Handled = true;
-            MessageBox.Show(args.Exception.Message, "Steam Stopper", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(args.Exception.Message, "Steam Multitool", MessageBoxButton.OK, MessageBoxImage.Warning);
         };
         base.OnStartup(e);
         Theme.Apply(AppSettings.Load().Theme);

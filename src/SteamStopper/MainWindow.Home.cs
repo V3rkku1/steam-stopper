@@ -46,7 +46,8 @@ public partial class MainWindow
         if (sized.Count > 0) HomeFetchBar.Value = sized.Sum(j => j.Received) / (double)sized.Sum(j => j.Total);
 
         var emuUpdates = AppHub.Emulators.Count(e => UpdateFor(e.Name) is not null);
-        HomeUpdates.Text = _update is not null ? $"{_update.Version} ready" : emuUpdates > 0 ? $"{emuUpdates} emulator update{(emuUpdates == 1 ? "" : "s")}" : "Up to date";
+        HomeUpdates.Text = _update is not null ? $"{_update.Version} ready" : emuUpdates > 0 ? $"{emuUpdates} emulator update{(emuUpdates == 1 ? "" : "s")}"
+            : _updateChecked is null ? "Checking soon" : "Up to date";
         HomeUpdates.Foreground = Brush(_update is not null || emuUpdates > 0 ? "Amber" : "Text");
         HomeUpdatesHint.Text = UpdateState.Text;
 
