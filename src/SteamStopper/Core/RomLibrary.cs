@@ -136,6 +136,9 @@ public static class RomLibrary
         ["SWITCH"] = ("switchtdb", "switch"), ["WII U"] = ("wiiutdb", "wiiu"), ["PS3"] = ("ps3tdb", "ps3")
     };
 
+    // Nintendo's eShop search for consoles neither libretro nor GameTDB covers yet (code from its playable_on_txt field).
+    private static readonly Dictionary<string, string> EshopSystems = new() { ["SWITCH 2"] = "BEE" };
+
     private static string Dir => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SteamStopper");
     private static string StorePath => System.IO.Path.Combine(Dir, "games.json");
     public static string CoverDir => System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SteamStopper", "Covers");
@@ -414,7 +417,7 @@ public static class RomLibrary
             .Select(i => System.IO.Path.Combine(rom.Path, i)).FirstOrDefault(File.Exists) is { } icon) return icon;
         var hasThumbs = ThumbSystems.TryGetValue(rom.Console, out var systems);
         var hasTdb = TdbSystems.TryGetValue(rom.Console, out var tdb);
-        if (!hasThumbs && !hasTdb) return null;
+        if (!hasThumbs && !hasTdb && !EshopSystems.ContainsKey(rom.Console)) return null;
         var file = System.IO.Path.GetFileNameWithoutExtension(rom.Path);
         var cachedBase = System.IO.Path.Combine(CoverDir, Safe($"{rom.Console} - {file}"));
         if (new[] { ".png", ".jpg" }.Select(e => cachedBase + e).FirstOrDefault(File.Exists) is { } hit) return hit;
@@ -457,7 +460,7 @@ public static class RomLibrary
     /// <summary>One box art the cover search found. Urls are tried in order; Rank 0 is the exact name, 1 starts with the search words, 2 holds them.</summary>
     public sealed record CoverChoice(string Name, string Source, string[] Urls, int Rank);
 
-    public static bool HasCoverSource(string console) => ThumbSystems.ContainsKey(console) || TdbSystems.ContainsKey(console);
+    public static bool HasCoverSource(string console) => ThumbSystems.ContainsKey(console) || TdbSystems.ContainsKey(console) || EshopSystems.ContainsKey(console);
 
     /// <summary>Every box art for this console whose name holds the search words (or GameTDB id), best match and USA release first.</summary>
     public static async Task<List<CoverChoice>> SearchCovers(string console, string query, HttpClient http, int max = 60)
@@ -482,6 +485,22 @@ public static class RomLibrary
                 foreach (var p in (await TdbIndexOf(tdb.Db, http)).SelectMany(g => g).Distinct().Select(l => l.Split('|')))
                     if ((Key(p[1]) == key ? 0 : Rank(p[0], key, words)) is { } rank)
                         found.Add(new(p[0], "GameTDB", TdbUrls(tdb.Art, p[1], p[2]), rank));
+            }
+            catch { }
+        }
+        if (EshopSystems.TryGetValue(console, out var code))
+        {
+            try
+            {
+                var url = $"https://searching.nintendo-europe.com/en/select?wt=json&rows=100&fl=title,image_url,image_url_sq_s&fq=type:GAME%20AND%20playable_on_txt:{code}&q={Uri.EscapeDataString(string.Join(' ', words))}";
+                using var json = JsonDocument.Parse(await http.GetStringAsync(url));
+                foreach (var doc in json.RootElement.GetProperty("response").GetProperty("docs").EnumerateArray())
+                {
+                    var name = doc.TryGetProperty("title", out var t) ? t.GetString() ?? "" : "";
+                    // Box packshot first, square banner as the fallback.
+                    var urls = new[] { "image_url", "image_url_sq_s" }.Select(f => doc.TryGetProperty(f, out var u) ? u.GetString() : null).OfType<string>().ToArray();
+                    if (urls.Length > 0 && Rank(name, key, words) is { } rank) found.Add(new(name, "Nintendo eShop", urls, rank));
+                }
             }
             catch { }
         }
