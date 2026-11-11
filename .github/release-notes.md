@@ -1,10 +1,18 @@
-## More games in your library
+## Covers
 
-- **.pkg files** are sorted into PS3, PS4 or PS Vita by reading the file. Play opens the emulator so you can install it from its File menu (RPCS3, shadPS4 and Vita3K can't start a .pkg directly).
-- **PS3 and PS4 game folders** (disc dumps and installed PSN games) are found by themselves, named from PARAM.SFO and shown with the game's own icon.
-- **RPCS3, shadPS4 and Vita3K** can now start games from the Games tab.
-- More file types: Vita **.vpk**, Switch **.nro**, 3DS **.cxi**, Wii **.wad**, GameCube **.gcm**, Famicom Disk System **.fds**.
-- PS3 and Vita games get box art.
+- **Change cover** (game page) searches libretro and GameTDB for the game's console and shows the covers it found. Click one to use it, or pick an image file.
+- **Find missing covers** (under the library list) opens the picker for every game without a cover, one after another.
+- **PS3 covers** now come from GameTDB, found by name or by the title id in a .pkg. More sources: arcade, Wii U, PS4, DSi, Famicom Disk System.
+- Automatic covers take a close name when there's no exact one (Pokemon Emerald finds Pokemon - Emerald Version), and a cover that wasn't found is looked for again after an update.
+
+## Games
+
+- **Rename** a game from its page.
+- **.pkg games get their real name** (UP9000-NPUA80490_00-… becomes God of War HD).
+- **Games installed in RPCS3, shadPS4 or Vita3K appear by themselves**, and the .pkg they came from is hidden. Vita3K starts them directly. PS3 updates and DLC are left out.
+- **RetroArch starts games**, with a core picked for each console (cores must be downloaded in RetroArch first).
+- **.chd, .cue and .m3u** in a folder named PS2, Dreamcast or PSP go to that console instead of PS1.
+- **Add to Steam** skips .pkg and .vpk installers.
 
 ## Downloads
 

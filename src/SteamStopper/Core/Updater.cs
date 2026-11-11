@@ -22,7 +22,7 @@ public static class Updater
     private const string DefaultFeed = "https://github.com/V3rkku1/steam-stopper";
 
     public static string Version =>
-        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "2.5.9";
+        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "2.5.10";
 
     // Installed copies (zip or MSI) carry a .installed marker; the portable build is one self-contained exe.
     public static bool IsInstalled =>
