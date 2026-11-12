@@ -1,8 +1,8 @@
-## PS5 images
+## PS5 unpacking
 
-- **.ffpfs, .ffpfsc and .ffpkg games** now show up under PS5 in Games.
-- **Play unpacks them** into a folder next to the image, then starts that folder in KytyPS5, which only runs folders. The image is kept and the game isn't listed twice.
-- Unpacking uses **PS5 Dump Forge**, installed with one click from Emulators → PS5. It needs about as much free space as the game.
+- **Choose where games unpack**: Settings → PS5 unpack folder. Pick a fast drive with free space; the default is still next to the image.
+- **Speed and time left** show while a game unpacks, and **Play turns into Stop**.
+- **Closing the app mid-unpack** no longer starts it over: Play waits for the unpack still running. A stopped or interrupted unpack starts again from the beginning (PS5 Dump Forge can't resume), and its half-written folder is cleaned up.
 
 ## Downloads
 
