@@ -1344,10 +1344,7 @@
                 <ControlTemplate TargetType="Button">
                   <Border x:Name="Bd" CornerRadius="6" Padding="26,0">
                     <Border.Background>
-                      <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                        <GradientStop Color="#75B022" Offset="0"/>
-                        <GradientStop Color="#588A1B" Offset="1"/>
-                      </LinearGradientBrush>
+                      <SolidColorBrush Color="#75B022"/>
                     </Border.Background>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                       <Path x:Name="Icon" Data="M0,0 L12,7 L0,14 Z" Fill="White" Margin="0,0,12,0" VerticalAlignment="Center"/>
@@ -1358,10 +1355,7 @@
                     <Trigger Property="IsMouseOver" Value="True">
                       <Setter TargetName="Bd" Property="Background">
                         <Setter.Value>
-                          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#8ED629" Offset="0"/>
-                            <GradientStop Color="#6BA51F" Offset="1"/>
-                          </LinearGradientBrush>
+                          <SolidColorBrush Color="#8ED629"/>
                         </Setter.Value>
                       </Setter>
                     </Trigger>
@@ -1369,10 +1363,7 @@
                       <Setter TargetName="Icon" Property="Data" Value="M5,0 H9 V7 H13 L7,13 L1,7 H5 Z"/>
                       <Setter TargetName="Bd" Property="Background">
                         <Setter.Value>
-                          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#1A9FFF" Offset="0"/>
-                            <GradientStop Color="#1567D6" Offset="1"/>
-                          </LinearGradientBrush>
+                          <SolidColorBrush Color="#1A9FFF"/>
                         </Setter.Value>
                       </Setter>
                     </Trigger>
@@ -1380,10 +1371,7 @@
                       <Setter TargetName="Icon" Property="Data" Value="M0,0 H12 V12 H0 Z"/>
                       <Setter TargetName="Bd" Property="Background">
                         <Setter.Value>
-                          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#1A9FFF" Offset="0"/>
-                            <GradientStop Color="#1567D6" Offset="1"/>
-                          </LinearGradientBrush>
+                          <SolidColorBrush Color="#1A9FFF"/>
                         </Setter.Value>
                       </Setter>
                     </Trigger>
@@ -1394,10 +1382,7 @@
                       </MultiTrigger.Conditions>
                       <Setter TargetName="Bd" Property="Background">
                         <Setter.Value>
-                          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#47B4FF" Offset="0"/>
-                            <GradientStop Color="#2A7FEA" Offset="1"/>
-                          </LinearGradientBrush>
+                          <SolidColorBrush Color="#47B4FF"/>
                         </Setter.Value>
                       </Setter>
                     </MultiTrigger>
@@ -1483,11 +1468,6 @@
               <!-- Clipped in code to the card's rounded corners; ClipToBounds alone leaves square ones. -->
               <Grid DockPanel.Dock="Top" Height="290" SizeChanged="GameHero_SizeChanged">
                 <Border Background="{Binding Color, Converter={StaticResource HexBrush}}"/>
-                <Image Source="{Binding Cover, TargetNullValue={x:Null}}" Stretch="UniformToFill" Opacity="0.6" Margin="-40">
-                  <Image.Effect>
-                    <BlurEffect Radius="50"/>
-                  </Image.Effect>
-                </Image>
                 <!-- Darken the top a little, fade into the card colour at the bottom (whatever the theme). -->
                 <Border Background="#33000000"/>
                 <Border Background="{DynamicResource Card}">
@@ -1501,9 +1481,6 @@
                 <DockPanel Margin="30,24,30,22" VerticalAlignment="Bottom">
                   <Grid Width="150" Height="200" Margin="0,0,24,0">
                     <Border CornerRadius="8" Background="{Binding Color, Converter={StaticResource HexBrush}}">
-                      <Border.Effect>
-                        <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.5"/>
-                      </Border.Effect>
                       <TextBlock Text="{Binding Tile.Name, FallbackValue=?}" Foreground="White" FontSize="26" FontWeight="Black" FontFamily="{StaticResource DisplayFont}"
                                  TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10"/>
                     </Border>
@@ -1672,26 +1649,12 @@
                           <ScaleTransform/>
                         </Grid.RenderTransform>
                         <Border CornerRadius="16" Background="{Binding Color, Converter={StaticResource HexBrush}}"/>
-                        <!-- Light from the top left, shade to the bottom right. -->
-                        <Border CornerRadius="16">
-                          <Border.Background>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                              <GradientStop Color="#33FFFFFF" Offset="0"/>
-                              <GradientStop Color="#00000000" Offset="0.45"/>
-                              <GradientStop Color="#66000000" Offset="1"/>
-                            </LinearGradientBrush>
-                          </Border.Background>
-                        </Border>
-                        <Ellipse Width="130" Height="130" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-46,-58" Fill="#14FFFFFF"/>
                         <Border x:Name="Ring" CornerRadius="16" BorderBrush="#40FFFFFF" BorderThickness="1"/>
                         <DockPanel Margin="16,14">
                           <TextBlock DockPanel.Dock="Bottom" Text="{Binding CountText}" Foreground="#D8FFFFFF" FontSize="11" FontWeight="SemiBold"/>
                           <TextBlock DockPanel.Dock="Bottom" Text="{Binding Maker}" Foreground="#B0FFFFFF" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,0,0,2"/>
                           <Viewbox HorizontalAlignment="Left" VerticalAlignment="Top" StretchDirection="DownOnly" MaxHeight="40">
                             <TextBlock Text="{Binding Name}" Foreground="White" FontFamily="{StaticResource DisplayFont}" FontSize="30" FontWeight="Black">
-                              <TextBlock.Effect>
-                                <DropShadowEffect BlurRadius="10" ShadowDepth="1" Opacity="0.35"/>
-                              </TextBlock.Effect>
                             </TextBlock>
                           </Viewbox>
                         </DockPanel>

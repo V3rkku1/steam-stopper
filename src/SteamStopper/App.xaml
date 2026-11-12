@@ -392,9 +392,6 @@
                 <ScaleTransform/>
               </Border.RenderTransform>
               <Border x:Name="Thumb" Width="20" Height="20" CornerRadius="10" Background="White" HorizontalAlignment="Left" Margin="3,0,0,0">
-                <Border.Effect>
-                  <DropShadowEffect BlurRadius="10" ShadowDepth="1" Opacity="0.35" Direction="270"/>
-                </Border.Effect>
               </Border>
             </Border>
             <ControlTemplate.Triggers>
@@ -427,16 +424,10 @@
               <Border.RenderTransform>
                 <ScaleTransform/>
               </Border.RenderTransform>
-              <Border.Effect>
-                <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.35" Direction="270" Color="#000"/>
-              </Border.Effect>
               <Grid>
                 <TextBlock x:Name="OffHint" Text="off" Foreground="#777" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,18,0"/>
                 <TextBlock x:Name="OnHint" Text="on" Foreground="#0B0B0B" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="20,0,0,0" Opacity="0"/>
                 <Border x:Name="Thumb" Width="44" Height="44" CornerRadius="22" Background="#F4F4F4" HorizontalAlignment="Left" Margin="4,0,0,0">
-                  <Border.Effect>
-                    <DropShadowEffect BlurRadius="18" ShadowDepth="2" Opacity="0.4" Direction="270"/>
-                  </Border.Effect>
                 </Border>
               </Grid>
             </Border>
