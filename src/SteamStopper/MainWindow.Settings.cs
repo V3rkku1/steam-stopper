@@ -1,7 +1,9 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using SteamStopper.Core;
 
 namespace SteamStopper;
 
@@ -56,6 +58,7 @@ public partial class MainWindow
         InitCheevos();
         BoostBox.IsChecked = _settings.GameBoost;
         BoostAppsBox.Text = string.Join(Environment.NewLine, _settings.GameBoostApps);
+        PaintUnpackFolder();
         SettingsAbout.Text = $"Steam Multitool {Core.Updater.Version}  ·  Steam folder: {_steamRoot ?? "not found"}";
         _settingsFilling = true;
         StartPageBox.ItemsSource = NavGroups.SelectMany(g => g.Pages).Select(k => PageTitles[k].Title).ToList();
@@ -65,6 +68,25 @@ public partial class MainWindow
         _settingsFilling = false;
 
         if (_settings.StartPage != "home" && PageTitles.ContainsKey(_settings.StartPage)) GoTo(_settings.StartPage);
+    }
+
+    private void PaintUnpackFolder() =>
+        UnpackFolderText.Text = RomLibrary.UnpackRoot.Length > 0 && Directory.Exists(RomLibrary.UnpackRoot) ? RomLibrary.UnpackRoot : "Next to each image";
+
+    private void UnpackFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Choose where PS5 games are unpacked" };
+        if (dialog.ShowDialog(this) != true) return;
+        _settings.Ps5UnpackFolder = RomLibrary.UnpackRoot = dialog.FolderName;
+        _settings.Save();
+        PaintUnpackFolder();
+    }
+
+    private void UnpackFolderReset_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.Ps5UnpackFolder = RomLibrary.UnpackRoot = "";
+        _settings.Save();
+        PaintUnpackFolder();
     }
 
     /// <summary>Apply the chosen theme; "From my game" picks its colour from the most played game's cover.</summary>

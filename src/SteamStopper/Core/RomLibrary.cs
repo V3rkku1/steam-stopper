@@ -87,21 +87,47 @@ public static class RomLibrary
     /// <summary>PS5 images made for consoles. KytyPS5 only runs folders, so Play unpacks one first.</summary>
     public static bool IsPs5Image(string path) => System.IO.Path.GetExtension(path).ToLowerInvariant() is ".ffpfs" or ".ffpfsc" or ".ffpkg";
 
-    /// <summary>Percent from one of PS5 Dump Forge's progress lines, else null.</summary>
-    public static int? UnpackPercent(string line)
+    /// <summary>Bytes done and total from one of PS5 Dump Forge's progress lines ({"kind":"progress","done":…,"total":…}), else null.</summary>
+    public static (ulong Done, ulong Total)? UnpackProgress(string line)
     {
         try
         {
             using var json = JsonDocument.Parse(line);
             var root = json.RootElement;
             return root.GetProperty("kind").GetString() == "progress" && root.GetProperty("total").GetUInt64() is var total and > 0
-                ? (int)Math.Min(100, root.GetProperty("done").GetUInt64() * 100 / total) : null;
+                ? (Math.Min(root.GetProperty("done").GetUInt64(), total), total) : null;
         }
         catch { return null; } // not JSON, or not a progress line
     }
 
-    /// <summary>Where an image is unpacked: a folder of the same name next to it.</summary>
-    public static string UnpackedDir(string image) => System.IO.Path.ChangeExtension(image, null);
+    /// <summary>Settings: unpack PS5 images into this folder instead of next to them. Empty or missing means next to them.</summary>
+    public static string UnpackRoot { get; set; } = "";
+
+    /// <summary>Where an image is unpacked: a folder of the same name in <see cref="UnpackRoot"/>, else next to it.</summary>
+    public static string UnpackedDir(string image) =>
+        UnpackRoot.Length > 0 && Directory.Exists(UnpackRoot)
+            ? System.IO.Path.Combine(UnpackRoot, System.IO.Path.GetFileNameWithoutExtension(image))
+            : System.IO.Path.ChangeExtension(image, null);
+
+    /// <summary>
+    /// PS5 Dump Forge writes into "Game.&lt;job&gt;-&lt;pid&gt;.part" and can't resume one. Deletes parts whose Forge is gone
+    /// (left when the app or PC was closed mid-unpack) and returns the process id of one still writing, if any.
+    /// </summary>
+    public static int? UnpackLeftovers(string dir, Func<int, bool> alive)
+    {
+        var parent = System.IO.Path.GetDirectoryName(dir);
+        if (parent is null || !Directory.Exists(parent)) return null;
+        var pattern = new Regex($@"^{Regex.Escape(System.IO.Path.GetFileName(dir))}\.\d+-(\d+)\.part$", RegexOptions.IgnoreCase);
+        int? running = null;
+        foreach (var part in Directory.EnumerateFileSystemEntries(parent, System.IO.Path.GetFileName(dir) + ".*.part"))
+        {
+            if (pattern.Match(System.IO.Path.GetFileName(part)) is not { Success: true } m) continue;
+            var pid = int.Parse(m.Groups[1].Value);
+            if (alive(pid)) { running = pid; continue; }
+            try { if (Directory.Exists(part)) Directory.Delete(part, true); else File.Delete(part); } catch { } // in use: next time
+        }
+        return running;
+    }
 
     // How each emulator opens a game from the command line. {rom} is the full path.
     // Batch flags make the emulator close when the game does, so play time stops counting.

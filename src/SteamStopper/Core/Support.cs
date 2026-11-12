@@ -154,6 +154,8 @@ public sealed class AppSettings
     // App key -> adapter name it was last pinned to.
     public Dictionary<string, string> RouteLinks { get; set; } = [];
     public string FetchFolder { get; set; } = "";
+    // Where Play unpacks .ffpfs/.ffpkg games; empty unpacks next to the image.
+    public string Ps5UnpackFolder { get; set; } = "";
     // 0 is Auto.
     public int FetchConnections { get; set; }
     public int FetchAtOnce { get; set; } = 2;

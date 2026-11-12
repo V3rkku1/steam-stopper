@@ -115,9 +115,9 @@ if (args is ["--roms"])
     if (RomLibrary.Arguments("Vita3K", "/g/ux0/app/PCSE00001") != "-r PCSE00001") bad.Add("Vita3K args");
     if (RomLibrary.ConsoleOf("x/Game.ffpfs") != "PS5" || !RomLibrary.IsPs5Image("x/Game.FFPKG") || RomLibrary.IsPs5Image("x/Game.zar")) bad.Add("ffpfs is a PS5 image");
     if (RomLibrary.UnpackedDir(Path.Combine("g", "Game.ffpfs")) != Path.Combine("g", "Game")) bad.Add("ffpfs unpacks next to itself");
-    if (RomLibrary.UnpackPercent("""{"kind":"progress","job":1,"stage":"write","done":50,"total":200}""") != 25
-        || RomLibrary.UnpackPercent("""{"kind":"progress","job":1,"stage":"scan","done":0,"total":0}""") is not null
-        || RomLibrary.UnpackPercent("""{"kind":"log","job":1,"line":"x"}""") is not null || RomLibrary.UnpackPercent("not json") is not null) bad.Add("Dump Forge progress");
+    if (RomLibrary.UnpackProgress("""{"kind":"progress","job":1,"stage":"write","done":50,"total":200}""") != (50UL, 200UL)
+        || RomLibrary.UnpackProgress("""{"kind":"progress","job":1,"stage":"scan","done":0,"total":0}""") is not null
+        || RomLibrary.UnpackProgress("""{"kind":"log","job":1,"line":"x"}""") is not null || RomLibrary.UnpackProgress("not json") is not null) bad.Add("Dump Forge progress");
     var imageDir = Directory.CreateDirectory(Path.Combine(root, "img")).FullName;
     File.WriteAllText(Path.Combine(imageDir, "Packed.ffpfs"), "");
     File.WriteAllText(Path.Combine(imageDir, "Done.ffpfs"), "");
@@ -125,6 +125,19 @@ if (args is ["--roms"])
     var imageStore = new RomLibrary.Store { Folders = [imageDir] };
     RomLibrary.Scan(imageStore);
     if (imageStore.Games.Select(g => Path.GetFileName(g.Path)).SingleOrDefault() != "Packed.ffpfs") bad.Add("unpacked image not listed twice");
+    // A part from a Forge that's gone is deleted; one still being written is kept and reported.
+    Directory.CreateDirectory(Path.Combine(imageDir, "Packed.1-111.part"));
+    Directory.CreateDirectory(Path.Combine(imageDir, "Packed.1-222.part"));
+    Directory.CreateDirectory(Path.Combine(imageDir, "Packed.ffpfs.1-333.part")); // another output's part: not ours
+    var live = RomLibrary.UnpackLeftovers(Path.Combine(imageDir, "Packed"), pid => pid == 222);
+    if (live != 222 || Directory.Exists(Path.Combine(imageDir, "Packed.1-111.part")) || !Directory.Exists(Path.Combine(imageDir, "Packed.1-222.part"))
+        || !Directory.Exists(Path.Combine(imageDir, "Packed.ffpfs.1-333.part"))) bad.Add("unpack leftovers");
+    // A chosen unpack folder: the image's game goes there by name.
+    var unpackTo = Directory.CreateDirectory(Path.Combine(root, "unpacked")).FullName;
+    RomLibrary.UnpackRoot = unpackTo;
+    var into = RomLibrary.UnpackedDir(Path.Combine(imageDir, "Packed.ffpfs"));
+    RomLibrary.UnpackRoot = "";
+    if (into != Path.Combine(unpackTo, "Packed")) bad.Add("unpack folder setting");
     if (RomLibrary.Arguments("RetroArch", "x.cue", "PS1") != "-L \"cores\\swanstation_libretro.dll\" \"x.cue\""
         || !RomLibrary.Arguments("RetroArch", "x.nes", "NES · SNES").Contains("mesen_libretro") || RomLibrary.Arguments("RetroArch", "x", "PS2") != "\"x\"") bad.Add("RetroArch args");
     var emu = Path.Combine(root, "emu");

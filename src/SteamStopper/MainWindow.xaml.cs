@@ -90,6 +90,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        RomLibrary.UnpackRoot = _settings.Ps5UnpackFolder; // before the first library scan
         SourceInitialized += (_, _) =>
         {
             DarkTitleBar.Apply(this);

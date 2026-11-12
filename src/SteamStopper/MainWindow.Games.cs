@@ -99,7 +99,7 @@ public partial class MainWindow
 
     private void PaintPlay(Rom rom)
     {
-        var running = _playing.ContainsKey(rom);
+        var running = _playing.ContainsKey(rom) || _unpackRom == rom;
         var hasEmu = EmulatorsFor(rom).Count > 0;
         GamePlayButton.Content = running ? "STOP" : hasEmu ? "PLAY" : "GET EMULATOR";
         // Tag switches the button to Steam's blue Stop look, or blue with a download arrow for Get Emulator.
@@ -114,6 +114,11 @@ public partial class MainWindow
     private async void GamePlay_Click(object sender, RoutedEventArgs e)
     {
         if (GameDetail.DataContext is not Rom rom || _library is null) return;
+        if (_unpackRom == rom)
+        {
+            _unpackStop?.Cancel();
+            return;
+        }
         if (_playing.TryGetValue(rom, out var playing))
         {
             StatusText.Text = $"Stopping {rom.Title}…";
@@ -176,9 +181,28 @@ public partial class MainWindow
         StatusText.Text = $"Played {rom.Title} for {Format.Duration((DateTime.Now - started).TotalSeconds)}.";
     }
 
-    /// <summary>Unpack a .ffpfs/.ffpfsc/.ffpkg into a folder next to it with PS5 Dump Forge, then point the game at the folder.</summary>
+    // The one PS5 image being unpacked; Play on it again stops it.
+    private Rom? _unpackRom;
+    private CancellationTokenSource? _unpackStop;
+
+    private static bool ForgeAlive(int pid)
+    {
+        try
+        {
+            using var p = Process.GetProcessById(pid);
+            return !p.HasExited && p.ProcessName.StartsWith("ps5-dump-forge", StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Unpack a .ffpfs/.ffpfsc/.ffpkg into a folder with PS5 Dump Forge, then point the game at the folder.</summary>
     private async Task<bool> UnpackPs5(Rom rom)
     {
+        if (_unpackRom is { } busy)
+        {
+            StatusText.Text = $"Wait for {busy.Title} to finish unpacking, or press Stop on it.";
+            return false;
+        }
         var dir = RomLibrary.UnpackedDir(rom.Path);
         if (!File.Exists(Path.Combine(dir, "eboot.bin")))
         {
@@ -189,37 +213,77 @@ public partial class MainWindow
                 StatusText.Text = "Install PS5 Dump Forge to play .ffpfs games. Play unpacks them for KytyPS5.";
                 return false;
             }
-            GamePlayButton.IsEnabled = false;
-            StatusText.Text = $"Unpacking {rom.Title}…";
+            _unpackRom = rom;
+            _unpackStop = new CancellationTokenSource();
+            PaintPlay(rom);
             try
             {
-                var start = new ProcessStartInfo(cli) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-                foreach (var arg in new[] { "convert", rom.Path, "--to", "folder", "-o", dir }) start.ArgumentList.Add(arg);
-                using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not start it.");
-                var errors = process.StandardError.ReadToEndAsync();
-                // Progress comes as JSON lines: {"kind":"progress","done":…,"total":…}.
-                while (await process.StandardOutput.ReadLineAsync() is { } line)
-                    if (RomLibrary.UnpackPercent(line) is { } percent) StatusText.Text = $"Unpacking {rom.Title}… {percent}%";
-                await process.WaitForExitAsync();
-                if (process.ExitCode != 0)
+                // Forge can't resume, but one started before the app closed keeps going: wait for it instead of starting over.
+                if (RomLibrary.UnpackLeftovers(dir, ForgeAlive) is { } pid)
                 {
-                    var why = (await errors).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault();
-                    StatusText.Text = $"Could not unpack {rom.Title}: {why ?? "PS5 Dump Forge failed."}";
+                    StatusText.Text = $"Still unpacking {rom.Title} from before…";
+                    using var earlier = Process.GetProcessById(pid);
+                    using (_unpackStop.Token.Register(() => { try { earlier.Kill(entireProcessTree: true); } catch { } }))
+                        await earlier.WaitForExitAsync(_unpackStop.Token);
+                }
+                else if (!await RunForge(cli, rom, dir, _unpackStop.Token)) return false;
+                if (!File.Exists(Path.Combine(dir, "eboot.bin")))
+                {
+                    StatusText.Text = $"Unpacking {rom.Title} didn't finish. Press Play to try again.";
                     return false;
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // Forge was killed mid-write: clear its half-written folder now instead of next time.
+                await Task.Delay(500);
+                RomLibrary.UnpackLeftovers(dir, ForgeAlive);
+                StatusText.Text = $"Stopped unpacking {rom.Title}. Unpacking starts over next time.";
+                return false;
             }
             catch (Exception ex)
             {
                 StatusText.Text = $"Could not unpack {rom.Title}: {ex.Message}";
                 return false;
             }
-            finally { GamePlayButton.IsEnabled = true; }
+            finally
+            {
+                _unpackRom = null;
+                _unpackStop.Dispose();
+                _unpackStop = null;
+                if (GameDetail.DataContext is Rom shown) PaintPlay(shown);
+            }
         }
         // The image stays; the folder is what plays from now on.
         rom.Path = dir;
         RomLibrary.Save(_library!);
         rom.Refresh();
         return true;
+    }
+
+    /// <summary>Run ps5-dump-forge convert, showing percent, speed and time left. False (with the reason shown) when it fails.</summary>
+    private async Task<bool> RunForge(string cli, Rom rom, string dir, CancellationToken stop)
+    {
+        StatusText.Text = $"Unpacking {rom.Title}…";
+        var start = new ProcessStartInfo(cli) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var arg in new[] { "convert", rom.Path, "--to", "folder", "-o", dir }) start.ArgumentList.Add(arg);
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not start it.");
+        using var kill = stop.Register(() => { try { process.Kill(entireProcessTree: true); } catch { } });
+        var errors = process.StandardError.ReadToEndAsync();
+        var clock = Stopwatch.StartNew();
+        while (await process.StandardOutput.ReadLineAsync() is { } line)
+        {
+            if (RomLibrary.UnpackProgress(line) is not var (done, total)) continue;
+            var bps = done / Math.Max(clock.Elapsed.TotalSeconds, 0.001);
+            StatusText.Text = $"Unpacking {rom.Title}…  {done * 100 / total}%  ·  {Format.Speed(bps)}"
+                + (bps > 0 && done > 0 ? $"  ·  {Format.Duration((total - done) / bps)} left" : "");
+        }
+        await process.WaitForExitAsync();
+        stop.ThrowIfCancellationRequested();
+        if (process.ExitCode == 0) return true;
+        var why = (await errors).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault();
+        StatusText.Text = $"Could not unpack {rom.Title}: {why ?? "PS5 Dump Forge failed."}";
+        return false;
     }
 
     /// <summary>Ask the emulator to close like its X button would, so it can save; kill it if it doesn't within 5 seconds.</summary>
