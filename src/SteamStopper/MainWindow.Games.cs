@@ -99,6 +99,7 @@ public partial class MainWindow
 
     private void PaintPlay(Rom rom)
     {
+        if (GameDetail.DataContext != rom) return; // console mode can play a game whose page isn't open
         var running = _playing.ContainsKey(rom) || _unpackRom == rom;
         var hasEmu = EmulatorsFor(rom).Count > 0;
         GamePlayButton.Content = running ? "STOP" : hasEmu ? "PLAY" : "GET EMULATOR";
@@ -113,7 +114,20 @@ public partial class MainWindow
 
     private async void GamePlay_Click(object sender, RoutedEventArgs e)
     {
-        if (GameDetail.DataContext is not Rom rom || _library is null) return;
+        if (GameDetail.DataContext is Rom rom) await Play(rom);
+    }
+
+    private void ConsoleMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (OwnedWindows.OfType<ConsoleMode>().FirstOrDefault() is { } open) { open.Activate(); return; }
+        RefreshGamesUi(); // loads the library, its covers and the installed emulators
+        ConsoleMode.Open(this, _library!.Games, Play, rom => _playing.ContainsKey(rom) || _unpackRom == rom, () => StatusText.Text);
+    }
+
+    /// <summary>Play, or stop, a game: from its page or from console mode.</summary>
+    internal async Task Play(Rom rom)
+    {
+        if (_library is null) return;
         if (_unpackRom == rom)
         {
             _unpackStop?.Cancel();
@@ -122,7 +136,7 @@ public partial class MainWindow
         if (_playing.TryGetValue(rom, out var playing))
         {
             StatusText.Text = $"Stopping {rom.Title}…";
-            GamePlayButton.IsEnabled = false;
+            if (GameDetail.DataContext == rom) GamePlayButton.IsEnabled = false;
             if (!await Task.Run(() => Stop(playing)))
             {
                 PaintPlay(rom);
@@ -134,6 +148,7 @@ public partial class MainWindow
         if (LaunchFor(rom) is not { } launch)
         {
             OpenEmulatorsFor(rom.Tile);
+            StatusText.Text = $"No emulator for {rom.ConsoleName} is installed yet. Get one on the Emulators tab.";
             return;
         }
         var (emu, exe, args) = launch;

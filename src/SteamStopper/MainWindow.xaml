@@ -108,6 +108,9 @@
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top"
                   shell:WindowChrome.IsHitTestVisibleInChrome="True">
+        <Button Style="{StaticResource CaptionButton}" Click="ConsoleMode_Click" ToolTip="Console mode (F11)">
+          <TextBlock Text="&#xE7FC;" FontFamily="{StaticResource IconFont}" FontSize="14"/>
+        </Button>
         <Button x:Name="SettingsButton" Style="{StaticResource CaptionButton}" Click="Settings_Click" ToolTip="Settings">
           <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="14"/>
         </Button>

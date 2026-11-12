@@ -91,6 +91,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         RomLibrary.UnpackRoot = _settings.Ps5UnpackFolder; // before the first library scan
+        PreviewKeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.F11) { e.Handled = true; ConsoleMode_Click(this, e); } };
         SourceInitialized += (_, _) =>
         {
             DarkTitleBar.Apply(this);
