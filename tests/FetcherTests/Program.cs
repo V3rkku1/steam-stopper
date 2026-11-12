@@ -113,6 +113,18 @@ if (args is ["--roms"])
     if (RomLibrary.Arguments("shadPS4", "C:\\g") != "-g \"C:\\g\\eboot.bin\"") bad.Add("shadPS4 args");
     if (RomLibrary.InstalledPackages(pkgStore.Games).Select(g => Path.GetFileName(g.Path)).SingleOrDefault() != "b.pkg") bad.Add("installed b.pkg should be the one hidden");
     if (RomLibrary.Arguments("Vita3K", "/g/ux0/app/PCSE00001") != "-r PCSE00001") bad.Add("Vita3K args");
+    if (RomLibrary.ConsoleOf("x/Game.ffpfs") != "PS5" || !RomLibrary.IsPs5Image("x/Game.FFPKG") || RomLibrary.IsPs5Image("x/Game.zar")) bad.Add("ffpfs is a PS5 image");
+    if (RomLibrary.UnpackedDir(Path.Combine("g", "Game.ffpfs")) != Path.Combine("g", "Game")) bad.Add("ffpfs unpacks next to itself");
+    if (RomLibrary.UnpackPercent("""{"kind":"progress","job":1,"stage":"write","done":50,"total":200}""") != 25
+        || RomLibrary.UnpackPercent("""{"kind":"progress","job":1,"stage":"scan","done":0,"total":0}""") is not null
+        || RomLibrary.UnpackPercent("""{"kind":"log","job":1,"line":"x"}""") is not null || RomLibrary.UnpackPercent("not json") is not null) bad.Add("Dump Forge progress");
+    var imageDir = Directory.CreateDirectory(Path.Combine(root, "img")).FullName;
+    File.WriteAllText(Path.Combine(imageDir, "Packed.ffpfs"), "");
+    File.WriteAllText(Path.Combine(imageDir, "Done.ffpfs"), "");
+    Directory.CreateDirectory(Path.Combine(imageDir, "Done"));
+    var imageStore = new RomLibrary.Store { Folders = [imageDir] };
+    RomLibrary.Scan(imageStore);
+    if (imageStore.Games.Select(g => Path.GetFileName(g.Path)).SingleOrDefault() != "Packed.ffpfs") bad.Add("unpacked image not listed twice");
     if (RomLibrary.Arguments("RetroArch", "x.cue", "PS1") != "-L \"cores\\swanstation_libretro.dll\" \"x.cue\""
         || !RomLibrary.Arguments("RetroArch", "x.nes", "NES · SNES").Contains("mesen_libretro") || RomLibrary.Arguments("RetroArch", "x", "PS2") != "\"x\"") bad.Add("RetroArch args");
     var emu = Path.Combine(root, "emu");

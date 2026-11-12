@@ -77,12 +77,31 @@ public static class RomLibrary
         [".cue"] = "PS1", [".chd"] = "PS1", [".m3u"] = "PS1",
         [".gdi"] = "DREAMCAST", [".cdi"] = "DREAMCAST",
         [".xex"] = "XBOX 360",
-        [".zar"] = "PS5",
+        [".zar"] = "PS5", [".ffpfs"] = "PS5", [".ffpfsc"] = "PS5", [".ffpkg"] = "PS5",
         [".vpk"] = "VITA",
         // PS3, PS4 and Vita share .pkg; Sniff reads which from its header.
         [".pkg"] = "",
         [".iso"] = ""
     };
+
+    /// <summary>PS5 images made for consoles. KytyPS5 only runs folders, so Play unpacks one first.</summary>
+    public static bool IsPs5Image(string path) => System.IO.Path.GetExtension(path).ToLowerInvariant() is ".ffpfs" or ".ffpfsc" or ".ffpkg";
+
+    /// <summary>Percent from one of PS5 Dump Forge's progress lines, else null.</summary>
+    public static int? UnpackPercent(string line)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(line);
+            var root = json.RootElement;
+            return root.GetProperty("kind").GetString() == "progress" && root.GetProperty("total").GetUInt64() is var total and > 0
+                ? (int)Math.Min(100, root.GetProperty("done").GetUInt64() * 100 / total) : null;
+        }
+        catch { return null; } // not JSON, or not a progress line
+    }
+
+    /// <summary>Where an image is unpacked: a folder of the same name next to it.</summary>
+    public static string UnpackedDir(string image) => System.IO.Path.ChangeExtension(image, null);
 
     // How each emulator opens a game from the command line. {rom} is the full path.
     // Batch flags make the emulator close when the game does, so play time stops counting.
@@ -191,6 +210,8 @@ public static class RomLibrary
                     continue;
                 }
                 if (known.Contains(file) || ConsoleOf(file) is not { } console) continue;
+                // Already unpacked: the folder is the game, so the image isn't listed twice.
+                if (IsPs5Image(file) && Directory.Exists(UnpackedDir(file))) continue;
                 store.Games.Add(new Rom { Path = file, Title = TitleOf(file), Console = console });
                 known.Add(file);
                 added++;

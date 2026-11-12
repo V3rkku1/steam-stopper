@@ -125,6 +125,7 @@ public partial class MainWindow
             }
             return;
         }
+        if (RomLibrary.IsPs5Image(rom.Path) && !await UnpackPs5(rom)) return;
         if (LaunchFor(rom) is not { } launch)
         {
             OpenEmulatorsFor(rom.Tile);
@@ -173,6 +174,52 @@ public partial class MainWindow
         rom.Refresh();
         if (GameDetail.DataContext == rom) PaintPlay(rom);
         StatusText.Text = $"Played {rom.Title} for {Format.Duration((DateTime.Now - started).TotalSeconds)}.";
+    }
+
+    /// <summary>Unpack a .ffpfs/.ffpfsc/.ffpkg into a folder next to it with PS5 Dump Forge, then point the game at the folder.</summary>
+    private async Task<bool> UnpackPs5(Rom rom)
+    {
+        var dir = RomLibrary.UnpackedDir(rom.Path);
+        if (!File.Exists(Path.Combine(dir, "eboot.bin")))
+        {
+            var cli = EmuStore.Find("PS5 Dump Forge")?.Exe is { } app ? Path.Combine(Path.GetDirectoryName(app)!, "ps5-dump-forge.exe") : null;
+            if (cli is null || !File.Exists(cli))
+            {
+                OpenEmulatorsFor(rom.Tile);
+                StatusText.Text = "Install PS5 Dump Forge to play .ffpfs games. Play unpacks them for KytyPS5.";
+                return false;
+            }
+            GamePlayButton.IsEnabled = false;
+            StatusText.Text = $"Unpacking {rom.Title}…";
+            try
+            {
+                var start = new ProcessStartInfo(cli) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+                foreach (var arg in new[] { "convert", rom.Path, "--to", "folder", "-o", dir }) start.ArgumentList.Add(arg);
+                using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not start it.");
+                var errors = process.StandardError.ReadToEndAsync();
+                // Progress comes as JSON lines: {"kind":"progress","done":…,"total":…}.
+                while (await process.StandardOutput.ReadLineAsync() is { } line)
+                    if (RomLibrary.UnpackPercent(line) is { } percent) StatusText.Text = $"Unpacking {rom.Title}… {percent}%";
+                await process.WaitForExitAsync();
+                if (process.ExitCode != 0)
+                {
+                    var why = (await errors).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault();
+                    StatusText.Text = $"Could not unpack {rom.Title}: {why ?? "PS5 Dump Forge failed."}";
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Could not unpack {rom.Title}: {ex.Message}";
+                return false;
+            }
+            finally { GamePlayButton.IsEnabled = true; }
+        }
+        // The image stays; the folder is what plays from now on.
+        rom.Path = dir;
+        RomLibrary.Save(_library!);
+        rom.Refresh();
+        return true;
     }
 
     /// <summary>Ask the emulator to close like its X button would, so it can save; kill it if it doesn't within 5 seconds.</summary>
