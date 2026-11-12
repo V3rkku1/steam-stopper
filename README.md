@@ -27,6 +27,11 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.11
+
+- **New look**: near-black theme with a blue accent, flat cards, a simpler sidebar and plain text tabs.
+- **Switch 2 covers** from Nintendo's eShop, and a lighter download watcher.
+
 ## What's new in 2.5.10
 
 - **Covers you can pick**: Change cover searches every box art source and shows what it found; Find missing covers goes through every game without one. PS3 covers now come from GameTDB too.
