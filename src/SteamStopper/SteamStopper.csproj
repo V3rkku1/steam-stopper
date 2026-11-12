@@ -17,9 +17,9 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
     <PublishReadyToRun>true</PublishReadyToRun>
-    <Version>2.5.11</Version>
-    <FileVersion>2.5.11</FileVersion>
-    <AssemblyVersion>2.5.11</AssemblyVersion>
+    <Version>2.5.12</Version>
+    <FileVersion>2.5.12</FileVersion>
+    <AssemblyVersion>2.5.12</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />

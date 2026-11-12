@@ -1,12 +1,8 @@
-## New look
+## PS5 images
 
-- **Darker theme**: near-black background, plain greys and one blue accent instead of violet. Flat cards with smaller corners, no glow or shadows.
-- **Simpler layout**: the sidebar shows only the menu; page tabs (Control, Downloads, Library…) are plain underlined text where the title was. Home and the Steam page lost duplicate buttons and status boxes.
-
-## Fixes
-
-- **Switch 2 covers** now come from Nintendo's eShop (The Legend of Zelda: Ocarina of Time finds its cover).
-- **Lighter on the CPU**: the download watcher only re-reads Steam's game files when they change.
+- **.ffpfs, .ffpfsc and .ffpkg games** now show up under PS5 in Games.
+- **Play unpacks them** into a folder next to the image, then starts that folder in KytyPS5, which only runs folders. The image is kept and the game isn't listed twice.
+- Unpacking uses **PS5 Dump Forge**, installed with one click from Emulators → PS5. It needs about as much free space as the game.
 
 ## Downloads
 

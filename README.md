@@ -27,6 +27,10 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.12
+
+- **PS5 images**: .ffpfs, .ffpfsc and .ffpkg games appear in Games, and Play unpacks them for KytyPS5 with PS5 Dump Forge.
+
 ## What's new in 2.5.11
 
 - **New look**: near-black theme with a blue accent, flat cards, a simpler sidebar and plain text tabs.
