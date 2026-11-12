@@ -138,6 +138,50 @@ if (args is ["--roms"])
     var into = RomLibrary.UnpackedDir(Path.Combine(imageDir, "Packed.ffpfs"));
     RomLibrary.UnpackRoot = "";
     if (into != Path.Combine(unpackTo, "Packed")) bad.Add("unpack folder setting");
+
+    // Steam: fully installed games only, the redistributables left out, Steam's cached art first.
+    var steamRoot = Directory.CreateDirectory(Path.Combine(root, "Steam")).FullName;
+    var steamApps = Directory.CreateDirectory(Path.Combine(steamRoot, "steamapps")).FullName;
+    string Acf(string id, string name, int flags) => $"\"AppState\"\n{{\n\"appid\" \"{id}\"\n\"name\" \"{name}\"\n\"StateFlags\" \"{flags}\"\n}}\n";
+    File.WriteAllText(Path.Combine(steamApps, "appmanifest_10.acf"), Acf("10", "Counter-Strike", 4));
+    File.WriteAllText(Path.Combine(steamApps, "appmanifest_20.acf"), Acf("20", "Half Done", 1026));
+    File.WriteAllText(Path.Combine(steamApps, "appmanifest_228980.acf"), Acf("228980", "Steamworks Common Redistributables", 4));
+    Directory.CreateDirectory(Path.Combine(steamRoot, "appcache", "librarycache", "10"));
+    File.WriteAllText(Path.Combine(steamRoot, "appcache", "librarycache", "10", "library_600x900.jpg"), "");
+    var steamGames = StoreGames.Steam([steamRoot], steamRoot);
+    if (steamGames is not [{ Title: "Counter-Strike", Path: "steam://rungameid/10", Console: "STEAM", IsLink: true, Exists: true } cs]
+        || cs.ArtUrl != Path.Combine(steamRoot, "appcache", "librarycache", "10", "library_600x900.jpg")
+        || !StoreGames.Steam([steamRoot], null)[0].ArtUrl.StartsWith("https://")) bad.Add("Steam games");
+
+    // Epic: the game, not its DLC or a broken install.
+    var epic = Directory.CreateDirectory(Path.Combine(root, "Manifests")).FullName;
+    File.WriteAllText(Path.Combine(epic, "a.item"), """{"DisplayName":"Fortnite","AppName":"Fortnite","MainGameAppName":"Fortnite","CatalogNamespace":"fn","CatalogItemId":"4fe7","InstallLocation":"C:\\FN"}""");
+    File.WriteAllText(Path.Combine(epic, "b.item"), """{"DisplayName":"Some DLC","AppName":"Dlc1","MainGameAppName":"Fortnite","CatalogNamespace":"fn","CatalogItemId":"x"}""");
+    File.WriteAllText(Path.Combine(epic, "c.item"), """{"DisplayName":"Broken","AppName":"Br","MainGameAppName":"Br","bIsIncompleteInstall":true}""");
+    File.WriteAllText(Path.Combine(epic, "d.item"), "not json");
+    if (StoreGames.Epic(epic) is not [{ Title: "Fortnite", Console: "EPIC" } fn]
+        || fn.Path != "com.epicgames.launcher://apps/fn%3A4fe7%3AFortnite?action=launch&silent=true") bad.Add("Epic games");
+
+    // Heroic: Epic through legendary (no DLC), GOG named from its library cache, and added apps that are installed.
+    var heroic = Path.Combine(root, "heroic");
+    Directory.CreateDirectory(Path.Combine(heroic, "legendaryConfig", "legendary"));
+    Directory.CreateDirectory(Path.Combine(heroic, "gog_store"));
+    Directory.CreateDirectory(Path.Combine(heroic, "store_cache"));
+    Directory.CreateDirectory(Path.Combine(heroic, "sideload_apps"));
+    File.WriteAllText(Path.Combine(heroic, "legendaryConfig", "legendary", "installed.json"),
+        """{"Quail":{"app_name":"Quail","title":"Quail Game","is_dlc":false},"QDlc":{"title":"Quail DLC","is_dlc":true}}""");
+    File.WriteAllText(Path.Combine(heroic, "store_cache", "legendary_library.json"), """{"library":[{"app_name":"Quail","title":"Quail Game","art_square":"https://img/q.jpg"}]}""");
+    File.WriteAllText(Path.Combine(heroic, "gog_store", "installed.json"), """{"installed":[{"appName":"1207658924","install_path":"C:\\G"}]}""");
+    File.WriteAllText(Path.Combine(heroic, "store_cache", "gog_library.json"), """{"games":[{"app_name":"1207658924","title":"Witcher","art_square":"https://img/w.jpg"}]}""");
+    File.WriteAllText(Path.Combine(heroic, "sideload_apps", "library.json"),
+        """{"games":[{"app_name":"abc","title":"My App","is_installed":true,"art_square":"https://img/a.jpg"},{"app_name":"old","title":"Gone","is_installed":false}]}""");
+    var heroicGames = StoreGames.Heroic(heroic).Select(g => $"{g.Title}|{g.Path}|{g.ArtUrl}").ToList();
+    if (!heroicGames.SequenceEqual([
+            "Quail Game|heroic://launch?appName=Quail&runner=legendary|https://img/q.jpg",
+            "Witcher|heroic://launch?appName=1207658924&runner=gog|https://img/w.jpg",
+            "My App|heroic://launch?appName=abc&runner=sideload|https://img/a.jpg"]))
+        bad.Add("Heroic games: " + string.Join("; ", heroicGames));
+    if (StoreGames.Heroic(Path.Combine(root, "nope")).Count != 0 || StoreGames.Epic(Path.Combine(root, "nope")).Count != 0) bad.Add("missing launchers");
     if (RomLibrary.Arguments("RetroArch", "x.cue", "PS1") != "-L \"cores\\swanstation_libretro.dll\" \"x.cue\""
         || !RomLibrary.Arguments("RetroArch", "x.nes", "NES · SNES").Contains("mesen_libretro") || RomLibrary.Arguments("RetroArch", "x", "PS2") != "\"x\"") bad.Add("RetroArch args");
     var emu = Path.Combine(root, "emu");

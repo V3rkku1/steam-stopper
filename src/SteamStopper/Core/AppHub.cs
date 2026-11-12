@@ -319,6 +319,14 @@ public static class AppHub
 
     public static ConsoleTile Recomp => Consoles.First(c => c.Name == "RECOMP");
 
+    // PC game launchers whose installed games join the Games library; they start the games themselves.
+    public static readonly ConsoleTile[] Stores =
+    [
+        new("STEAM", "Steam", "#1B2838", []),
+        new("EPIC", "Epic Games", "#2A2A2A", []),
+        new("HEROIC", "Heroic", "#6E3BD4", [])
+    ];
+
     // Ids checked against microsoft/winget-pkgs. "site" opens the official download page (no winget package).
     public static readonly AppOffer[] Emulators =
     [

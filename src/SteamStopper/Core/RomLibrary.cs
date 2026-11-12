@@ -29,6 +29,8 @@ public sealed class Rom : INotifyPropertyChanged
     }
     public string Emulator { get; set; } = "";
     public string CustomCover { get; set; } = "";
+    /// <summary>Store games: their box art, a local file or a web address. Emulator games find theirs by name.</summary>
+    public string ArtUrl { get; set; } = "";
     public DateTime Added { get; set; } = DateTime.Now;
     public DateTime? LastPlayed { get; set; }
     public double PlaySeconds { get; set; }
@@ -40,7 +42,9 @@ public sealed class Rom : INotifyPropertyChanged
         get => _cover;
         set { _cover = value; OnChanged(); }
     }
-    [JsonIgnore] public ConsoleTile? Tile => AppHub.Consoles.FirstOrDefault(c => c.Name == Console);
+    [JsonIgnore] public ConsoleTile? Tile => AppHub.Consoles.Concat(AppHub.Stores).FirstOrDefault(c => c.Name == Console);
+    /// <summary>A Steam, Epic or Heroic game: its path is the launcher link that starts it.</summary>
+    [JsonIgnore] public bool IsLink => Path.Contains("://");
     [JsonIgnore] public string Color => Tile?.Color ?? "#4A4A55";
     [JsonIgnore] public string ConsoleName => Tile?.Maker ?? "Unknown console";
     [JsonIgnore] public string Initials => string.Concat(Title.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpperInvariant(w[0])));
@@ -50,8 +54,8 @@ public sealed class Rom : INotifyPropertyChanged
         : t.Date == DateTime.Today ? "Today" : t.Date == DateTime.Today.AddDays(-1) ? "Yesterday" : t.ToString("d MMM yyyy");
     // Under a cover on the Home shelf: when it was played, or its console when it never was.
     [JsonIgnore] public string ShelfText => LastPlayed is null ? ConsoleName : "Played " + (LastPlayed.Value.Date >= DateTime.Today.AddDays(-1) ? LastPlayedText.ToLowerInvariant() : LastPlayedText);
-    [JsonIgnore] public bool Exists => File.Exists(Path) || Directory.Exists(Path);
-    [JsonIgnore] public string SizeText => File.Exists(Path) ? Format.Bytes(new FileInfo(Path).Length) : Directory.Exists(Path) ? "Game folder" : "File missing";
+    [JsonIgnore] public bool Exists => IsLink || File.Exists(Path) || Directory.Exists(Path);
+    [JsonIgnore] public string SizeText => IsLink ? $"Installed in {ConsoleName}" : File.Exists(Path) ? Format.Bytes(new FileInfo(Path).Length) : Directory.Exists(Path) ? "Game folder" : "File missing";
 
     public void Refresh() => OnChanged(null);
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -459,6 +463,7 @@ public static class RomLibrary
     public static async Task<string?> CoverFor(Rom rom, HttpClient http)
     {
         if (rom.CustomCover.Length > 0 && File.Exists(rom.CustomCover)) return rom.CustomCover;
+        if (rom.IsLink) return await StoreCover(rom, http);
         // PS3, PS4 and PS5 folder dumps carry their own art.
         if (Directory.Exists(rom.Path) && new[] { @"sce_sys\icon0.png", @"PS3_GAME\ICON0.PNG", "ICON0.PNG" }
             .Select(i => System.IO.Path.Combine(rom.Path, i)).FirstOrDefault(File.Exists) is { } icon) return icon;
@@ -498,6 +503,24 @@ public static class RomLibrary
         }
         catch { }
         return null;
+    }
+
+    /// <summary>A store game's art: Steam's own cached file as is, a web address downloaded once and kept.</summary>
+    private static async Task<string?> StoreCover(Rom rom, HttpClient http)
+    {
+        if (rom.ArtUrl.Length == 0) return null;
+        if (!rom.ArtUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return File.Exists(rom.ArtUrl) ? rom.ArtUrl : null;
+        var cached = System.IO.Path.Combine(CoverDir, Safe($"{rom.Console} - {rom.Title}") + ".jpg");
+        if (File.Exists(cached)) return cached;
+        try
+        {
+            using var response = await http.GetAsync(rom.ArtUrl);
+            if (!response.IsSuccessStatusCode) return null;
+            Directory.CreateDirectory(CoverDir);
+            await File.WriteAllBytesAsync(cached, await response.Content.ReadAsByteArrayAsync());
+            return cached;
+        }
+        catch { return null; }
     }
 
     // GameTDB keeps some art only in the full-size folder or under another region, so fall back to those.

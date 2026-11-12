@@ -38,6 +38,7 @@ public partial class MainWindow
             _ = LoadCoversAsync(_library.Games.ToList());
             WatchLibrary();
         }
+        _ = SyncStoreGames();
         // Emulators may have been installed or removed on the Emulators tab since last time.
         _emuInstalled = AppHub.Snapshot(AppHub.Emulators).Where(e => e.LaunchPath is not null).ToList();
         // Games installed inside RPCS3, shadPS4 or Vita3K since last time; once per run, the folder watcher covers the rest.
@@ -77,6 +78,9 @@ public partial class MainWindow
         if (rom is null) return;
         _gamesFilling = true;
         GameConsoleBox.SelectedItem = rom.Tile?.Maker;
+        // A store game's launcher is fixed, so there's no console to pick.
+        GameConsolePanel.Visibility = rom.IsLink ? Visibility.Hidden : Visibility.Visible;
+        GameOpenFolderButton.Visibility = GameSavesButton.Visibility = rom.IsLink ? Visibility.Collapsed : Visibility.Visible;
         var choices = EmulatorsFor(rom);
         GameEmuBox.ItemsSource = choices.Select(e => e.Name).ToList();
         GameEmuBox.SelectedItem = choices.FirstOrDefault()?.Name;
@@ -101,7 +105,7 @@ public partial class MainWindow
     {
         if (GameDetail.DataContext != rom) return; // console mode can play a game whose page isn't open
         var running = _playing.ContainsKey(rom) || _unpackRom == rom;
-        var hasEmu = EmulatorsFor(rom).Count > 0;
+        var hasEmu = rom.IsLink || EmulatorsFor(rom).Count > 0;
         GamePlayButton.Content = running ? "STOP" : hasEmu ? "PLAY" : "GET EMULATOR";
         // Tag switches the button to Steam's blue Stop look, or blue with a download arrow for Get Emulator.
         GamePlayButton.Tag = running ? "Stop" : hasEmu ? null : "Get";
@@ -145,6 +149,21 @@ public partial class MainWindow
             return;
         }
         if (RomLibrary.IsPs5Image(rom.Path) && !await UnpackPs5(rom)) return;
+        if (rom.IsLink)
+        {
+            // Steam, Epic and Heroic start their own games (and count play time themselves).
+            try { Process.Start(new ProcessStartInfo(rom.Path) { UseShellExecute = true })?.Dispose(); }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Could not open {rom.ConsoleName} for {rom.Title}: {ex.Message}";
+                return;
+            }
+            rom.LastPlayed = DateTime.Now;
+            RomLibrary.Save(_library);
+            rom.Refresh();
+            StatusText.Text = $"Starting {rom.Title} in {rom.ConsoleName}.";
+            return;
+        }
         if (LaunchFor(rom) is not { } launch)
         {
             OpenEmulatorsFor(rom.Tile);
@@ -522,6 +541,31 @@ public partial class MainWindow
         });
     }
 
+    /// <summary>Steam, Epic and Heroic games: add new installs and drop ones that were uninstalled.</summary>
+    private async Task SyncStoreGames()
+    {
+        if (_library is null) return;
+        var root = _steamRoot;
+        List<Rom> found;
+        try
+        {
+            found = await Task.Run(() => StoreGames.Steam(root is null ? [] : SteamClient.LibraryPaths(root), root)
+                .Concat(StoreGames.Epic(StoreGames.EpicManifests))
+                .Concat(StoreGames.Heroic(StoreGames.HeroicFolder)).ToList());
+        }
+        catch { return; } // a launcher's files mid-write; next visit tries again
+        var paths = found.Select(g => g.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var gone = _library.Games.Where(g => g.IsLink && !paths.Contains(g.Path)).ToList();
+        var have = _library.Games.Select(g => g.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = found.Where(g => have.Add(g.Path)).ToList();
+        if (gone.Count + added.Count == 0) return;
+        foreach (var game in gone) _library.Games.Remove(game);
+        _library.Games.AddRange(added);
+        RomLibrary.Save(_library);
+        PaintGames();
+        _ = LoadCoversAsync(added);
+    }
+
     /// <summary>Fill in box art one game at a time, so a big library doesn't flood the art server.</summary>
     private async Task LoadCoversAsync(List<Rom> roms)
     {
@@ -539,7 +583,7 @@ public partial class MainWindow
 
     private void GameOpenFolder_Click(object sender, RoutedEventArgs e)
     {
-        if (GameDetail.DataContext is Rom rom && rom.Exists)
+        if (GameDetail.DataContext is Rom rom && rom.Exists && !rom.IsLink)
             Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{rom.Path}\"") { UseShellExecute = true });
     }
 
