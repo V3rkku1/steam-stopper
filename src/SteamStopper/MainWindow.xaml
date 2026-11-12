@@ -35,7 +35,7 @@
         <!-- Scrolls only when the window is too short for the menu and the sidebar footer. -->
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="10,14,10,0">
-          <TextBlock Text="MENU" Style="{StaticResource SectionLabel}" Foreground="{DynamicResource Faint}" Margin="12,0,0,8"
+          <TextBlock Text="MENU" Visibility="Collapsed" Style="{StaticResource SectionLabel}" Foreground="{DynamicResource Faint}" Margin="12,0,0,8"
                      ToolTip="Drag a menu item to move it"/>
           <!-- Drag an item up or down to reorder; the order is saved. -->
           <StackPanel x:Name="NavList" AllowDrop="True" Background="Transparent">
@@ -89,7 +89,7 @@
       </Grid.ColumnDefinitions>
       <StackPanel VerticalAlignment="Center" Margin="28,0,12,0">
         <TextBlock x:Name="PageTitle" Text="Control" FontSize="18" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
-        <TextBlock x:Name="PagePath" Foreground="{DynamicResource Faint}" FontSize="11" Margin="0,1,0,0" TextTrimming="CharacterEllipsis"/>
+        <TextBlock x:Name="PagePath" Visibility="Collapsed" Foreground="{DynamicResource Faint}" FontSize="11" Margin="0,1,0,0" TextTrimming="CharacterEllipsis"/>
       </StackPanel>
       <!-- The pages of the open group (Steam: Control, Downloads, Library…). -->
       <Border x:Name="SubTabBar" Background="{DynamicResource Raised}" CornerRadius="12" Padding="3" HorizontalAlignment="Right" VerticalAlignment="Center"

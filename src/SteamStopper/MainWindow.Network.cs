@@ -50,6 +50,7 @@ public partial class MainWindow
         {
             NetHint.Text = error;
             NetEmpty.Text = "Live numbers per app aren't available on this PC. Blocked apps still show here.";
+            NetGrid.Visibility = _netRows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         }
         PaintNetwork();
     }
