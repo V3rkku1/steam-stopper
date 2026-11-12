@@ -104,6 +104,7 @@ public partial class MainWindow
         var top = order.FirstOrDefault(r => r.Down + r.Up >= 1024);
         NetHeadline.Text = top is null ? "Quiet" : $"{top.Name} is busiest";
         NetEmpty.Visibility = _netRows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        NetGrid.Visibility = _netRows.Count == 0 ? Visibility.Collapsed : Visibility.Visible; // no empty table headers
     }
 
     private async void NetBlock_Click(object sender, RoutedEventArgs e)

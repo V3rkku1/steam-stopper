@@ -122,7 +122,8 @@ public partial class MainWindow : Window
         // apps on proxies that died with it. The watchdog normally fixes that; this covers it being killed too.
         _ = Task.Run(Watchdog.Recover);
 
-        SteamPathText.Text = _steamRoot ?? "Not found";
+        SteamPathText.Text = _steamRoot ?? "Steam not found";
+        SteamPathText.Visibility = _steamRoot is null ? Visibility.Visible : Visibility.Collapsed; // only worth a line when it's a problem
         SteamPathText.ToolTip = _steamRoot;
         ShowPageHeader("home");
         VersionText.Text = "Version " + Updater.Version;
@@ -814,7 +815,7 @@ public partial class MainWindow : Window
         AdminChip.Text = admin ? "administrator" : "standard user";
         AdminChip.Foreground = Brush(admin ? "Muted" : "Amber");
         AdminDot.Fill = Brush(admin ? "Green" : "Amber");
-        ElevateButton.Visibility = admin ? Visibility.Collapsed : Visibility.Visible;
+        ElevateButton.Visibility = AdminRow.Visibility = admin ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async void RefreshFirewallAsync()

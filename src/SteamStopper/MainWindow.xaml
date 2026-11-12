@@ -21,13 +21,11 @@
           </StackPanel>
         </DockPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,16">
-          <TextBlock Text="UPDATES" Style="{StaticResource SectionLabel}" Foreground="{DynamicResource Faint}" Margin="2,0,0,4"/>
-          <TextBlock x:Name="UpdateState" Text="Not checked yet" Foreground="{DynamicResource Muted}" FontSize="11" Margin="2,0,0,6" TextWrapping="Wrap"/>
-          <Button x:Name="UpdateCheckButton" Content="Check for updates" Style="{StaticResource GhostButton}" Margin="0,0,0,14"
+          <TextBlock x:Name="UpdateState" Visibility="Collapsed" Text="Not checked yet" Foreground="{DynamicResource Muted}" FontSize="11" Margin="2,0,0,6" TextWrapping="Wrap"/>
+          <Button x:Name="UpdateCheckButton" Visibility="Collapsed" Content="Check for updates" Style="{StaticResource GhostButton}" Margin="0,0,0,14"
                   HorizontalAlignment="Stretch" Click="UpdateCheck_Click" ToolTip="Look for a new Steam Multitool and new emulator builds now"/>
-          <TextBlock Text="STEAM FOLDER" Style="{StaticResource SectionLabel}" Foreground="{DynamicResource Faint}" Margin="2,0,0,4"/>
-          <TextBlock x:Name="SteamPathText" Foreground="{DynamicResource Muted}" FontSize="11" Margin="2,0,0,14" TextTrimming="CharacterEllipsis"/>
-          <DockPanel>
+          <TextBlock x:Name="SteamPathText" Visibility="Collapsed" Foreground="{DynamicResource Muted}" FontSize="11" Margin="2,0,0,14" TextTrimming="CharacterEllipsis"/>
+          <DockPanel x:Name="AdminRow">
             <Ellipse x:Name="AdminDot" Width="8" Height="8" Fill="{DynamicResource Faint}" VerticalAlignment="Center" Margin="2,0,8,0"/>
             <TextBlock x:Name="AdminChip" Text="standard user" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
           </DockPanel>
@@ -301,7 +299,7 @@
         <Border Style="{StaticResource HeroCard}">
           <DockPanel>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-              <Button x:Name="HomeBlockButton" Style="{StaticResource GhostButton}" Margin="0,0,10,0" Padding="18,10" Click="HomeBlock_Click"/>
+              <Button x:Name="HomeBlockButton" Visibility="Collapsed" Style="{StaticResource GhostButton}" Margin="0,0,10,0" Padding="18,10" Click="HomeBlock_Click"/>
               <Button Content="Open Steam" Style="{StaticResource SafeButton}" Padding="18,10" Click="Launch_Click"/>
             </StackPanel>
             <StackPanel VerticalAlignment="Center" Margin="0,0,24,0">
@@ -469,7 +467,7 @@
           </Grid>
         </Border>
 
-        <UniformGrid Grid.Row="2" Columns="4">
+        <UniformGrid Grid.Row="2" Columns="4" Visibility="Collapsed">
           <Border Style="{StaticResource StatTile}">
             <DockPanel>
               <Border Style="{StaticResource StatIcon}"><TextBlock Style="{StaticResource StatGlyph}" Text="&#xE7FC;"/></Border>
