@@ -340,7 +340,7 @@ public partial class MainWindow : Window
         SubTabs.Children.Clear();
         foreach (var p in pages)
         {
-            var tab = new RadioButton { Content = PageTitles[p].Title, Tag = p, GroupName = "SubTab", Style = (Style)FindResource("Segment"), IsChecked = p == page };
+            var tab = new RadioButton { Content = PageTitles[p].Title, Tag = p, GroupName = "SubTab", Style = (Style)FindResource("TabLink"), IsChecked = p == page };
             tab.Click += (_, _) => GoTo(p);
             SubTabs.Children.Add(tab);
         }

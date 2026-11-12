@@ -113,6 +113,35 @@
       </Setter>
     </Style>
 
+    <!-- Page tabs in the title bar: plain text, the open one underlined. -->
+    <Style x:Key="TabLink" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{DynamicResource Faint}"/>
+      <Setter Property="FontSize" Value="17"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontFamily" Value="{StaticResource DisplayFont}"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin" Value="0,0,22,0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Grid Background="Transparent">
+              <ContentPresenter Margin="0,6,0,8"/>
+              <Border x:Name="Bar" Height="2" CornerRadius="1" VerticalAlignment="Bottom" Background="Transparent"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+                <Setter TargetName="Bar" Property="Background" Value="{DynamicResource Accent}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <Style x:Key="Segment" TargetType="RadioButton">
       <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
       <Setter Property="FontSize" Value="13"/>
