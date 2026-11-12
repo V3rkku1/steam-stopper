@@ -295,7 +295,7 @@ public static class AppHub
         new("PS2", "PlayStation 2", "#1D3A8A", ["PCSX2"]),
         new("PS3", "PlayStation 3", "#2A2A30", ["RPCS3"]),
         new("PS4", "PlayStation 4", "#003791", ["shadPS4"]),
-        new("PS5", "PlayStation 5", "#2D64E6", ["KytyPS5"]),
+        new("PS5", "PlayStation 5", "#2D64E6", ["KytyPS5", "PS5 Dump Forge"]),
         new("PSP", "PlayStation Portable", "#3A3A40", ["PPSSPP", "RetroArch"]),
         new("VITA", "PlayStation Vita", "#1E5BB8", ["Vita3K"]),
         new("SWITCH", "Nintendo Switch", "#E60012", ["Eden", "Ryujinx", "Lichii", "Eglantine"]),
@@ -330,6 +330,8 @@ public static class AppHub
         new() { Name = "Vita3K", Source = new("Vita3K/Vita3K", [@"^windows-latest\.zip$", @"windows.*\.zip$"], "vita3k"), Id = "Vita3K.Vita3K", Match = "Vita3K", Category = "PlayStation", Systems = "PS Vita", Color = "#1F4E9C", Blurb = "Experimental PS Vita emulator." },
         // Releases are KytyPS5-<date>-<sha>-Windows-x64.zip. Play opens kyty_launcher; the Games tab starts kyty_emulator --game.
         new() { Name = "KytyPS5", Source = new("KytyPS5/KytyPS5", [@"Windows-x64\.zip$"], @"^kyty_launcher\.exe$"), Kind = "site", Url = "https://github.com/KytyPS5/KytyPS5/releases", Category = "PS5", Systems = "PlayStation 5", Color = "#1F3A93", Blurb = "Open-source PS5 emulator in active development. Some games run; many don't yet." },
+        // Not an emulator: Play uses its ps5-dump-forge.exe to unpack .ffpfs/.ffpkg images into folders KytyPS5 can run (GPL-3.0, run as its own program).
+        new() { Name = "PS5 Dump Forge", Source = new("quer3q/ps5-dump-forge", [@"windows-x86-64\.zip$"], @"^PS5 Dump Forge\.exe$"), Kind = "site", Url = "https://github.com/quer3q/ps5-dump-forge/releases", Category = "PS5", Systems = "PS5 image converter", Color = "#24467F", Blurb = "Unpacks .ffpfs, .ffpfsc and .ffpkg images so KytyPS5 can play them. Play does it for you once this is installed." },
 
         new() { Name = "Eden", Id = "Utopia.Eden.MSVC", Match = "Eden", Category = "Switch", Systems = "Nintendo Switch", Color = "#E60012", Blurb = "Switch emulator. Needs keys and firmware dumped from your own Switch." },
         new() { Name = "Ryujinx", Source = new("ryubing/ryujinx", [@"win_x64\.zip$", @"win.*x64.*\.zip$"], @"^ryujinx\.exe$", "https://git.ryujinx.app"), Kind = "site", Url = "https://ryujinx.app", Category = "Switch", Systems = "Nintendo Switch", Color = "#C4262E", Blurb = "Switch emulator kept alive by the community. Needs keys from your Switch." },
@@ -588,7 +590,7 @@ public static class AppHub
             "Microsoft", "WindowsApps", "winget.exe");
         if (File.Exists(local)) return local;
         var result = Run("where", "winget");
-        var line = result.Text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        var line = result.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
         return File.Exists(line) ? line : null;
     }
 
@@ -670,7 +672,7 @@ public static class AppHub
 
     private static string Trim(string text)
     {
-        var line = text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+        var line = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
             .LastOrDefault(s => s.Trim().Length > 0);
         return line?.Trim() ?? "";
     }

@@ -89,6 +89,8 @@ public sealed class DownloadWatcher
         _idleSince = null;
     }
 
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTime Stamp, long Length, Dictionary<string, object> App)> Parsed = new(StringComparer.OrdinalIgnoreCase);
+
     public static List<DownloadJob> ListJobs(string steamRoot, bool includeQueued)
     {
         var jobs = new List<DownloadJob>();
@@ -98,10 +100,19 @@ public sealed class DownloadWatcher
             if (!Directory.Exists(apps)) continue;
             foreach (var acf in Directory.EnumerateFiles(apps, "appmanifest_*.acf"))
             {
-                Dictionary<string, object> data;
-                try { data = Vdf.Parse(File.ReadAllText(acf)); }
+                Dictionary<string, object> app;
+                try
+                {
+                    // Polled every second: re-parse only manifests Steam rewrote since the last look.
+                    var info = new FileInfo(acf);
+                    if (!Parsed.TryGetValue(acf, out var hit) || hit.Stamp != info.LastWriteTimeUtc || hit.Length != info.Length)
+                    {
+                        var data = Vdf.Parse(File.ReadAllText(acf));
+                        Parsed[acf] = hit = (info.LastWriteTimeUtc, info.Length, data.TryGetValue("AppState", out var state) ? Vdf.AsObject(state) : data);
+                    }
+                    app = hit.App;
+                }
                 catch { continue; }
-                var app = data.TryGetValue("AppState", out var state) ? Vdf.AsObject(state) : data;
                 var flags = (int)Vdf.GetLong(app, "StateFlags");
                 var downloaded = Vdf.GetLong(app, "BytesDownloaded");
                 var total = Vdf.GetLong(app, "BytesToDownload");

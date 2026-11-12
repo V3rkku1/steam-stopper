@@ -15,8 +15,16 @@ public static class Dialog
         MessageBoxButton buttons = MessageBoxButton.OK, MessageBoxImage icon = MessageBoxImage.None) =>
         Show(null, text, caption, buttons, icon);
 
+    /// <summary>Ask for a line of text. Null when cancelled or left empty.</summary>
+    public static string? Ask(Window? owner, string text, string caption, string value)
+    {
+        var field = new TextBox { Text = value, Padding = new Thickness(12, 8, 12, 8), Margin = new Thickness(0, 14, 0, 0) };
+        field.Loaded += (_, _) => { field.Focus(); field.SelectAll(); };
+        return Show(owner, text, caption, MessageBoxButton.OKCancel, MessageBoxImage.None, field) == MessageBoxResult.OK && field.Text.Trim() is { Length: > 0 } t ? t : null;
+    }
+
     public static MessageBoxResult Show(Window? owner, string text, string caption = "Steam Multitool",
-        MessageBoxButton buttons = MessageBoxButton.OK, MessageBoxImage icon = MessageBoxImage.None)
+        MessageBoxButton buttons = MessageBoxButton.OK, MessageBoxImage icon = MessageBoxImage.None, TextBox? field = null)
     {
         var result = buttons is MessageBoxButton.YesNo ? MessageBoxResult.No : buttons is MessageBoxButton.OK ? MessageBoxResult.OK : MessageBoxResult.Cancel;
         owner ??= Application.Current?.MainWindow is { IsVisible: true } main ? main : null;
@@ -99,6 +107,7 @@ public static class Dialog
                 {
                     header,
                     new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)window.FindResource("Muted"), LineHeight = 19 },
+                    (UIElement?)field ?? new Border(),
                     row
                 }
             }

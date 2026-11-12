@@ -30,6 +30,128 @@ if (args is ["--live"])
 }
 
 
+// dotnet run -- --covers "God of War" PS2: what the cover picker finds, live.
+if (args is ["--covers", var q, var console])
+{
+    using var h = new System.Net.Http.HttpClient();
+    foreach (var c in await RomLibrary.SearchCovers(console, q, h, 10)) Console.WriteLine($"{c.Rank} {c.Source,-28} {c.Name}  {c.Urls[0]}");
+    return 0;
+}
+// dotnet run -- --roms: game library sniffing of .pkg files, PARAM.SFO titles and PS3/PS4 folder dumps.
+if (args is ["--roms"])
+{
+    var root = Path.Combine(Path.GetTempPath(), "roms-" + Guid.NewGuid().ToString("N"));
+    // A PARAM.SFO with text values: header, one 16-byte entry per value, then the key and data tables.
+    static byte[] Sfo(string title, params (string Key, string Value)[] more)
+    {
+        var all = more.Prepend((Key: "TITLE", Value: title)).ToArray();
+        var keys = all.Select(a => System.Text.Encoding.ASCII.GetBytes(a.Key + "\0")).ToArray();
+        var values = all.Select(a => System.Text.Encoding.UTF8.GetBytes(a.Value + "\0")).ToArray();
+        int keyStart = 20 + 16 * all.Length, dataStart = keyStart + keys.Sum(k => k.Length);
+        var b = new byte[dataStart + values.Sum(v => v.Length)];
+        "\0PSF"u8.CopyTo(b);
+        BitConverter.GetBytes(keyStart).CopyTo(b, 8);
+        BitConverter.GetBytes(dataStart).CopyTo(b, 12);
+        BitConverter.GetBytes(all.Length).CopyTo(b, 16);
+        int k = 0, d = 0;
+        for (var i = 0; i < all.Length; i++)
+        {
+            var e = 20 + i * 16;
+            BitConverter.GetBytes((ushort)k).CopyTo(b, e);
+            BitConverter.GetBytes(values[i].Length).CopyTo(b, e + 4);
+            BitConverter.GetBytes(d).CopyTo(b, e + 12);
+            keys[i].CopyTo(b, keyStart + k);
+            values[i].CopyTo(b, dataStart + d);
+            k += keys[i].Length;
+            d += values[i].Length;
+        }
+        return b;
+    }
+    void Put(string path, byte[] bytes) { Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllBytes(path, bytes); }
+    byte[] Pkg(string magic, byte platform, string contentId)
+    {
+        var b = new byte[2048];
+        System.Text.Encoding.Latin1.GetBytes(magic).CopyTo(b, 0);
+        b[7] = platform;
+        System.Text.Encoding.ASCII.GetBytes(contentId).CopyTo(b, 0x30);
+        return b;
+    }
+    Put(Path.Combine(root, "ps4", "eboot.bin"), [1]);
+    Put(Path.Combine(root, "ps4", "sce_sys", "param.sfo"), Sfo("Bloodborne"));
+    Put(Path.Combine(root, "ps3disc", "PS3_GAME", "USRDIR", "EBOOT.BIN"), [1]);
+    Put(Path.Combine(root, "ps3disc", "PS3_GAME", "PARAM.SFO"), Sfo("Demon's Souls"));
+    Put(Path.Combine(root, "NPUB30001", "USRDIR", "EBOOT.BIN"), [1]);
+    Put(Path.Combine(root, "NPUB30001", "PARAM.SFO"), Sfo("Flower"));
+    Put(Path.Combine(root, "a.pkg"), Pkg("\u007FCNT", 0, ""));
+    Put(Path.Combine(root, "b.pkg"), Pkg("\u007FPKG", 1, "UP9000-BCUS98174_00-0000000000000000"));
+    Put(Path.Combine(root, "c.pkg"), Pkg("\u007FPKG", 2, "UP9000-PCSA00001_00-0000000000000000"));
+    Put(Path.Combine(root, "d.pkg"), Pkg("\u007FPKG", 2, "UP9000-ULUS10041_00-0000000000000000"));
+    Put(Path.Combine(root, "e.pkg"), [1, 2, 3]);
+    Put(Path.Combine(root, "f.vpk"), [1]);
+    Put(Path.Combine(root, "PCSE00001", "eboot.bin"), [1]);
+    Put(Path.Combine(root, "PCSE00001", "sce_sys", "param.sfo"), Sfo("Gravity Rush", ("TITLE_ID", "PCSE00001")));
+    Put(Path.Combine(root, "BLUS30443", "USRDIR", "EBOOT.BIN"), [1]);
+    Put(Path.Combine(root, "BLUS30443", "PARAM.SFO"), Sfo("Demon's Souls update", ("CATEGORY", "GD")));
+    Put(Path.Combine(root, "BCUS98174", "USRDIR", "EBOOT.BIN"), [1]);
+    Put(Path.Combine(root, "BCUS98174", "PARAM.SFO"), Sfo("Uncharted", ("CATEGORY", "HG")));
+    Put(Path.Combine(root, "ps2", "Okami.chd"), [1]);
+    Put(Path.Combine(root, "Sega Dreamcast", "Shenmue.m3u"), [1]);
+    Put(Path.Combine(root, "Crash.chd"), [1]);
+    var pkgStore = new RomLibrary.Store { Folders = [root] };
+    RomLibrary.Scan(pkgStore);
+    var got = pkgStore.Games.ToDictionary(g => Path.GetRelativePath(root, g.Path), g => $"{g.Console}|{g.Title}");
+    var want = new Dictionary<string, string>
+    {
+        ["ps4"] = "PS4|Bloodborne", ["ps3disc"] = "PS3|Demon's Souls", ["NPUB30001"] = "PS3|Flower",
+        ["a.pkg"] = "PS4|a", ["b.pkg"] = "PS3|b", ["c.pkg"] = "VITA|c", ["d.pkg"] = "|d", ["e.pkg"] = "|e", ["f.vpk"] = "VITA|f",
+        ["PCSE00001"] = "VITA|Gravity Rush", ["BCUS98174"] = "PS3|Uncharted",
+        [Path.Combine("ps2", "Okami.chd")] = "PS2|Okami", [Path.Combine("Sega Dreamcast", "Shenmue.m3u")] = "DREAMCAST|Shenmue", ["Crash.chd"] = "PS1|Crash"
+    };
+    var bad = want.Where(w => !got.TryGetValue(w.Key, out var g) || g != w.Value).Select(w => $"{w.Key}: want {w.Value}, got {got.GetValueOrDefault(w.Key)}")
+        .Concat(got.Keys.Except(want.Keys).Select(k => $"unexpected {k}")).ToList();
+    if (RomLibrary.Arguments("RPCS3", Path.Combine(root, "b.pkg")) != "") bad.Add("pkg should launch without arguments");
+    if (RomLibrary.Arguments("shadPS4", "C:\\g") != "-g \"C:\\g\\eboot.bin\"") bad.Add("shadPS4 args");
+    if (RomLibrary.InstalledPackages(pkgStore.Games).Select(g => Path.GetFileName(g.Path)).SingleOrDefault() != "b.pkg") bad.Add("installed b.pkg should be the one hidden");
+    if (RomLibrary.Arguments("Vita3K", "/g/ux0/app/PCSE00001") != "-r PCSE00001") bad.Add("Vita3K args");
+    if (RomLibrary.ConsoleOf("x/Game.ffpfs") != "PS5" || !RomLibrary.IsPs5Image("x/Game.FFPKG") || RomLibrary.IsPs5Image("x/Game.zar")) bad.Add("ffpfs is a PS5 image");
+    if (RomLibrary.UnpackedDir(Path.Combine("g", "Game.ffpfs")) != Path.Combine("g", "Game")) bad.Add("ffpfs unpacks next to itself");
+    if (RomLibrary.UnpackProgress("""{"kind":"progress","job":1,"stage":"write","done":50,"total":200}""") != (50UL, 200UL)
+        || RomLibrary.UnpackProgress("""{"kind":"progress","job":1,"stage":"scan","done":0,"total":0}""") is not null
+        || RomLibrary.UnpackProgress("""{"kind":"log","job":1,"line":"x"}""") is not null || RomLibrary.UnpackProgress("not json") is not null) bad.Add("Dump Forge progress");
+    var imageDir = Directory.CreateDirectory(Path.Combine(root, "img")).FullName;
+    File.WriteAllText(Path.Combine(imageDir, "Packed.ffpfs"), "");
+    File.WriteAllText(Path.Combine(imageDir, "Done.ffpfs"), "");
+    Directory.CreateDirectory(Path.Combine(imageDir, "Done"));
+    var imageStore = new RomLibrary.Store { Folders = [imageDir] };
+    RomLibrary.Scan(imageStore);
+    if (imageStore.Games.Select(g => Path.GetFileName(g.Path)).SingleOrDefault() != "Packed.ffpfs") bad.Add("unpacked image not listed twice");
+    // A part from a Forge that's gone is deleted; one still being written is kept and reported.
+    Directory.CreateDirectory(Path.Combine(imageDir, "Packed.1-111.part"));
+    Directory.CreateDirectory(Path.Combine(imageDir, "Packed.1-222.part"));
+    Directory.CreateDirectory(Path.Combine(imageDir, "Packed.ffpfs.1-333.part")); // another output's part: not ours
+    var live = RomLibrary.UnpackLeftovers(Path.Combine(imageDir, "Packed"), pid => pid == 222);
+    if (live != 222 || Directory.Exists(Path.Combine(imageDir, "Packed.1-111.part")) || !Directory.Exists(Path.Combine(imageDir, "Packed.1-222.part"))
+        || !Directory.Exists(Path.Combine(imageDir, "Packed.ffpfs.1-333.part"))) bad.Add("unpack leftovers");
+    // A chosen unpack folder: the image's game goes there by name.
+    var unpackTo = Directory.CreateDirectory(Path.Combine(root, "unpacked")).FullName;
+    RomLibrary.UnpackRoot = unpackTo;
+    var into = RomLibrary.UnpackedDir(Path.Combine(imageDir, "Packed.ffpfs"));
+    RomLibrary.UnpackRoot = "";
+    if (into != Path.Combine(unpackTo, "Packed")) bad.Add("unpack folder setting");
+    if (RomLibrary.Arguments("RetroArch", "x.cue", "PS1") != "-L \"cores\\swanstation_libretro.dll\" \"x.cue\""
+        || !RomLibrary.Arguments("RetroArch", "x.nes", "NES · SNES").Contains("mesen_libretro") || RomLibrary.Arguments("RetroArch", "x", "PS2") != "\"x\"") bad.Add("RetroArch args");
+    var emu = Path.Combine(root, "emu");
+    Put(Path.Combine(emu, "user", "config.toml"), System.Text.Encoding.UTF8.GetBytes($"[GUI]\ninstallDirs = [\"{root.Replace("\\", "\\\\")}\", \"/nope\"]\n"));
+    Directory.CreateDirectory(Path.Combine(emu, "dev_hdd0", "game"));
+    if (!RomLibrary.EmulatorGameFolders("shadPS4", Path.Combine(emu, "shadPS4.exe")).SequenceEqual([root])) bad.Add("shadPS4 install dirs from config.toml");
+    if (!RomLibrary.EmulatorGameFolders("RPCS3", Path.Combine(emu, "rpcs3.exe")).SequenceEqual([Path.Combine(emu, "dev_hdd0", "game")])) bad.Add("RPCS3 game folder");
+    Directory.Delete(root, true);
+    bad.ForEach(Console.WriteLine);
+    Console.WriteLine(bad.Count == 0 ? "ROMS OK" : $"{bad.Count} ROM CHECKS FAILED");
+    return bad.Count;
+}
+
+
 var data = RandomNumberGenerator.GetBytes(40 * 1024 * 1024 + 12345);
 var sha = Convert.ToHexString(SHA256.HashData(data));
 var rnd = new Random(1);
@@ -320,11 +442,11 @@ Check("titles put a moved article back in front", RomLibrary.TitleOf("Legend of 
 Check("titles drop region and dump tags", RomLibrary.TitleOf("Super Mario 64 (USA) [!].z64") == "Super Mario 64" && RomLibrary.TitleOf("Zelda_TOTK.nsp") == "Zelda TOTK");
 var store = new RomLibrary.Store { Folders = [roms] };
 var found = RomLibrary.Scan(store);
-Check("PS5 folder dump: titled from param.json; PS4 folder and its eboot not added",
+Check("PS5 folder dump: titled from param.json; PS4 folder named after itself without a title; no eboot added",
     store.Games.Any(g => g.Path == astro && g.Title == "ASTRO BOT" && g.Console == "PS5")
-    && !store.Games.Any(g => g.Path.StartsWith(ps4)) && !store.Games.Any(g => g.Path.EndsWith("eboot.bin")));
+    && store.Games.Any(g => g.Path == ps4 && g.Title == "CUSA00001" && g.Console == "PS4") && !store.Games.Any(g => g.Path.EndsWith("eboot.bin")));
 Check(".zar is PS5", store.Games.Any(g => g.Title == "Demon's Souls" && g.Console == "PS5"));
-Check($"scan finds 13 games, second scan finds none (got {found})", found == 13 && RomLibrary.Scan(store) == 0);
+Check($"scan finds 14 games, second scan finds none (got {found})", found == 14 && RomLibrary.Scan(store) == 0);
 var art = RomLibrary.ByKey(["Legend of Zelda, The - Ocarina of Time (Europe)", "Legend of Zelda, The - Ocarina of Time (USA) (Beta)",
     "Legend of Zelda, The - Ocarina of Time (USA)", "Mario Kart 64 (USA)"]);
 Check("cover art matches loose file names, USA release first",
@@ -351,6 +473,23 @@ Check("switch covers: scene file name finds the US release",
     RomLibrary.TdbPick("Super Mario Odyssey [0100000000010000][v0]", "Super Mario Odyssey", tdbGames) == ("AAACA", "US")
     && RomLibrary.TdbPick("Mario and Sonic", "Mario and Sonic", tdbGames) == ("AT4AB", "EN")
     && RomLibrary.TdbPick("Unknown Game", "Unknown Game", tdbGames) is null);
+var ps3Tdb = RomLibrary.TdbByKey(RomLibrary.TdbLines("""
+<game name="God of War HD (EN)">
+		<id>NPUA80490</id>
+		<type>SEN</type>
+		<region/>
+<game name="God of War Collection (USA) (EN)">
+		<id>BCUS98229</id>
+		<type>PS3</type>
+		<region>NTSC-U</region>
+"""));
+Check("ps3 covers: PSN games without a region, NTSC-U is US, found by title or by id in a pkg name",
+    RomLibrary.TdbPick("God of War HD", "God of War® HD", ps3Tdb) == ("NPUA80490", "EN")
+    && RomLibrary.TdbPick("God of War Collection", "God of War Collection", ps3Tdb) == ("BCUS98229", "US")
+    && RomLibrary.TitleId("UP9000-NPUA80490_00-GODOFWARHD000001.pkg") is "NPUA80490" && RomLibrary.TdbPick("x", "x", ps3Tdb, "NPUA80490") == ("NPUA80490", "EN"));
+Check("cover search words: articles moved and dropped, symbols split",
+    RomLibrary.Words("Legend of Zelda, The - Ocarina of Time (USA)").SequenceEqual(["legend", "of", "zelda", "ocarina", "of", "time"])
+    && RomLibrary.Words("God of War® HD").SequenceEqual(["god", "of", "war", "hd"]));
 var saveApp = Path.Combine(Path.GetTempPath(), "ss-saves-" + Guid.NewGuid().ToString("N"));
 SaveBackup.Places["TestEmu"] = [@"{app}\saves", @"{app}\missing"];
 Directory.CreateDirectory(Path.Combine(saveApp, "saves", "slot1"));

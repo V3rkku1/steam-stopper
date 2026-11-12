@@ -1,7 +1,8 @@
-## Faster Fetch
+## PS5 unpacking
 
-- **No more crawl at 99%**: near the end, idle connections split the last pieces between them down to 128 KB, instead of leaving the final megabytes on one slow connection.
-- **Auto connections ramp up faster**: start with 6 and add 4 every 2 seconds while the download keeps getting faster (up to 32).
+- **Choose where games unpack**: Settings → PS5 unpack folder. Pick a fast drive with free space; the default is still next to the image.
+- **Speed and time left** show while a game unpacks, and **Play turns into Stop**.
+- **Closing the app mid-unpack** no longer starts it over: Play waits for the unpack still running. A stopped or interrupted unpack starts again from the beginning (PS5 Dump Forge can't resume), and its half-written folder is cleaned up.
 
 ## Downloads
 

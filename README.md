@@ -27,6 +27,28 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.13
+
+- **PS5 unpacking**: choose the unpack folder, see speed and time left, stop an unpack, and pick up one still running after the app closed.
+
+## What's new in 2.5.12
+
+- **PS5 images**: .ffpfs, .ffpfsc and .ffpkg games appear in Games, and Play unpacks them for KytyPS5 with PS5 Dump Forge.
+
+## What's new in 2.5.11
+
+- **New look**: near-black theme with a blue accent, flat cards, a simpler sidebar and plain text tabs.
+- **Switch 2 covers** from Nintendo's eShop, and a lighter download watcher.
+
+## What's new in 2.5.10
+
+- **Covers you can pick**: Change cover searches every box art source and shows what it found; Find missing covers goes through every game without one. PS3 covers now come from GameTDB too.
+- **Games tab**: rename games, `.pkg` games get their real name, games installed in RPCS3, shadPS4 and Vita3K appear by themselves, RetroArch can start games, and PS2/Dreamcast `.chd` files sort by folder.
+
+## What's new in 2.5.9
+
+- **More game files in Games**: PS3, PS4 and Vita `.pkg`, Vita `.vpk`, PS3 and PS4 game folders (titled and with their own icon), plus `.nro`, `.cxi`, `.wad`, `.gcm` and `.fds`. RPCS3, shadPS4 and Vita3K can now start games.
+
 ## What's new in 2.5.8
 
 - **Faster Fetch**: no more crawl at 99% (idle connections help finish the last pieces), and Auto connections reach full speed sooner.

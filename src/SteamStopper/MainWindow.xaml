@@ -21,13 +21,11 @@
           </StackPanel>
         </DockPanel>
         <StackPanel DockPanel.Dock="Bottom" Margin="16,0,16,16">
-          <TextBlock Text="UPDATES" Style="{StaticResource SectionLabel}" Foreground="{DynamicResource Faint}" Margin="2,0,0,4"/>
-          <TextBlock x:Name="UpdateState" Text="Not checked yet" Foreground="{DynamicResource Muted}" FontSize="11" Margin="2,0,0,6" TextWrapping="Wrap"/>
-          <Button x:Name="UpdateCheckButton" Content="Check for updates" Style="{StaticResource GhostButton}" Margin="0,0,0,14"
+          <TextBlock x:Name="UpdateState" Visibility="Collapsed" Text="Not checked yet" Foreground="{DynamicResource Muted}" FontSize="11" Margin="2,0,0,6" TextWrapping="Wrap"/>
+          <Button x:Name="UpdateCheckButton" Visibility="Collapsed" Content="Check for updates" Style="{StaticResource GhostButton}" Margin="0,0,0,14"
                   HorizontalAlignment="Stretch" Click="UpdateCheck_Click" ToolTip="Look for a new Steam Multitool and new emulator builds now"/>
-          <TextBlock Text="STEAM FOLDER" Style="{StaticResource SectionLabel}" Foreground="{DynamicResource Faint}" Margin="2,0,0,4"/>
-          <TextBlock x:Name="SteamPathText" Foreground="{DynamicResource Muted}" FontSize="11" Margin="2,0,0,14" TextTrimming="CharacterEllipsis"/>
-          <DockPanel>
+          <TextBlock x:Name="SteamPathText" Visibility="Collapsed" Foreground="{DynamicResource Muted}" FontSize="11" Margin="2,0,0,14" TextTrimming="CharacterEllipsis"/>
+          <DockPanel x:Name="AdminRow">
             <Ellipse x:Name="AdminDot" Width="8" Height="8" Fill="{DynamicResource Faint}" VerticalAlignment="Center" Margin="2,0,8,0"/>
             <TextBlock x:Name="AdminChip" Text="standard user" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
           </DockPanel>
@@ -37,7 +35,7 @@
         <!-- Scrolls only when the window is too short for the menu and the sidebar footer. -->
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="10,14,10,0">
-          <TextBlock Text="MENU" Style="{StaticResource SectionLabel}" Foreground="{DynamicResource Faint}" Margin="12,0,0,8"
+          <TextBlock Text="MENU" Visibility="Collapsed" Style="{StaticResource SectionLabel}" Foreground="{DynamicResource Faint}" Margin="12,0,0,8"
                      ToolTip="Drag a menu item to move it"/>
           <!-- Drag an item up or down to reorder; the order is saved. -->
           <StackPanel x:Name="NavList" AllowDrop="True" Background="Transparent">
@@ -90,14 +88,24 @@
         <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
       <StackPanel VerticalAlignment="Center" Margin="28,0,12,0">
-        <TextBlock x:Name="PageTitle" Text="Control" FontSize="18" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}"/>
-        <TextBlock x:Name="PagePath" Foreground="{DynamicResource Faint}" FontSize="11" Margin="0,1,0,0" TextTrimming="CharacterEllipsis"/>
+        <!-- A group with several pages shows its tabs in place of the title. -->
+        <TextBlock x:Name="PageTitle" Text="Control" FontSize="18" FontWeight="SemiBold" FontFamily="{StaticResource DisplayFont}">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding Visibility, ElementName=SubTabBar}" Value="Visible">
+                  <Setter Property="Visibility" Value="Collapsed"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+        </TextBlock>
+        <TextBlock x:Name="PagePath" Visibility="Collapsed" Foreground="{DynamicResource Faint}" FontSize="11" Margin="0,1,0,0" TextTrimming="CharacterEllipsis"/>
+        <!-- The pages of the open group (Steam: Control, Downloads, Library…). -->
+        <Border x:Name="SubTabBar" HorizontalAlignment="Left" Visibility="Collapsed" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+          <StackPanel x:Name="SubTabs" Orientation="Horizontal"/>
+        </Border>
       </StackPanel>
-      <!-- The pages of the open group (Steam: Control, Downloads, Library…). -->
-      <Border x:Name="SubTabBar" Background="{DynamicResource Raised}" CornerRadius="12" Padding="3" HorizontalAlignment="Right" VerticalAlignment="Center"
-              Margin="0,0,16,0" Visibility="Collapsed" shell:WindowChrome.IsHitTestVisibleInChrome="True">
-        <StackPanel x:Name="SubTabs" Orientation="Horizontal"/>
-      </Border>
       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top"
                   shell:WindowChrome.IsHitTestVisibleInChrome="True">
         <Button x:Name="SettingsButton" Style="{StaticResource CaptionButton}" Click="Settings_Click" ToolTip="Settings">
@@ -230,6 +238,20 @@
             </StackPanel>
           </Border>
           <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="Next to image" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="UnpackFolderReset_Click"/>
+                <Button Content="Change" Style="{StaticResource SmallPrimary}" Click="UnpackFolder_Click"/>
+              </StackPanel>
+              <StackPanel Margin="0,0,12,0">
+                <TextBlock Text="PS5 UNPACK FOLDER" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                <TextBlock Text="Where Play unpacks .ffpfs, .ffpfsc and .ffpkg games for KytyPS5. A fast drive with free space makes it quicker."
+                           Foreground="{DynamicResource Faint}" FontSize="12" TextWrapping="Wrap"/>
+                <TextBlock x:Name="UnpackFolderText" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,6,0,0" TextTrimming="CharacterEllipsis"/>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
             <StackPanel>
               <DockPanel Margin="0,0,0,10">
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -301,7 +323,7 @@
         <Border Style="{StaticResource HeroCard}">
           <DockPanel>
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-              <Button x:Name="HomeBlockButton" Style="{StaticResource GhostButton}" Margin="0,0,10,0" Padding="18,10" Click="HomeBlock_Click"/>
+              <Button x:Name="HomeBlockButton" Visibility="Collapsed" Style="{StaticResource GhostButton}" Margin="0,0,10,0" Padding="18,10" Click="HomeBlock_Click"/>
               <Button Content="Open Steam" Style="{StaticResource SafeButton}" Padding="18,10" Click="Launch_Click"/>
             </StackPanel>
             <StackPanel VerticalAlignment="Center" Margin="0,0,24,0">
@@ -469,7 +491,7 @@
           </Grid>
         </Border>
 
-        <UniformGrid Grid.Row="2" Columns="4">
+        <UniformGrid Grid.Row="2" Columns="4" Visibility="Collapsed">
           <Border Style="{StaticResource StatTile}">
             <DockPanel>
               <Border Style="{StaticResource StatIcon}"><TextBlock Style="{StaticResource StatGlyph}" Text="&#xE7FC;"/></Border>
@@ -1344,10 +1366,7 @@
                 <ControlTemplate TargetType="Button">
                   <Border x:Name="Bd" CornerRadius="6" Padding="26,0">
                     <Border.Background>
-                      <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                        <GradientStop Color="#75B022" Offset="0"/>
-                        <GradientStop Color="#588A1B" Offset="1"/>
-                      </LinearGradientBrush>
+                      <SolidColorBrush Color="#75B022"/>
                     </Border.Background>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                       <Path x:Name="Icon" Data="M0,0 L12,7 L0,14 Z" Fill="White" Margin="0,0,12,0" VerticalAlignment="Center"/>
@@ -1358,10 +1377,7 @@
                     <Trigger Property="IsMouseOver" Value="True">
                       <Setter TargetName="Bd" Property="Background">
                         <Setter.Value>
-                          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#8ED629" Offset="0"/>
-                            <GradientStop Color="#6BA51F" Offset="1"/>
-                          </LinearGradientBrush>
+                          <SolidColorBrush Color="#8ED629"/>
                         </Setter.Value>
                       </Setter>
                     </Trigger>
@@ -1369,10 +1385,7 @@
                       <Setter TargetName="Icon" Property="Data" Value="M5,0 H9 V7 H13 L7,13 L1,7 H5 Z"/>
                       <Setter TargetName="Bd" Property="Background">
                         <Setter.Value>
-                          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#1A9FFF" Offset="0"/>
-                            <GradientStop Color="#1567D6" Offset="1"/>
-                          </LinearGradientBrush>
+                          <SolidColorBrush Color="#1A9FFF"/>
                         </Setter.Value>
                       </Setter>
                     </Trigger>
@@ -1380,10 +1393,7 @@
                       <Setter TargetName="Icon" Property="Data" Value="M0,0 H12 V12 H0 Z"/>
                       <Setter TargetName="Bd" Property="Background">
                         <Setter.Value>
-                          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#1A9FFF" Offset="0"/>
-                            <GradientStop Color="#1567D6" Offset="1"/>
-                          </LinearGradientBrush>
+                          <SolidColorBrush Color="#1A9FFF"/>
                         </Setter.Value>
                       </Setter>
                     </Trigger>
@@ -1394,10 +1404,7 @@
                       </MultiTrigger.Conditions>
                       <Setter TargetName="Bd" Property="Background">
                         <Setter.Value>
-                          <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#47B4FF" Offset="0"/>
-                            <GradientStop Color="#2A7FEA" Offset="1"/>
-                          </LinearGradientBrush>
+                          <SolidColorBrush Color="#47B4FF"/>
                         </Setter.Value>
                       </Setter>
                     </MultiTrigger>
@@ -1428,6 +1435,8 @@
               <Button Content="Steam" Style="{StaticResource SmallButton}" Margin="4,0,0,0" Click="GamesToSteam_Click"
                       ToolTip="Add these games to Steam as non-Steam games, with box art, so they start from your Steam library and Big Picture"/>
             </UniformGrid>
+            <Button DockPanel.Dock="Bottom" Content="Find missing covers" Style="{StaticResource LinkButton}" HorizontalAlignment="Left" Margin="8,6,0,0" Click="GamesFixCovers_Click"
+                    ToolTip="Pick box art for every game that has none, one after another"/>
             <TextBlock x:Name="GamesCount" DockPanel.Dock="Bottom" Foreground="{DynamicResource Faint}" FontSize="11" Margin="8,8,0,0"/>
             <Grid DockPanel.Dock="Top" Margin="0,0,4,10">
               <TextBox x:Name="GameSearchBox" TextChanged="GameSearch_Changed"/>
@@ -1481,11 +1490,6 @@
               <!-- Clipped in code to the card's rounded corners; ClipToBounds alone leaves square ones. -->
               <Grid DockPanel.Dock="Top" Height="290" SizeChanged="GameHero_SizeChanged">
                 <Border Background="{Binding Color, Converter={StaticResource HexBrush}}"/>
-                <Image Source="{Binding Cover, TargetNullValue={x:Null}}" Stretch="UniformToFill" Opacity="0.6" Margin="-40">
-                  <Image.Effect>
-                    <BlurEffect Radius="50"/>
-                  </Image.Effect>
-                </Image>
                 <!-- Darken the top a little, fade into the card colour at the bottom (whatever the theme). -->
                 <Border Background="#33000000"/>
                 <Border Background="{DynamicResource Card}">
@@ -1499,9 +1503,6 @@
                 <DockPanel Margin="30,24,30,22" VerticalAlignment="Bottom">
                   <Grid Width="150" Height="200" Margin="0,0,24,0">
                     <Border CornerRadius="8" Background="{Binding Color, Converter={StaticResource HexBrush}}">
-                      <Border.Effect>
-                        <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.5"/>
-                      </Border.Effect>
                       <TextBlock Text="{Binding Tile.Name, FallbackValue=?}" Foreground="White" FontSize="26" FontWeight="Black" FontFamily="{StaticResource DisplayFont}"
                                  TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10"/>
                     </Border>
@@ -1593,7 +1594,9 @@
                   <TextBlock Text="{Binding Path}" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,0,0,18"/>
                   <WrapPanel>
                     <Button Content="Open file location" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameOpenFolder_Click"/>
-                    <Button Content="Set cover image" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameCover_Click"/>
+                    <Button Content="Rename" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameRename_Click"/>
+                    <Button Content="Change cover" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameCover_Click"
+                            ToolTip="Search box art for this game and pick one, or use an image file."/>
                     <Button Content="Back up saves" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameSaves_Click"
                             ToolTip="Zip the saves of this game's emulator. Restore is in Settings."/>
                     <Button Content="Remove from library" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameRemove_Click"
@@ -1668,26 +1671,12 @@
                           <ScaleTransform/>
                         </Grid.RenderTransform>
                         <Border CornerRadius="16" Background="{Binding Color, Converter={StaticResource HexBrush}}"/>
-                        <!-- Light from the top left, shade to the bottom right. -->
-                        <Border CornerRadius="16">
-                          <Border.Background>
-                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                              <GradientStop Color="#33FFFFFF" Offset="0"/>
-                              <GradientStop Color="#00000000" Offset="0.45"/>
-                              <GradientStop Color="#66000000" Offset="1"/>
-                            </LinearGradientBrush>
-                          </Border.Background>
-                        </Border>
-                        <Ellipse Width="130" Height="130" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-46,-58" Fill="#14FFFFFF"/>
                         <Border x:Name="Ring" CornerRadius="16" BorderBrush="#40FFFFFF" BorderThickness="1"/>
                         <DockPanel Margin="16,14">
                           <TextBlock DockPanel.Dock="Bottom" Text="{Binding CountText}" Foreground="#D8FFFFFF" FontSize="11" FontWeight="SemiBold"/>
                           <TextBlock DockPanel.Dock="Bottom" Text="{Binding Maker}" Foreground="#B0FFFFFF" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,0,0,2"/>
                           <Viewbox HorizontalAlignment="Left" VerticalAlignment="Top" StretchDirection="DownOnly" MaxHeight="40">
                             <TextBlock Text="{Binding Name}" Foreground="White" FontFamily="{StaticResource DisplayFont}" FontSize="30" FontWeight="Black">
-                              <TextBlock.Effect>
-                                <DropShadowEffect BlurRadius="10" ShadowDepth="1" Opacity="0.35"/>
-                              </TextBlock.Effect>
                             </TextBlock>
                           </Viewbox>
                         </DockPanel>
