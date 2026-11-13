@@ -27,6 +27,10 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.17
+
+- **PS4 .pkg extraction** now uses shadPS4Plus's PKG extractor, and packages cut into pieces (part 1, part 2…) are joined first.
+
 ## What's new in 2.5.16
 
 - **PS4 .pkg games** are extracted with Orbis when you press Play, then run in shadPS4; shadPS4 opens again from Emulators.

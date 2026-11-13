@@ -3,7 +3,7 @@ setlocal
 title Pack Steam Multitool
 cd /d "%~dp0"
 set "PATH=C:\Program Files\dotnet;%PATH%"
-set "VER=2.5.16"
+set "VER=2.5.17"
 set "PUB=%~dp0dist\app\"
 set "PORT=%~dp0dist\portable\"
 

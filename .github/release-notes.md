@@ -1,17 +1,7 @@
 ## PS4
 
-- **Play extracts PS4 .pkg games by itself** with Orbis (install it from Emulators → PS4), then starts the game folder in shadPS4. shadPS4 can't install .pkg files any more. A stopped extract carries on where it stopped.
-- **shadPS4 opens again** from Emulators: newer builds are command line only, so it starts in its own game picker (-b). Games installed in shadPS4 are found from its new config.json.
-
-## Switch
-
-- **Split for FAT32** on a game page cuts an .nsp or .xci over 4 GB into parts Switch installers read as one file (an _split.nsp folder, or .xc0, .xc1…). The original stays.
-- **Convert to NSP / XCI** turns .nsz and .xcz games back into normal ones with nsz (install it from Emulators → Switch). It uses your own prod.keys from Eden, Ryujinx or %USERPROFILE%\.switch.
-- .nsz and .xcz files now show up as Switch games.
-
-## Other
-
-- PS4 and PS5 games unpack into the Unpack folder from Settings; Play asks for the emulator before a long unpack.
+- **PS4 .pkg games are extracted with shadPS4Plus's PKG extractor**, made from shadPS4's own former PKG code. Install "shadPS4Plus" from Emulators → PS4; Play extracts the game, then starts it in shadPS4. Progress shows the file count and time left.
+- **Packages cut into pieces** ("Game part 1.pkg", "part 2.pkg", or "_0", "_1"…) are joined into one before extracting. The later pieces no longer show up as unknown games.
 
 ## Downloads
 
