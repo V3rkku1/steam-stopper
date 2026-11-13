@@ -203,6 +203,26 @@ if (args is ["--roms"])
         || RomLibrary.IsPs4Package(new Rom { Path = "x/G", Console = "PS4" })) bad.Add("PS4 package detection");
     Put(Path.Combine(emu2, "sub", "a.bin"), new byte[300]);
     if (RomLibrary.FolderSize(emu2) < 300 || RomLibrary.FolderSize(Path.Combine(root, "nope")) != 0) bad.Add("folder size");
+
+    // Switch splitting: parts of the given size, joined back they're the original; NSP into a folder, XCI as .xc0, .xc1…
+    var sw = Directory.CreateDirectory(Path.Combine(root, "switch")).FullName;
+    var swBytes = Enumerable.Range(0, 2500).Select(i => (byte)i).ToArray();
+    File.WriteAllBytes(Path.Combine(sw, "Game.nsp"), swBytes);
+    File.WriteAllBytes(Path.Combine(sw, "Cart.xci"), swBytes);
+    var nspOut = SwitchFiles.Split(Path.Combine(sw, "Game.nsp"), new Progress<long>(), default, 1000).GetAwaiter().GetResult();
+    var xciOut = SwitchFiles.Split(Path.Combine(sw, "Cart.xci"), new Progress<long>(), default, 1000).GetAwaiter().GetResult();
+    var nspParts = Directory.GetFiles(nspOut).Order().ToArray();
+    if (Path.GetFileName(nspOut) != "Game_split.nsp" || nspParts.Select(Path.GetFileName).SequenceEqual(["00", "01", "02"]) is false
+        || !nspParts.SelectMany(File.ReadAllBytes).SequenceEqual(swBytes) || new FileInfo(nspParts[0]).Length != 1000) bad.Add("NSP split");
+    var xciParts = new[] { "Cart.xc0", "Cart.xc1", "Cart.xc2" }.Select(n => Path.Combine(sw, n)).ToArray();
+    if (xciOut != xciParts[0] || !xciParts.All(File.Exists) || !xciParts.SelectMany(File.ReadAllBytes).SequenceEqual(swBytes)) bad.Add("XCI split");
+    try { SwitchFiles.Split(Path.Combine(sw, "Game.nsp"), new Progress<long>(), default, 1000).GetAwaiter().GetResult(); bad.Add("split over an old split"); } catch (IOException) { }
+    if (SwitchFiles.CanSplit(Path.Combine(sw, "Game.nsp")) || !SwitchFiles.CanConvert("a/b.XCZ") || SwitchFiles.CanConvert("a/b.nsp")
+        || SwitchFiles.ConvertedPath("a/Game.nsz", "out") != Path.Combine("out", "Game.nsp") || SwitchFiles.ConvertedPath("a/Game.xcz", "out") != Path.Combine("out", "Game.xci"))
+        bad.Add("Switch convert names");
+    Put(Path.Combine(sw, "AppData", "Ryujinx", "system", "prod.keys"), [1]);
+    if (SwitchFiles.FindKeys(Path.Combine(sw, "AppData"), Path.Combine(sw, "home")) != Path.Combine(sw, "AppData", "Ryujinx", "system", "prod.keys")
+        || SwitchFiles.FindKeys(Path.Combine(sw, "nope"), Path.Combine(sw, "nope")) is not null) bad.Add("Switch keys");
     Directory.Delete(root, true);
     bad.ForEach(Console.WriteLine);
     Console.WriteLine(bad.Count == 0 ? "ROMS OK" : $"{bad.Count} ROM CHECKS FAILED");

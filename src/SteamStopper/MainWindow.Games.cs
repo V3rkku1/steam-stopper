@@ -81,6 +81,9 @@ public partial class MainWindow
         // A store game's launcher is fixed, so there's no console to pick.
         GameConsolePanel.Visibility = rom.IsLink ? Visibility.Hidden : Visibility.Visible;
         GameOpenFolderButton.Visibility = GameSavesButton.Visibility = rom.IsLink ? Visibility.Collapsed : Visibility.Visible;
+        GameSplitButton.Visibility = SwitchFiles.CanSplit(rom.Path) ? Visibility.Visible : Visibility.Collapsed;
+        GameConvertButton.Visibility = SwitchFiles.CanConvert(rom.Path) ? Visibility.Visible : Visibility.Collapsed;
+        GameConvertButton.Content = rom.Path.EndsWith(".xcz", StringComparison.OrdinalIgnoreCase) ? "Convert to XCI" : "Convert to NSP";
         var choices = EmulatorsFor(rom);
         GameEmuBox.ItemsSource = choices.Select(e => e.Name).ToList();
         GameEmuBox.SelectedItem = choices.FirstOrDefault()?.Name;
@@ -676,6 +679,62 @@ public partial class MainWindow
         }
         RomLibrary.Save(_library);
         StatusText.Text = $"Set {set} cover(s).";
+    }
+
+    private async void GameSplit_Click(object sender, RoutedEventArgs e)
+    {
+        if (GameDetail.DataContext is not Rom rom) return;
+        var size = new FileInfo(rom.Path).Length;
+        GameSplitButton.IsEnabled = false;
+        try
+        {
+            var made = await SwitchFiles.Split(rom.Path, new Progress<long>(done => StatusText.Text = $"Splitting {rom.Title}…  {done * 100 / size}%"));
+            StatusText.Text = $"Split into {Path.GetFileName(made)}{(made.EndsWith(".xc0") ? ", .xc1…" : "")}. Copy that to your SD card.";
+        }
+        catch (Exception ex) { StatusText.Text = $"Could not split {rom.Title}: {ex.Message}"; }
+        finally { GameSplitButton.IsEnabled = true; }
+    }
+
+    private async void GameConvert_Click(object sender, RoutedEventArgs e)
+    {
+        if (GameDetail.DataContext is not Rom rom) return;
+        if (EmuStore.Find("nsz")?.Exe is not { } nsz)
+        {
+            OpenEmulatorsFor(rom.Tile);
+            StatusText.Text = "Install nsz to convert .nsz and .xcz games.";
+            return;
+        }
+        if (SwitchFiles.FindKeys() is not { } keys)
+        {
+            StatusText.Text = "nsz needs your Switch's prod.keys. Put them in Eden or Ryujinx (or %USERPROFILE%\\.switch), then try again.";
+            return;
+        }
+        var dir = Path.GetDirectoryName(rom.Path)!;
+        var output = SwitchFiles.ConvertedPath(rom.Path, dir);
+        if (File.Exists(output)) { StatusText.Text = $"{Path.GetFileName(output)} is already there."; return; }
+        GameConvertButton.IsEnabled = false;
+        try
+        {
+            var start = new ProcessStartInfo(nsz) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var arg in new[] { "-D", "--keys", keys, "--machine-readable", "-o", dir, rom.Path }) start.ArgumentList.Add(arg);
+            using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not start it.");
+            var output1 = process.StandardOutput.ReadToEndAsync();
+            var errors = process.StandardError.ReadToEndAsync();
+            var exited = process.WaitForExitAsync();
+            // nsz doesn't say how big the result will be, so show how much it has written.
+            while (await Task.WhenAny(exited, Task.Delay(1000)) != exited)
+                StatusText.Text = $"Converting {rom.Title}…  {Format.Bytes(File.Exists(output) ? new FileInfo(output).Length : 0)} written";
+            var said = (await output1 + "\n" + await errors).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (process.ExitCode != 0 || !File.Exists(output))
+            {
+                StatusText.Text = $"Could not convert {rom.Title}: {said.LastOrDefault() ?? "nsz failed."}";
+                return;
+            }
+            await AddToLibrary([], [output], quiet: true);
+            StatusText.Text = $"Converted to {Path.GetFileName(output)}; it's in the library now. The original stays.";
+        }
+        catch (Exception ex) { StatusText.Text = $"Could not convert {rom.Title}: {ex.Message}"; }
+        finally { GameConvertButton.IsEnabled = true; }
     }
 
     private void GameRemove_Click(object sender, RoutedEventArgs e)

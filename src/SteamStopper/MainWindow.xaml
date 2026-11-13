@@ -1602,6 +1602,10 @@
                             ToolTip="Search box art for this game and pick one, or use an image file."/>
                     <Button x:Name="GameSavesButton" Content="Back up saves" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameSaves_Click"
                             ToolTip="Zip the saves of this game's emulator. Restore is in Settings."/>
+                    <Button x:Name="GameSplitButton" Content="Split for FAT32" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameSplit_Click"
+                            ToolTip="Cut this file into parts under 4 GB for a FAT32 SD card. Switch installers read the parts as one file. The original stays."/>
+                    <Button x:Name="GameConvertButton" Content="Convert" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameConvert_Click"
+                            ToolTip="Turn this compressed file back into a normal one with nsz, using your Switch's prod.keys. The original stays."/>
                     <Button Content="Remove from library" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameRemove_Click"
                             ToolTip="Takes it off this list. The game file stays on disk."/>
                   </WrapPanel>

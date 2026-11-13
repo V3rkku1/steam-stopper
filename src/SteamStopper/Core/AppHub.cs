@@ -298,7 +298,7 @@ public static class AppHub
         new("PS5", "PlayStation 5", "#2D64E6", ["KytyPS5", "PS5 Dump Forge"]),
         new("PSP", "PlayStation Portable", "#3A3A40", ["PPSSPP", "RetroArch"]),
         new("VITA", "PlayStation Vita", "#1E5BB8", ["Vita3K"]),
-        new("SWITCH", "Nintendo Switch", "#E60012", ["Eden", "Ryujinx", "Lichii", "Eglantine"]),
+        new("SWITCH", "Nintendo Switch", "#E60012", ["Eden", "Ryujinx", "Lichii", "Eglantine", "nsz"]),
         new("SWITCH 2", "Nintendo Switch 2", "#B0102A", ["Lichii", "Eglantine"]),
         new("3DS", "Nintendo 3DS", "#CE181E", ["Azahar"]),
         new("DS", "Nintendo DS", "#8A8D96", ["melonDS"]),
@@ -343,6 +343,8 @@ public static class AppHub
         // Not an emulator: Play uses its ps5-dump-forge.exe to unpack .ffpfs/.ffpkg images into folders KytyPS5 can run (GPL-3.0, run as its own program).
         new() { Name = "PS5 Dump Forge", Source = new("quer3q/ps5-dump-forge", [@"windows-x86-64\.zip$"], @"^PS5 Dump Forge\.exe$"), Kind = "site", Url = "https://github.com/quer3q/ps5-dump-forge/releases", Category = "PS5", Systems = "PS5 image converter", Color = "#24467F", Blurb = "Unpacks .ffpfs, .ffpfsc and .ffpkg images so KytyPS5 can play them. Play does it for you once this is installed." },
 
+        // Not an emulator: Convert on a game page uses it to turn .nsz/.xcz into .nsp/.xci (MIT; needs the user's prod.keys).
+        new() { Name = "nsz", Source = new("nicoboss/nsz", [@"^nsz-cli-windows-x64\.exe$"], @"^nsz"), Kind = "site", Url = "https://github.com/nicoboss/nsz/releases", Category = "Switch", Systems = "NSZ and XCZ converter", Color = "#5A5A66", Blurb = "Turns compressed .nsz and .xcz games back into .nsp and .xci. Needs your Switch's prod.keys." },
         new() { Name = "Eden", Id = "Utopia.Eden.MSVC", Match = "Eden", Category = "Switch", Systems = "Nintendo Switch", Color = "#E60012", Blurb = "Switch emulator. Needs keys and firmware dumped from your own Switch." },
         new() { Name = "Ryujinx", Source = new("ryubing/ryujinx", [@"win_x64\.zip$", @"win.*x64.*\.zip$"], @"^ryujinx\.exe$", "https://git.ryujinx.app"), Kind = "site", Url = "https://ryujinx.app", Category = "Switch", Systems = "Nintendo Switch", Color = "#C4262E", Blurb = "Switch emulator kept alive by the community. Needs keys from your Switch." },
         // Lichii and Eglantine are separate Switch 2 forks of Eden. Neither is on winget; both publish zips on GitHub.

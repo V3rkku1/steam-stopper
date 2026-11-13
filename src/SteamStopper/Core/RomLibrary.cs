@@ -67,7 +67,7 @@ public static class RomLibrary
 {
     private static readonly Dictionary<string, string> ByExtension = new(StringComparer.OrdinalIgnoreCase)
     {
-        [".nsp"] = "SWITCH", [".xci"] = "SWITCH", [".nro"] = "SWITCH",
+        [".nsp"] = "SWITCH", [".xci"] = "SWITCH", [".nro"] = "SWITCH", [".nsz"] = "SWITCH", [".xcz"] = "SWITCH",
         // Switch 2 archive used by Lichii and Eglantine: base game plus updates in one file (magic "NUP\x01").
         [".nup"] = "SWITCH 2",
         [".3ds"] = "3DS", [".cci"] = "3DS", [".3dsx"] = "3DS", [".cxi"] = "3DS",
