@@ -1,8 +1,13 @@
-## PS5 unpacking
+## Console mode
 
-- **Choose where games unpack**: Settings → PS5 unpack folder. Pick a fast drive with free space; the default is still next to the image.
-- **Speed and time left** show while a game unpacks, and **Play turns into Stop**.
-- **Closing the app mid-unpack** no longer starts it over: Play waits for the unpack still running. A stopped or interrupted unpack starts again from the beginning (PS5 Dump Forge can't resume), and its half-written folder is cleaned up.
+- **Fullscreen game row for the couch**: press F11 or the new button in the title bar. One row of covers, the selected game's name and play time, a clock, and A/B hints.
+- **Keyboard or controller**: arrow keys, Enter and Esc, or an Xbox-style controller (d-pad or left stick, A to play, B to go back). It only listens while it's in front, so playing a game doesn't move the row.
+
+## Steam, Epic and Heroic games
+
+- **Installed PC games join the Games library** and console mode by themselves: Steam (every library), the Epic Games Launcher, and Heroic (Epic, GOG and apps you added). New installs appear and uninstalled games go when you open the Games tab.
+- **Play opens the game in its launcher**, which also keeps its play time. Covers come from Steam and Heroic; Epic games show their initials for now.
+- **Remove from library** keeps a store game out until you add it back by reinstalling it.
 
 ## Downloads
 

@@ -27,6 +27,11 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.14
+
+- **Console mode**: a fullscreen game row for keyboard or controller (F11).
+- **Steam, Epic and Heroic games** appear in the Games library and start in their launcher.
+
 ## What's new in 2.5.13
 
 - **PS5 unpacking**: choose the unpack folder, see speed and time left, stop an unpack, and pick up one still running after the app closed.
