@@ -86,7 +86,7 @@ if (args is ["--roms"])
     Put(Path.Combine(root, "b.pkg"), Pkg("\u007FPKG", 1, "UP9000-BCUS98174_00-0000000000000000"));
     Put(Path.Combine(root, "c.pkg"), Pkg("\u007FPKG", 2, "UP9000-PCSA00001_00-0000000000000000"));
     Put(Path.Combine(root, "d.pkg"), Pkg("\u007FPKG", 2, "UP9000-ULUS10041_00-0000000000000000"));
-    Put(Path.Combine(root, "e.pkg"), [1, 2, 3]);
+    Put(Path.Combine(root, "e.pkg"), [1, 2, 3]); // no package header: a piece of a cut-up package, not listed
     Put(Path.Combine(root, "f.vpk"), [1]);
     Put(Path.Combine(root, "PCSE00001", "eboot.bin"), [1]);
     Put(Path.Combine(root, "PCSE00001", "sce_sys", "param.sfo"), Sfo("Gravity Rush", ("TITLE_ID", "PCSE00001")));
@@ -103,7 +103,7 @@ if (args is ["--roms"])
     var want = new Dictionary<string, string>
     {
         ["ps4"] = "PS4|Bloodborne", ["ps3disc"] = "PS3|Demon's Souls", ["NPUB30001"] = "PS3|Flower",
-        ["a.pkg"] = "PS4|a", ["b.pkg"] = "PS3|b", ["c.pkg"] = "VITA|c", ["d.pkg"] = "|d", ["e.pkg"] = "|e", ["f.vpk"] = "VITA|f",
+        ["a.pkg"] = "PS4|a", ["b.pkg"] = "PS3|b", ["c.pkg"] = "VITA|c", ["d.pkg"] = "|d", ["f.vpk"] = "VITA|f",
         ["PCSE00001"] = "VITA|Gravity Rush", ["BCUS98174"] = "PS3|Uncharted",
         [Path.Combine("ps2", "Okami.chd")] = "PS2|Okami", [Path.Combine("Sega Dreamcast", "Shenmue.m3u")] = "DREAMCAST|Shenmue", ["Crash.chd"] = "PS1|Crash"
     };
@@ -203,6 +203,24 @@ if (args is ["--roms"])
         || RomLibrary.IsPs4Package(new Rom { Path = "x/G", Console = "PS4" })) bad.Add("PS4 package detection");
     Put(Path.Combine(emu2, "sub", "a.bin"), new byte[300]);
     if (RomLibrary.FolderSize(emu2) < 300 || RomLibrary.FolderSize(Path.Combine(root, "nope")) != 0) bad.Add("folder size");
+
+    // A PS4 package cut into pieces: only the first is a game, the rest join on in order.
+    var cut = Directory.CreateDirectory(Path.Combine(root, "cut")).FullName;
+    byte[] Pkg4(byte fill) => [0x7F, (byte)'C', (byte)'N', (byte)'T', .. Enumerable.Repeat(fill, 1100)];
+    File.WriteAllBytes(Path.Combine(cut, "Gran Turismo 7 part 1.pkg"), Pkg4(1));
+    File.WriteAllBytes(Path.Combine(cut, "Gran Turismo 7 part 2.pkg"), Enumerable.Repeat((byte)2, 64).ToArray());
+    File.WriteAllBytes(Path.Combine(cut, "Gran Turismo 7 part 3.pkg"), Enumerable.Repeat((byte)3, 10).ToArray());
+    File.WriteAllBytes(Path.Combine(cut, "Gran Turismo 7 part 5.pkg"), Enumerable.Repeat((byte)5, 10).ToArray()); // a gap ends the run
+    File.WriteAllBytes(Path.Combine(cut, "Racer_0.pkg"), Pkg4(9));
+    File.WriteAllBytes(Path.Combine(cut, "Racer_1.pkg"), Pkg4(8)); // its own header: a separate package, not a piece
+    var gt = RomLibrary.PkgParts(Path.Combine(cut, "Gran Turismo 7 part 1.pkg"));
+    if (!gt.Select(Path.GetFileName).SequenceEqual(["Gran Turismo 7 part 1.pkg", "Gran Turismo 7 part 2.pkg", "Gran Turismo 7 part 3.pkg"])
+        || RomLibrary.PkgParts(Path.Combine(cut, "Racer_0.pkg")).Count != 1
+        || RomLibrary.ConsoleOf(Path.Combine(cut, "Gran Turismo 7 part 2.pkg")) is not null || RomLibrary.ConsoleOf(Path.Combine(cut, "Gran Turismo 7 part 1.pkg")) != "PS4")
+        bad.Add("PS4 package pieces");
+    var joinedPkg = Path.Combine(cut, "joined.pkg");
+    RomLibrary.JoinParts(gt, joinedPkg, new Progress<long>(), default).GetAwaiter().GetResult();
+    if (!File.ReadAllBytes(joinedPkg).SequenceEqual(gt.SelectMany(File.ReadAllBytes)) || File.Exists(joinedPkg + ".joining")) bad.Add("join pieces");
 
     // Switch splitting: parts of the given size, joined back they're the original; NSP into a folder, XCI as .xc0, .xc1…
     var sw = Directory.CreateDirectory(Path.Combine(root, "switch")).FullName;

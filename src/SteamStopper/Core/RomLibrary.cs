@@ -110,6 +110,53 @@ public static class RomLibrary
     /// <summary>A PS4 .pkg: shadPS4 can't install those, so Play extracts it with Orbis first.</summary>
     public static bool IsPs4Package(Rom rom) => rom.Console == "PS4" && rom.Path.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase);
 
+    // Big PS4 packages are often shared cut into pieces: "Game part 1.pkg", "Game part 2.pkg…" or "Game_0.pkg", "Game_1.pkg…".
+    private static readonly Regex PartName = new(@"^(?<base>.*?)[ ._-]*(?:part|pt)?[ ._-]*(?<n>\d{1,3})$", RegexOptions.IgnoreCase);
+
+    /// <summary>A package and the pieces that continue it (numbered next, same name, no package header of their own), in order.</summary>
+    public static List<string> PkgParts(string first)
+    {
+        var parts = new List<string> { first };
+        if (PartName.Match(System.IO.Path.GetFileNameWithoutExtension(first)) is not { Success: true } m) return parts;
+        var siblings = Directory.EnumerateFiles(System.IO.Path.GetDirectoryName(first)!, "*.pkg")
+            .Select(f => (File: f, Match: PartName.Match(System.IO.Path.GetFileNameWithoutExtension(f))))
+            .Where(x => x.Match.Success && x.Match.Groups["base"].Value.Equals(m.Groups["base"].Value, StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(x => int.Parse(x.Match.Groups["n"].Value), x => x.File);
+        for (var n = int.Parse(m.Groups["n"].Value) + 1; siblings.TryGetValue(n, out var next) && !HasMagic(next, "\u007FCNT"u8); n++)
+            parts.Add(next);
+        return parts;
+    }
+
+    /// <summary>Join package pieces into one file. Written beside the target and renamed at the end, so a stopped join leaves no half file.</summary>
+    public static async Task JoinParts(IReadOnlyList<string> parts, string target, IProgress<long> progress, CancellationToken cancel)
+    {
+        var temp = target + ".joining";
+        try
+        {
+            await using (var output = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20, useAsync: true))
+            {
+                var buffer = new byte[4 << 20];
+                long done = 0;
+                foreach (var part in parts)
+                {
+                    await using var input = new FileStream(part, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, useAsync: true);
+                    int read;
+                    while ((read = await input.ReadAsync(buffer, cancel)) > 0)
+                    {
+                        await output.WriteAsync(buffer.AsMemory(0, read), cancel);
+                        progress.Report(done += read);
+                    }
+                }
+            }
+            File.Move(temp, target, true);
+        }
+        catch
+        {
+            try { File.Delete(temp); } catch { }
+            throw;
+        }
+    }
+
     /// <summary>Left in a game folder once extracting finished, since Orbis writes it file by file.</summary>
     public const string UnpackedMark = "steam-multitool.extracted";
 
@@ -337,7 +384,9 @@ public static class RomLibrary
         if (console == "PS1" && !file.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) && InM3u(file)) return null;
         // .chd, .cue and .m3u are PS1 unless a folder says otherwise; telling them apart by content means decompressing.
         if (console == "PS1" && FolderHint(file) is { } hinted) return hinted;
-        return console.Length > 0 && console is not ("WII" or "GAMECUBE") ? console : Sniff(file) ?? console;
+        if (console.Length > 0 && console is not ("WII" or "GAMECUBE")) return console;
+        // A .pkg with no package header is a later piece of a cut-up package, not a game of its own.
+        return Sniff(file) ?? (file.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase) && !HasMagic(file, "\u007FPKG"u8) ? null : console);
     }
 
     private static readonly Dictionary<string, string> FolderHints = new()

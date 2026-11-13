@@ -27,6 +27,9 @@ public partial class MainWindow
         if (_library is null)
         {
             _library = RomLibrary.Load();
+            // Pieces of a cut-up .pkg that older versions listed as unknown games.
+            if (_library.Games.RemoveAll(g => g.Console.Length == 0 && g.Path.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase) && File.Exists(g.Path) && RomLibrary.ConsoleOf(g.Path) is null) > 0)
+                RomLibrary.Save(_library);
             _gamesView = CollectionViewSource.GetDefaultView(_library.Games);
             _gamesView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Rom.ConsoleName)));
             _gamesView.SortDescriptions.Add(new SortDescription(nameof(Rom.ConsoleName), ListSortDirection.Ascending));
@@ -281,7 +284,31 @@ public partial class MainWindow
                     using (_unpackStop.Token.Register(() => { try { earlier.Kill(entireProcessTree: true); } catch { } }))
                         await earlier.WaitForExitAsync(_unpackStop.Token);
                 }
-                else if (!await RunUnpacker(cli, rom, dir, ps4, _unpackStop.Token)) return false;
+                else
+                {
+                    var source = rom.Path;
+                    // A package cut into pieces is joined into one file first; Orbis reads one whole package.
+                    var parts = ps4 ? RomLibrary.PkgParts(rom.Path) : [rom.Path];
+                    var joined = dir + ".pkg";
+                    if (parts.Count > 1)
+                    {
+                        var total = parts.Sum(p => new FileInfo(p).Length);
+                        if (!File.Exists(joined) || new FileInfo(joined).Length != total)
+                        {
+                            var root = Path.GetPathRoot(Path.GetFullPath(joined))!;
+                            if (new DriveInfo(root).AvailableFreeSpace < total * 2)
+                            {
+                                StatusText.Text = $"{rom.Title} is in {parts.Count} pieces. Joining and extracting it needs about {Format.Bytes(total * 2)} free on {root}.";
+                                return false;
+                            }
+                            await RomLibrary.JoinParts(parts, joined, new Progress<long>(done =>
+                                StatusText.Text = $"Joining the {parts.Count} pieces of {rom.Title}…  {done * 100 / total}%"), _unpackStop.Token);
+                        }
+                        source = joined;
+                    }
+                    if (!await RunUnpacker(cli, rom, source, dir, ps4, _unpackStop.Token)) return false;
+                    if (parts.Count > 1 && File.Exists(Path.Combine(dir, "eboot.bin"))) try { File.Delete(joined); } catch { } // the pieces stay
+                }
                 if (!File.Exists(eboot))
                 {
                     StatusText.Text = $"Unpacking {rom.Title} didn't finish. Press Play to try again.";
@@ -322,12 +349,12 @@ public partial class MainWindow
     }
 
     /// <summary>Run the unpacker, showing percent, speed and time left. False (with the reason shown) when it fails.</summary>
-    private async Task<bool> RunUnpacker(string cli, Rom rom, string dir, bool ps4, CancellationToken stop)
+    private async Task<bool> RunUnpacker(string cli, Rom rom, string source, string dir, bool ps4, CancellationToken stop)
     {
         StatusText.Text = $"Unpacking {rom.Title}…";
         var start = new ProcessStartInfo(cli) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         // --resume: Orbis keeps the files a stopped extract already wrote and copies the rest.
-        string[] args = ps4 ? ["extract", rom.Path, "-o", dir, "--resume"] : ["convert", rom.Path, "--to", "folder", "-o", dir];
+        string[] args = ps4 ? ["extract", source, "-o", dir, "--resume"] : ["convert", source, "--to", "folder", "-o", dir];
         foreach (var arg in args) start.ArgumentList.Add(arg);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not start it.");
         using var kill = stop.Register(() => { try { process.Kill(entireProcessTree: true); } catch { } });
@@ -340,7 +367,7 @@ public partial class MainWindow
         {
             // Orbis prints only phase names when it isn't in a console, so progress is the folder's size against the package's.
             var output = process.StandardOutput.ReadToEndAsync();
-            var total = (ulong)Math.Max(1, new FileInfo(rom.Path).Length);
+            var total = (ulong)Math.Max(1, new FileInfo(source).Length);
             var before = await Task.Run(() => RomLibrary.FolderSize(dir));
             var exited = process.WaitForExitAsync();
             while (await Task.WhenAny(exited, Task.Delay(2000)) != exited)
