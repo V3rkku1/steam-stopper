@@ -27,6 +27,11 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.16
+
+- **PS4 .pkg games** are extracted with Orbis when you press Play, then run in shadPS4; shadPS4 opens again from Emulators.
+- **Switch**: split .nsp/.xci for FAT32 SD cards, and convert .nsz/.xcz back to .nsp/.xci with nsz.
+
 ## What's new in 2.5.15
 
 - **Fetch retries failed downloads by itself**, up to 10 times in a row with growing waits.
