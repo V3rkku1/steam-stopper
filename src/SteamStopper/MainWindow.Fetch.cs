@@ -251,8 +251,36 @@ public partial class MainWindow
             cancel.Dispose();
         }
         if (_fetchRemoved.Remove(job)) job.DeleteLeftovers();
-        else if (job.State == FetchState.Done) StatusText.Text = $"Downloaded {job.FileName}.";
-        else if (job.State == FetchState.Failed) StatusText.Text = $"{job.Name}: {job.Error}";
+        else if (job.State == FetchState.Done) { _fetchRetries.Remove(job); StatusText.Text = $"Downloaded {job.FileName}."; }
+        else if (job.State == FetchState.Failed) { StatusText.Text = $"{job.Name}: {job.Error}"; RetryFetch(job); }
+        PumpFetch();
+    }
+
+    // Breaks that Resume fixes (dropped connections, server hiccups) are retried by themselves.
+    private readonly Dictionary<FetchJob, (int Tries, long Received, int Id)> _fetchRetries = [];
+    private int _fetchRetryId;
+    private const int FetchRetries = 10;
+
+    private async void RetryFetch(FetchJob job)
+    {
+        var (tries, seen, _) = _fetchRetries.GetValueOrDefault(job);
+        if (job.Received > seen) tries = 0; // it got further this time, so it isn't stuck
+        if (tries >= FetchRetries)
+        {
+            _fetchRetries.Remove(job);
+            StatusText.Text = $"{job.Name}: gave up after {FetchRetries} tries. {job.Error} Resume tries again.";
+            return;
+        }
+        var id = ++_fetchRetryId;
+        _fetchRetries[job] = (tries + 1, job.Received, id);
+        var wait = Math.Min(60, 5 << tries); // 5, 10, 20, 40, then every 60 s
+        var note = $"trying again in {wait} s ({tries + 1} of {FetchRetries})";
+        StatusText.Text = $"{job.Name}: {job.Error} Trying again in {wait} s.";
+        job.SetState(FetchState.Failed, $"{note} · {job.Error}"); // the note first, so a narrow row still shows it
+        await Task.Delay(TimeSpan.FromSeconds(wait));
+        // Paused, resumed, removed or failed again meanwhile: that newer state wins.
+        if (job.State != FetchState.Failed || !_fetchJobs.Contains(job) || _fetchRetries.GetValueOrDefault(job).Id != id) return;
+        job.SetState(FetchState.Queued);
         PumpFetch();
     }
 
@@ -421,7 +449,8 @@ public partial class MainWindow
         foreach (var job in SelectedFetchJobs())
         {
             if (_fetchRuns.TryGetValue(job, out var run)) run.Cancel();
-            else if (job.State == FetchState.Queued) job.SetState(FetchState.Paused);
+            // A failed one waiting to try again stops waiting too.
+            else if (job.State is FetchState.Queued or FetchState.Failed) job.SetState(FetchState.Paused);
         }
         PumpFetch();
     }
