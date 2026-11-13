@@ -247,8 +247,8 @@
                 <Button Content="Change" Style="{StaticResource SmallPrimary}" Click="UnpackFolder_Click"/>
               </StackPanel>
               <StackPanel Margin="0,0,12,0">
-                <TextBlock Text="PS5 UNPACK FOLDER" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
-                <TextBlock Text="Where Play unpacks .ffpfs, .ffpfsc and .ffpkg games for KytyPS5. A fast drive with free space makes it quicker."
+                <TextBlock Text="UNPACK FOLDER" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                <TextBlock Text="Where Play unpacks PS5 .ffpfs/.ffpkg images and PS4 .pkg games for KytyPS5 and shadPS4. A fast drive with free space makes it quicker."
                            Foreground="{DynamicResource Faint}" FontSize="12" TextWrapping="Wrap"/>
                 <TextBlock x:Name="UnpackFolderText" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,6,0,0" TextTrimming="CharacterEllipsis"/>
               </StackPanel>

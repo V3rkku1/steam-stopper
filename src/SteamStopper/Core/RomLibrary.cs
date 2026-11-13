@@ -107,6 +107,18 @@ public static class RomLibrary
     /// <summary>Settings: unpack PS5 images into this folder instead of next to them. Empty or missing means next to them.</summary>
     public static string UnpackRoot { get; set; } = "";
 
+    /// <summary>A PS4 .pkg: shadPS4 can't install those, so Play extracts it with Orbis first.</summary>
+    public static bool IsPs4Package(Rom rom) => rom.Console == "PS4" && rom.Path.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Left in a game folder once extracting finished, since Orbis writes it file by file.</summary>
+    public const string UnpackedMark = "steam-multitool.extracted";
+
+    public static ulong FolderSize(string dir)
+    {
+        try { return Directory.Exists(dir) ? (ulong)Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length) : 0; }
+        catch { return 0; } // a file vanished while counting
+    }
+
     /// <summary>Where an image is unpacked: a folder of the same name in <see cref="UnpackRoot"/>, else next to it.</summary>
     public static string UnpackedDir(string image) =>
         UnpackRoot.Length > 0 && Directory.Exists(UnpackRoot)
@@ -243,7 +255,7 @@ public static class RomLibrary
                 }
                 if (known.Contains(file) || ConsoleOf(file) is not { } console) continue;
                 // Already unpacked: the folder is the game, so the image isn't listed twice.
-                if (IsPs5Image(file) && Directory.Exists(UnpackedDir(file))) continue;
+                if ((IsPs5Image(file) || console == "PS4" && InstallOnly(file)) && Directory.Exists(UnpackedDir(file))) continue;
                 store.Games.Add(new Rom { Path = file, Title = TitleOf(file), Console = console });
                 known.Add(file);
                 added++;

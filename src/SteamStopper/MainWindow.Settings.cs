@@ -75,7 +75,7 @@ public partial class MainWindow
 
     private void UnpackFolder_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Choose where PS5 games are unpacked" };
+        var dialog = new Microsoft.Win32.OpenFolderDialog { Title = "Choose where PS4 and PS5 games are unpacked" };
         if (dialog.ShowDialog(this) != true) return;
         _settings.Ps5UnpackFolder = RomLibrary.UnpackRoot = dialog.FolderName;
         _settings.Save();

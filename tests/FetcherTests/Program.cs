@@ -198,6 +198,11 @@ if (args is ["--roms"])
     if (RomLibrary.OpenArgs("shadPS4", Path.Combine(emu2, "shadps4.exe")) != "-b" || RomLibrary.OpenArgs("RPCS3", Path.Combine(emu2, "rpcs3.exe")) is not null) bad.Add("shadPS4 opens with -b");
     Put(Path.Combine(emu2, "Qt6Core.dll"), [1]);
     if (RomLibrary.OpenArgs("shadPS4", Path.Combine(emu2, "shadps4.exe")) is not null) bad.Add("old Qt shadPS4 opens bare");
+    // PS4 .pkg games are extracted before playing; PS3 ones aren't.
+    if (!RomLibrary.IsPs4Package(new Rom { Path = "x/G.PKG", Console = "PS4" }) || RomLibrary.IsPs4Package(new Rom { Path = "x/G.pkg", Console = "PS3" })
+        || RomLibrary.IsPs4Package(new Rom { Path = "x/G", Console = "PS4" })) bad.Add("PS4 package detection");
+    Put(Path.Combine(emu2, "sub", "a.bin"), new byte[300]);
+    if (RomLibrary.FolderSize(emu2) < 300 || RomLibrary.FolderSize(Path.Combine(root, "nope")) != 0) bad.Add("folder size");
     Directory.Delete(root, true);
     bad.ForEach(Console.WriteLine);
     Console.WriteLine(bad.Count == 0 ? "ROMS OK" : $"{bad.Count} ROM CHECKS FAILED");
