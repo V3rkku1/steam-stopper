@@ -189,6 +189,15 @@ if (args is ["--roms"])
     Directory.CreateDirectory(Path.Combine(emu, "dev_hdd0", "game"));
     if (!RomLibrary.EmulatorGameFolders("shadPS4", Path.Combine(emu, "shadPS4.exe")).SequenceEqual([root])) bad.Add("shadPS4 install dirs from config.toml");
     if (!RomLibrary.EmulatorGameFolders("RPCS3", Path.Combine(emu, "rpcs3.exe")).SequenceEqual([Path.Combine(emu, "dev_hdd0", "game")])) bad.Add("RPCS3 game folder");
+    // Newer shadPS4: config.json, disabled folders left out; command line only unless the Qt DLLs are beside it.
+    var emu2 = Path.Combine(root, "emu2");
+    var games2 = Directory.CreateDirectory(Path.Combine(root, "ps4games")).FullName;
+    Put(Path.Combine(emu2, "user", "config.json"), System.Text.Encoding.UTF8.GetBytes(
+        $"{{\"General\":{{\"install_dirs\":[{{\"path\":\"{games2.Replace("\\", "\\\\")}\",\"enabled\":true}},{{\"path\":\"{root.Replace("\\", "\\\\")}\",\"enabled\":false}}]}}}}"));
+    if (!RomLibrary.EmulatorGameFolders("shadPS4", Path.Combine(emu2, "shadps4.exe")).SequenceEqual([games2])) bad.Add("shadPS4 install dirs from config.json");
+    if (RomLibrary.OpenArgs("shadPS4", Path.Combine(emu2, "shadps4.exe")) != "-b" || RomLibrary.OpenArgs("RPCS3", Path.Combine(emu2, "rpcs3.exe")) is not null) bad.Add("shadPS4 opens with -b");
+    Put(Path.Combine(emu2, "Qt6Core.dll"), [1]);
+    if (RomLibrary.OpenArgs("shadPS4", Path.Combine(emu2, "shadps4.exe")) is not null) bad.Add("old Qt shadPS4 opens bare");
     Directory.Delete(root, true);
     bad.ForEach(Console.WriteLine);
     Console.WriteLine(bad.Count == 0 ? "ROMS OK" : $"{bad.Count} ROM CHECKS FAILED");

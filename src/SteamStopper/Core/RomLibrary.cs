@@ -427,6 +427,27 @@ public static class RomLibrary
             : $"\"{rom}\"" :
         LaunchArgs.TryGetValue(emulator, out var template) ? template.Replace("{rom}", rom).Replace("{id}", FolderName(rom)) : $"\"{rom}\"";
 
+    // config.json: { "General": { "install_dirs": [ { "path": "…", "enabled": true } ] } }
+    private static IEnumerable<string> ShadInstallDirs(string config)
+    {
+        try
+        {
+            if (!File.Exists(config)) return [];
+            using var json = JsonDocument.Parse(File.ReadAllText(config));
+            return json.RootElement.GetProperty("General").GetProperty("install_dirs").EnumerateArray()
+                .Where(d => !d.TryGetProperty("enabled", out var on) || on.ValueKind != JsonValueKind.False)
+                .Select(d => d.GetProperty("path").GetString() ?? "").ToList();
+        }
+        catch { return []; } // older or hand-edited config
+    }
+
+    /// <summary>
+    /// Arguments to open an emulator on its own, or null for none. Newer shadPS4 builds are command line only and
+    /// quit with a message when started bare; -b opens their own game picker. The old Qt build (Qt DLLs beside it) has a window.
+    /// </summary>
+    public static string? OpenArgs(string emulator, string exe) =>
+        emulator == "shadPS4" && !File.Exists(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(exe) ?? "", "Qt6Core.dll")) ? "-b" : null;
+
     /// <summary>Where an emulator keeps the games it installed from .pkg files, so they join the library by themselves.</summary>
     public static IEnumerable<string> EmulatorGameFolders(string emulator, string exe)
     {
@@ -438,10 +459,11 @@ public static class RomLibrary
             // Vita3K's pref-path in config.yml, else next to the exe or in AppData.
             "Vita3K" => new[] { Setting(System.IO.Path.Combine(dir, "config.yml"), @"^pref-path:\s*['""]?([^'""\r\n]+)").FirstOrDefault(), dir, System.IO.Path.Combine(appData, "Vita3K", "Vita3K") }
                 .OfType<string>().Select(p => System.IO.Path.Combine(p, "ux0", "app")),
-            // shadPS4 lists its install folders in config.toml (portable user folder, else AppData).
-            "shadPS4" => new[] { System.IO.Path.Combine(dir, "user", "config.toml"), System.IO.Path.Combine(appData, "shadPS4", "config.toml") }
-                .SelectMany(c => Setting(c, @"^installDirs?\s*=\s*(\[[^\]]*\]|""[^""]*"")"))
-                .SelectMany(v => Regex.Matches(v, @"""((?:[^""\\]|\\.)*)""").Select(m => m.Groups[1].Value.Replace(@"\\", @"\"))),
+            // shadPS4 lists its install folders in config.json (newer builds) or config.toml, in the portable user folder, else AppData.
+            "shadPS4" => new[] { System.IO.Path.Combine(dir, "user"), System.IO.Path.Combine(appData, "shadPS4") }
+                .SelectMany(u => ShadInstallDirs(System.IO.Path.Combine(u, "config.json")).Concat(
+                    Setting(System.IO.Path.Combine(u, "config.toml"), @"^installDirs?\s*=\s*(\[[^\]]*\]|""[^""]*"")")
+                        .SelectMany(v => Regex.Matches(v, @"""((?:[^""\\]|\\.)*)""").Select(m => m.Groups[1].Value.Replace(@"\\", @"\"))))),
             _ => []
         };
         return found.Where(p => p.Length > 0 && Directory.Exists(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();

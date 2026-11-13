@@ -34,7 +34,10 @@ public partial class MainWindow
         {
             // Steam Multitool runs as admin; going through explorer starts the emulator as the normal user,
             // so its saves, drag and drop and controller prompts behave as if opened from the Start menu.
-            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{exe}\"") { UseShellExecute = false })?.Dispose();
+            // explorer can't pass arguments, so one that needs them starts directly.
+            if (RomLibrary.OpenArgs(app.Name, exe) is { } args)
+                Process.Start(new ProcessStartInfo(exe, args) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! })?.Dispose();
+            else Process.Start(new ProcessStartInfo("explorer.exe", $"\"{exe}\"") { UseShellExecute = false })?.Dispose();
             StatusText.Text = $"Started {app.Name}.";
         }
         catch (Exception ex)

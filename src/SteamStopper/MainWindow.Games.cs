@@ -171,6 +171,11 @@ public partial class MainWindow
             return;
         }
         var (emu, exe, args) = launch;
+        if (emu.Name == "shadPS4" && RomLibrary.InstallOnly(rom.Path))
+        {
+            StatusText.Text = "shadPS4 can't install .pkg files any more. Extract the game to a folder with eboot.bin and sce_sys in it, then add that folder.";
+            return;
+        }
         Process process;
         try
         {
