@@ -1,13 +1,7 @@
-## Console mode
+## Fetch
 
-- **Fullscreen game row for the couch**: press F11 or the new button in the title bar. One row of covers, the selected game's name and play time, a clock, and A/B hints.
-- **Keyboard or controller**: arrow keys, Enter and Esc, or an Xbox-style controller (d-pad or left stick, A to play, B to go back). It only listens while it's in front, so playing a game doesn't move the row.
-
-## Steam, Epic and Heroic games
-
-- **Installed PC games join the Games library** and console mode by themselves: Steam (every library), the Epic Games Launcher, and Heroic (Epic, GOG and apps you added). New installs appear and uninstalled games go when you open the Games tab.
-- **Play opens the game in its launcher**, which also keeps its play time. Covers come from Steam and Heroic; Epic games show their initials for now.
-- **Remove from library** keeps a store game out until you add it back by reinstalling it.
+- **Failed downloads try again by themselves**, the same as pressing Resume: after 5, 10, 20, 40, then every 60 seconds, up to 10 tries in a row. Any progress starts the count over.
+- The download's row and the status bar say when the next try is. Pause stops a waiting retry; Resume still works after it gives up.
 
 ## Downloads
 

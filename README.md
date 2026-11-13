@@ -27,6 +27,10 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.15
+
+- **Fetch retries failed downloads by itself**, up to 10 times in a row with growing waits.
+
 ## What's new in 2.5.14
 
 - **Console mode**: a fullscreen game row for keyboard or controller (F11).
