@@ -246,7 +246,8 @@ public partial class MainWindow
     }
 
     /// <summary>
-    /// Unpack a PS5 image with PS5 Dump Forge, or extract a PS4 .pkg with Orbis, into a game folder; then point the game at it.
+    /// Unpack a PS5 image with PS5 Dump Forge, or extract a PS4 .pkg with shadPS4Plus's pkg_extractor, into a game folder;
+    /// then point the game at it.
     /// KytyPS5 and shadPS4 only run folders.
     /// </summary>
     private async Task<bool> Unpack(Rom rom)
@@ -258,16 +259,16 @@ public partial class MainWindow
         }
         var ps4 = RomLibrary.IsPs4Package(rom);
         var dir = RomLibrary.UnpackedDir(rom.Path);
-        var eboot = Path.Combine(dir, "eboot.bin");
-        // Forge publishes the folder whole; Orbis writes file by file, so only its finished mark counts.
-        if (ps4 ? !File.Exists(Path.Combine(dir, RomLibrary.UnpackedMark)) : !File.Exists(eboot))
+        // Forge publishes the folder whole; pkg_extractor writes file by file into dir\<TITLE_ID>, so only its finished mark counts.
+        string? Game() => ps4 ? RomLibrary.ExtractedGame(dir) : File.Exists(Path.Combine(dir, "eboot.bin")) ? dir : null;
+        if (ps4 ? !File.Exists(Path.Combine(dir, RomLibrary.UnpackedMark)) || Game() is null : Game() is null)
         {
-            var tool = ps4 ? "Orbis" : "PS5 Dump Forge";
+            var tool = ps4 ? "shadPS4Plus" : "PS5 Dump Forge";
             var cli = EmuStore.Find(tool)?.Exe is { } app ? ps4 ? app : Path.Combine(Path.GetDirectoryName(app)!, "ps5-dump-forge.exe") : null;
             if (cli is null || !File.Exists(cli))
             {
                 OpenEmulatorsFor(rom.Tile);
-                StatusText.Text = ps4 ? "Install Orbis to play PS4 .pkg games. Play extracts them for shadPS4."
+                StatusText.Text = ps4 ? "Install shadPS4Plus (its PKG extractor) to play PS4 .pkg games. Play extracts them for shadPS4."
                     : "Install PS5 Dump Forge to play .ffpfs games. Play unpacks them for KytyPS5.";
                 return false;
             }
@@ -287,7 +288,7 @@ public partial class MainWindow
                 else
                 {
                     var source = rom.Path;
-                    // A package cut into pieces is joined into one file first; Orbis reads one whole package.
+                    // A package cut into pieces is joined into one file first; the extractor reads one whole package.
                     var parts = ps4 ? RomLibrary.PkgParts(rom.Path) : [rom.Path];
                     var joined = dir + ".pkg";
                     if (parts.Count > 1)
@@ -307,9 +308,9 @@ public partial class MainWindow
                         source = joined;
                     }
                     if (!await RunUnpacker(cli, rom, source, dir, ps4, _unpackStop.Token)) return false;
-                    if (parts.Count > 1 && File.Exists(Path.Combine(dir, "eboot.bin"))) try { File.Delete(joined); } catch { } // the pieces stay
+                    if (parts.Count > 1 && Game() is not null) try { File.Delete(joined); } catch { } // the pieces stay
                 }
-                if (!File.Exists(eboot))
+                if (Game() is null)
                 {
                     StatusText.Text = $"Unpacking {rom.Title} didn't finish. Press Play to try again.";
                     return false;
@@ -324,8 +325,7 @@ public partial class MainWindow
                     await Task.Delay(500);
                     RomLibrary.UnpackLeftovers(dir, ForgeAlive);
                 }
-                StatusText.Text = ps4 ? $"Stopped extracting {rom.Title}. Play carries on from where it stopped."
-                    : $"Stopped unpacking {rom.Title}. Unpacking starts over next time.";
+                StatusText.Text = $"Stopped unpacking {rom.Title}. Unpacking starts over next time.";
                 return false;
             }
             catch (Exception ex)
@@ -342,7 +342,7 @@ public partial class MainWindow
             }
         }
         // The image or package stays; the folder is what plays from now on.
-        rom.Path = dir;
+        rom.Path = Game()!;
         RomLibrary.Save(_library!);
         rom.Refresh();
         return true;
@@ -353,40 +353,39 @@ public partial class MainWindow
     {
         StatusText.Text = $"Unpacking {rom.Title}…";
         var start = new ProcessStartInfo(cli) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-        // --resume: Orbis keeps the files a stopped extract already wrote and copies the rest.
-        string[] args = ps4 ? ["extract", source, "-o", dir, "--resume"] : ["convert", source, "--to", "folder", "-o", dir];
+        // pkg_extractor <pkg> <folder> writes into <folder>\<TITLE_ID>; with both arguments it doesn't wait for Enter.
+        string[] args = ps4 ? [source, dir] : ["convert", source, "--to", "folder", "-o", dir];
         foreach (var arg in args) start.ArgumentList.Add(arg);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not start it.");
         using var kill = stop.Register(() => { try { process.Kill(entireProcessTree: true); } catch { } });
         var errors = process.StandardError.ReadToEndAsync();
         var clock = Stopwatch.StartNew();
-        void Show(ulong done, ulong total, double bps) =>
-            StatusText.Text = $"Unpacking {rom.Title}…  {done * 100 / total}%  ·  {Format.Speed(bps)}"
-                + (bps > 0 && done > 0 ? $"  ·  {Format.Duration((total - done) / bps)} left" : "");
-        if (ps4)
+        string? said = null;
+        while (await process.StandardOutput.ReadLineAsync() is { } line)
         {
-            // Orbis prints only phase names when it isn't in a console, so progress is the folder's size against the package's.
-            var output = process.StandardOutput.ReadToEndAsync();
-            var total = (ulong)Math.Max(1, new FileInfo(source).Length);
-            var before = await Task.Run(() => RomLibrary.FolderSize(dir));
-            var exited = process.WaitForExitAsync();
-            while (await Task.WhenAny(exited, Task.Delay(2000)) != exited)
+            if (ps4)
             {
-                var size = await Task.Run(() => RomLibrary.FolderSize(dir));
-                Show(Math.Min(size, total * 99 / 100), total, (size - Math.Min(before, size)) / Math.Max(clock.Elapsed.TotalSeconds, 0.001));
+                // "Extracting file 12 of 340", rewritten in place with \r; anything starting "Cannot"/"Could not" is why it failed.
+                if (RomLibrary.ExtractProgress(line) is var (file, files))
+                {
+                    var left = clock.Elapsed.TotalSeconds * (files - file) / file;
+                    StatusText.Text = $"Unpacking {rom.Title}…  {file * 100 / files}%  ·  file {file} of {files}" + (file > 1 ? $"  ·  {Format.Duration(left)} left" : "");
+                }
+                else if (line.Trim() is { Length: > 0 } text && (text.StartsWith("Cannot") || text.StartsWith("Could not") || text.Contains("doesn't appear to be a valid PKG"))) said = text;
             }
-            await output;
+            else if (RomLibrary.UnpackProgress(line) is var (done, total))
+            {
+                var bps = done / Math.Max(clock.Elapsed.TotalSeconds, 0.001);
+                StatusText.Text = $"Unpacking {rom.Title}…  {done * 100 / total}%  ·  {Format.Speed(bps)}"
+                    + (bps > 0 && done > 0 ? $"  ·  {Format.Duration((total - done) / bps)} left" : "");
+            }
         }
-        else
-            while (await process.StandardOutput.ReadLineAsync() is { } line)
-                if (RomLibrary.UnpackProgress(line) is var (done, total))
-                    Show(done, total, done / Math.Max(clock.Elapsed.TotalSeconds, 0.001));
         await process.WaitForExitAsync();
         stop.ThrowIfCancellationRequested();
-        // Orbis exit 3: some entries were skipped; the game folder can still be complete, so eboot.bin decides.
-        if (process.ExitCode == 0 || ps4 && process.ExitCode == 3) return true;
-        var why = (await errors).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault();
-        StatusText.Text = $"Could not unpack {rom.Title}: {why ?? $"{(ps4 ? "Orbis" : "PS5 Dump Forge")} failed."}";
+        // pkg_extractor always exits 0; the game folder it leaves decides.
+        if (ps4 ? said is null : process.ExitCode == 0) return true;
+        var why = said ?? (await errors).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault();
+        StatusText.Text = $"Could not unpack {rom.Title}: {why ?? "PS5 Dump Forge failed."}";
         return false;
     }
 

@@ -201,6 +201,12 @@ if (args is ["--roms"])
     // PS4 .pkg games are extracted before playing; PS3 ones aren't.
     if (!RomLibrary.IsPs4Package(new Rom { Path = "x/G.PKG", Console = "PS4" }) || RomLibrary.IsPs4Package(new Rom { Path = "x/G.pkg", Console = "PS3" })
         || RomLibrary.IsPs4Package(new Rom { Path = "x/G", Console = "PS4" })) bad.Add("PS4 package detection");
+    if (RomLibrary.ExtractProgress("\r      Extracting file 12 of 340") != (12, 340) || RomLibrary.ExtractProgress("Extracting file 0 of 5") != (1, 5)
+        || RomLibrary.ExtractProgress("Extracting file 1 of 0") is not null || RomLibrary.ExtractProgress("THE END x.pkg") is not null) bad.Add("pkg_extractor progress");
+    Put(Path.Combine(root, "unp", "CUSA12345", "eboot.bin"), [1]);
+    Directory.CreateDirectory(Path.Combine(root, "unp", "empty"));
+    if (RomLibrary.ExtractedGame(Path.Combine(root, "unp")) != Path.Combine(root, "unp", "CUSA12345") || RomLibrary.ExtractedGame(Path.Combine(root, "none")) is not null)
+        bad.Add("extracted game folder");
     Put(Path.Combine(emu2, "sub", "a.bin"), new byte[300]);
     if (RomLibrary.FolderSize(emu2) < 300 || RomLibrary.FolderSize(Path.Combine(root, "nope")) != 0) bad.Add("folder size");
 

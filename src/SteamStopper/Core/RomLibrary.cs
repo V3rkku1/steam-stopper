@@ -107,7 +107,7 @@ public static class RomLibrary
     /// <summary>Settings: unpack PS5 images into this folder instead of next to them. Empty or missing means next to them.</summary>
     public static string UnpackRoot { get; set; } = "";
 
-    /// <summary>A PS4 .pkg: shadPS4 can't install those, so Play extracts it with Orbis first.</summary>
+    /// <summary>A PS4 .pkg: shadPS4 can't install those, so Play extracts it with shadPS4Plus's pkg_extractor first.</summary>
     public static bool IsPs4Package(Rom rom) => rom.Console == "PS4" && rom.Path.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase);
 
     // Big PS4 packages are often shared cut into pieces: "Game part 1.pkg", "Game part 2.pkg…" or "Game_0.pkg", "Game_1.pkg…".
@@ -157,7 +157,16 @@ public static class RomLibrary
         }
     }
 
-    /// <summary>Left in a game folder once extracting finished, since Orbis writes it file by file.</summary>
+    /// <summary>The game pkg_extractor made inside an unpack folder: the &lt;TITLE_ID&gt; folder holding eboot.bin.</summary>
+    public static string? ExtractedGame(string dir) =>
+        Directory.Exists(dir) ? Directory.EnumerateDirectories(dir).FirstOrDefault(d => File.Exists(System.IO.Path.Combine(d, "eboot.bin"))) : null;
+
+    /// <summary>File number and count from pkg_extractor's "Extracting file 12 of 340", else null.</summary>
+    public static (int File, int Files)? ExtractProgress(string line) =>
+        Regex.Match(line, @"Extracting file (\d+) of (\d+)") is { Success: true } m && int.Parse(m.Groups[2].Value) is > 0 and var files
+            ? (Math.Max(1, int.Parse(m.Groups[1].Value)), files) : null;
+
+    /// <summary>Left in an unpack folder once extracting finished, since pkg_extractor writes file by file.</summary>
     public const string UnpackedMark = "steam-multitool.extracted";
 
     public static ulong FolderSize(string dir)

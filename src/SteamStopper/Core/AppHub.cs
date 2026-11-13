@@ -294,7 +294,7 @@ public static class AppHub
         new("PS1", "PlayStation", "#6B7A90", ["DuckStation", "RetroArch"]),
         new("PS2", "PlayStation 2", "#1D3A8A", ["PCSX2"]),
         new("PS3", "PlayStation 3", "#2A2A30", ["RPCS3"]),
-        new("PS4", "PlayStation 4", "#003791", ["shadPS4", "Orbis"]),
+        new("PS4", "PlayStation 4", "#003791", ["shadPS4", "shadPS4Plus"]),
         new("PS5", "PlayStation 5", "#2D64E6", ["KytyPS5", "PS5 Dump Forge"]),
         new("PSP", "PlayStation Portable", "#3A3A40", ["PPSSPP", "RetroArch"]),
         new("VITA", "PlayStation Vita", "#1E5BB8", ["Vita3K"]),
@@ -334,8 +334,9 @@ public static class AppHub
         new() { Name = "PCSX2", Source = new("PCSX2/pcsx2", [@"windows-x64-Qt\.7z$", @"windows.*x64.*\.7z$"], "pcsx2"), Id = "PCSX2Team.PCSX2", Match = "PCSX2", Category = "PlayStation", Systems = "PlayStation 2", Color = "#1C5DB8", Blurb = "PS2 emulator. Needs a PS2 BIOS from your console." },
         new() { Name = "RPCS3", Source = new("RPCS3/rpcs3-binaries-win", [@"_win64\.7z$", @"win64.*\.(7z|zip)$"], @"^rpcs3\.exe$"), Kind = "site", Url = "https://rpcs3.net/download", Category = "PlayStation", Systems = "PlayStation 3", Color = "#3B3B98", Blurb = "PS3 emulator. Needs the PS3 firmware from Sony's site." },
         new() { Name = "shadPS4", Source = new("shadps4-emu/shadPS4", [@"win64-qt.*\.zip$", @"win64.*\.zip$"], "shadps4"), Id = "shadps4-emu.shadPS4", Match = "shadPS4", Category = "PlayStation", Systems = "PlayStation 4", Color = "#0B3D91", Blurb = "Early PS4 emulator. Some games run, many don't yet." },
-        // Not an emulator: Play uses its orbis.exe to extract PS4 .pkg games into folders shadPS4 can run (MIT/Apache-2.0).
-        new() { Name = "Orbis", Source = new("Antti/orbis", [@"^orbis-cli-.*x86_64-pc-windows-msvc\.zip$"], @"^orbis\.exe$"), Kind = "site", Url = "https://github.com/Antti/orbis/releases", Category = "PlayStation", Systems = "PS4 .pkg extractor", Color = "#2B4C8C", Blurb = "Extracts PS4 .pkg games so shadPS4 can play them. Play does it for you once this is installed." },
+        // Not an emulator: Play uses its pkg_extractor.exe (shadPS4's old PKG code, GPL-2.0, run as its own program) to extract
+        // PS4 .pkg games into folders shadPS4 can run. The repo also publishes emulator builds; only extractor zips match.
+        new() { Name = "shadPS4Plus", Source = new("AzaharPlus/shadPS4Plus", [@"^ShadPs4Plus-PkgExtractor-.*-windows\.zip$"], @"^pkg_extractor\.exe$"), Kind = "site", Url = "https://github.com/AzaharPlus/shadPS4Plus/releases", Category = "PlayStation", Systems = "PS4 .pkg extractor", Color = "#2B4C8C", Blurb = "PKG extractor made from shadPS4's own code. Play uses it to extract PS4 .pkg games for shadPS4." },
         new() { Name = "PPSSPP", Id = "PPSSPPTeam.PPSSPP", Match = "PPSSPP", Category = "PlayStation", Systems = "PSP", Color = "#33A1DE", Blurb = "PSP emulator that runs most games well." },
         new() { Name = "Vita3K", Source = new("Vita3K/Vita3K", [@"^windows-latest\.zip$", @"windows.*\.zip$"], "vita3k"), Id = "Vita3K.Vita3K", Match = "Vita3K", Category = "PlayStation", Systems = "PS Vita", Color = "#1F4E9C", Blurb = "Experimental PS Vita emulator." },
         // Releases are KytyPS5-<date>-<sha>-Windows-x64.zip. Play opens kyty_launcher; the Games tab starts kyty_emulator --game.
