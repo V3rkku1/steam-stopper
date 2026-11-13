@@ -27,6 +27,10 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.18
+
+- **PS4 updates**: Play on an update .pkg installs it beside its game for shadPS4.
+
 ## What's new in 2.5.17
 
 - **PS4 .pkg extraction** now uses shadPS4Plus's PKG extractor, and packages cut into pieces (part 1, part 2…) are joined first.

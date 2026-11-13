@@ -1,7 +1,8 @@
 ## PS4
 
-- **PS4 .pkg games are extracted with shadPS4Plus's PKG extractor**, made from shadPS4's own former PKG code. Install "shadPS4Plus" from Emulators → PS4; Play extracts the game, then starts it in shadPS4. Progress shows the file count and time left.
-- **Packages cut into pieces** ("Game part 1.pkg", "part 2.pkg", or "_0", "_1"…) are joined into one before extracting. The later pieces no longer show up as unknown games.
+- **Game updates install themselves**: press Play on an update .pkg and it's extracted next to its game as <TITLE_ID>-patch, which shadPS4 uses automatically. Extract the game first (Play on it), then Play on the update.
+- **DLC packages** say they're DLC instead of being extracted as a game.
+- Update .pkg files stay in the library until they're installed, and PS4 title ids are read from the right place in the package.
 
 ## Downloads
 
