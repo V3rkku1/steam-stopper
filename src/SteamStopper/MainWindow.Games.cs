@@ -542,7 +542,18 @@ public partial class MainWindow
     }
 
     /// <summary>Steam, Epic and Heroic games: add new installs and drop ones that were uninstalled.</summary>
+    private bool _syncingStores;
+
     private async Task SyncStoreGames()
+    {
+        // One at a time: two overlapping syncs would both add the same new games.
+        if (_library is null || _syncingStores) return;
+        _syncingStores = true;
+        try { await SyncStoreGamesCore(); }
+        finally { _syncingStores = false; }
+    }
+
+    private async Task SyncStoreGamesCore()
     {
         if (_library is null) return;
         var root = _steamRoot;
@@ -556,7 +567,7 @@ public partial class MainWindow
         catch { return; } // a launcher's files mid-write; next visit tries again
         var paths = found.Select(g => g.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var gone = _library.Games.Where(g => g.IsLink && !paths.Contains(g.Path)).ToList();
-        var have = _library.Games.Select(g => g.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var have = _library.Games.Select(g => g.Path).Concat(_library.HiddenLinks).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var added = found.Where(g => have.Add(g.Path)).ToList();
         if (gone.Count + added.Count == 0) return;
         foreach (var game in gone) _library.Games.Remove(game);
@@ -631,9 +642,12 @@ public partial class MainWindow
     {
         if (GameDetail.DataContext is not Rom rom || _library is null) return;
         _library.Games.Remove(rom);
+        if (rom.IsLink) _library.HiddenLinks.Add(rom.Path);
         RomLibrary.Save(_library);
         GamesList.SelectedItem = null;
         PaintGames();
-        StatusText.Text = $"Removed {rom.Title} from the library. The file is still on disk; Rescan would add it back.";
+        StatusText.Text = rom.IsLink
+            ? $"Removed {rom.Title} from the library. It stays installed in {rom.ConsoleName}."
+            : $"Removed {rom.Title} from the library. The file is still on disk; Rescan would add it back.";
     }
 }

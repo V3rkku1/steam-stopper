@@ -196,6 +196,8 @@ public static class RomLibrary
     {
         public List<string> Folders { get; set; } = [];
         public List<Rom> Games { get; set; } = [];
+        // Steam, Epic and Heroic games the user removed, by link, so the next sync doesn't add them back.
+        public List<string> HiddenLinks { get; set; } = [];
     }
 
     public static Store Load()
