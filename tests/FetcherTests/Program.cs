@@ -224,6 +224,28 @@ if (args is ["--roms"])
         || RomLibrary.PkgParts(Path.Combine(cut, "Racer_0.pkg")).Count != 1
         || RomLibrary.ConsoleOf(Path.Combine(cut, "Gran Turismo 7 part 2.pkg")) is not null || RomLibrary.ConsoleOf(Path.Combine(cut, "Gran Turismo 7 part 1.pkg")) != "PS4")
         bad.Add("PS4 package pieces");
+    // PS4 updates: told apart by a PATCH content flag; the title id comes from the content id at 0x40.
+    byte[] Ps4Pkg(string contentId, uint flags)
+    {
+        var b = new byte[1100];
+        "\u007FCNT"u8.CopyTo(b);
+        System.Text.Encoding.ASCII.GetBytes(contentId).CopyTo(b, 0x40);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(b.AsSpan(0x78), flags);
+        return b;
+    }
+    var upd = Directory.CreateDirectory(Path.Combine(root, "upd")).FullName;
+    File.WriteAllBytes(Path.Combine(upd, "game.pkg"), Ps4Pkg("UP0000-CUSA01234_00-GAME000000000000", 0x0A000000));
+    File.WriteAllBytes(Path.Combine(upd, "update.pkg"), Ps4Pkg("UP0000-CUSA01234_00-GAME000000000000", 0x40000000 | 0x0A000000));
+    if (RomLibrary.IsPs4Update(Path.Combine(upd, "game.pkg")) || !RomLibrary.IsPs4Update(Path.Combine(upd, "update.pkg"))
+        || RomLibrary.TitleId(Path.Combine(upd, "update.pkg")) != "CUSA01234") bad.Add("PS4 update packages");
+    // Once the game is extracted its .pkg hides; the update's stays until its -patch folder is there.
+    Directory.CreateDirectory(Path.Combine(upd, "out", "CUSA01234"));
+    var updLib = new[] { new Rom { Path = Path.Combine(upd, "out", "CUSA01234") }, new Rom { Path = Path.Combine(upd, "game.pkg") }, new Rom { Path = Path.Combine(upd, "update.pkg") } };
+    var hiddenBefore = RomLibrary.InstalledPackages(updLib).Select(g => Path.GetFileName(g.Path)).ToList();
+    Directory.CreateDirectory(Path.Combine(upd, "out", "CUSA01234-patch"));
+    var hiddenAfter = RomLibrary.InstalledPackages(updLib).Select(g => Path.GetFileName(g.Path)).Order().ToList();
+    if (!hiddenBefore.SequenceEqual(["game.pkg"]) || !hiddenAfter.SequenceEqual(["game.pkg", "update.pkg"])) bad.Add("installed update hides");
+
     var joinedPkg = Path.Combine(cut, "joined.pkg");
     RomLibrary.JoinParts(gt, joinedPkg, new Progress<long>(), default).GetAwaiter().GetResult();
     if (!File.ReadAllBytes(joinedPkg).SequenceEqual(gt.SelectMany(File.ReadAllBytes)) || File.Exists(joinedPkg + ".joining")) bad.Add("join pieces");

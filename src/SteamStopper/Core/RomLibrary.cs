@@ -107,6 +107,20 @@ public static class RomLibrary
     /// <summary>Settings: unpack PS5 images into this folder instead of next to them. Empty or missing means next to them.</summary>
     public static string UnpackRoot { get; set; } = "";
 
+    /// <summary>A PS4 update package: any PATCH content flag (at 0x78), as shadPS4's extractor decides it.</summary>
+    public static bool IsPs4Update(string path)
+    {
+        try
+        {
+            using var s = File.OpenRead(path);
+            var head = Read(s, 0, 0x80);
+            if (!head.AsSpan().StartsWith("\u007FCNT"u8)) return false;
+            var flags = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(head.AsSpan(0x78));
+            return new uint[] { 0x100000, 0x200000, 0x40000000, 0x41000000, 0x60000000 }.Any(f => (flags & f) == f);
+        }
+        catch { return false; }
+    }
+
     /// <summary>A PS4 .pkg: shadPS4 can't install those, so Play extracts it with shadPS4Plus's pkg_extractor first.</summary>
     public static bool IsPs4Package(Rom rom) => rom.Console == "PS4" && rom.Path.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase);
 
@@ -549,8 +563,10 @@ public static class RomLibrary
     public static List<Rom> InstalledPackages(IEnumerable<Rom> games)
     {
         var list = games.ToList();
-        var installed = list.Where(g => Directory.Exists(g.Path)).Select(g => TitleId(g.Path)).OfType<string>().ToHashSet();
-        return installed.Count == 0 ? [] : list.Where(g => InstallOnly(g.Path) && TitleId(g.Path) is { } id && installed.Contains(id)).ToList();
+        var folders = list.Where(g => Directory.Exists(g.Path)).Select(g => (Path: g.Path, Id: TitleId(g.Path))).Where(f => f.Id is not null).ToList();
+        // An update's .pkg stays listed until it's installed beside its game (the <game>-patch folder shadPS4 reads).
+        return folders.Count == 0 ? [] : list.Where(g => InstallOnly(g.Path) && TitleId(g.Path) is { } id
+            && (IsPs4Update(g.Path) ? folders.Any(f => f.Id == id && Directory.Exists(f.Path + "-patch")) : folders.Any(f => f.Id == id))).ToList();
     }
 
     /// <summary>Local box art for a game, downloading it from libretro-thumbnails or GameTDB the first time.</summary>
@@ -773,7 +789,7 @@ public static class RomLibrary
         catch { return null; }
     }
 
-    /// <summary>A PS3 title id like NPUA80490 from the file or folder name, else from a .pkg's content id.</summary>
+    /// <summary>A title id like NPUA80490 or CUSA00001 from the file or folder name, else from a .pkg's content id.</summary>
     public static string? TitleId(string path)
     {
         if (Regex.Match(System.IO.Path.GetFileName(path), @"[A-Z]{4}\d{5}") is { Success: true } m) return m.Value;
@@ -781,7 +797,8 @@ public static class RomLibrary
         try
         {
             using var s = File.OpenRead(path);
-            var id = Encoding.ASCII.GetString(Read(s, 0x37, 9));
+            // The content id ("UP0000-CUSA00001_00-…") is at 0x40 in PS4 packages, 0x30 in PS3 ones; the title id is 7 in.
+            var id = Encoding.ASCII.GetString(Read(s, Read(s, 0, 4).AsSpan().SequenceEqual("\u007FCNT"u8) ? 0x47 : 0x37, 9));
             return Regex.IsMatch(id, @"^[A-Z]{4}\d{5}$") ? id : null;
         }
         catch { return null; }

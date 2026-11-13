@@ -287,28 +287,17 @@ public partial class MainWindow
                 }
                 else
                 {
-                    var source = rom.Path;
-                    // A package cut into pieces is joined into one file first; the extractor reads one whole package.
-                    var parts = ps4 ? RomLibrary.PkgParts(rom.Path) : [rom.Path];
-                    var joined = dir + ".pkg";
-                    if (parts.Count > 1)
+                    // Updates go next to their game and DLC isn't handled; only a base game is extracted to play.
+                    if (ps4 && await PkgKind(cli, rom.Path) is var kind and (102 or 103))
                     {
-                        var total = parts.Sum(p => new FileInfo(p).Length);
-                        if (!File.Exists(joined) || new FileInfo(joined).Length != total)
-                        {
-                            var root = Path.GetPathRoot(Path.GetFullPath(joined))!;
-                            if (new DriveInfo(root).AvailableFreeSpace < total * 2)
-                            {
-                                StatusText.Text = $"{rom.Title} is in {parts.Count} pieces. Joining and extracting it needs about {Format.Bytes(total * 2)} free on {root}.";
-                                return false;
-                            }
-                            await RomLibrary.JoinParts(parts, joined, new Progress<long>(done =>
-                                StatusText.Text = $"Joining the {parts.Count} pieces of {rom.Title}…  {done * 100 / total}%"), _unpackStop.Token);
-                        }
-                        source = joined;
+                        if (kind == 102) await InstallUpdate(cli, rom, _unpackStop.Token);
+                        else StatusText.Text = $"{rom.Title} is DLC. Steam Multitool doesn't install add-ons yet; the base game plays without it.";
+                        return false;
                     }
+                    var joined = dir + ".pkg";
+                    if (await PackageSource(rom, joined, _unpackStop.Token) is not { } source) return false;
                     if (!await RunUnpacker(cli, rom, source, dir, ps4, _unpackStop.Token)) return false;
-                    if (parts.Count > 1 && Game() is not null) try { File.Delete(joined); } catch { } // the pieces stay
+                    if (source == joined && Game() is not null) try { File.Delete(joined); } catch { } // the pieces stay
                 }
                 if (Game() is null)
                 {
@@ -346,6 +335,70 @@ public partial class MainWindow
         RomLibrary.Save(_library!);
         rom.Refresh();
         return true;
+    }
+
+    /// <summary>
+    /// The file to extract: the package itself, or its pieces joined into <paramref name="joined"/> first (the extractor
+    /// reads one whole package). Null, with the reason shown, when there's no room to join.
+    /// </summary>
+    private async Task<string?> PackageSource(Rom rom, string joined, CancellationToken stop)
+    {
+        var parts = RomLibrary.IsPs4Package(rom) ? RomLibrary.PkgParts(rom.Path) : [rom.Path];
+        if (parts.Count == 1) return rom.Path;
+        var total = parts.Sum(p => new FileInfo(p).Length);
+        if (File.Exists(joined) && new FileInfo(joined).Length == total) return joined;
+        var root = Path.GetPathRoot(Path.GetFullPath(joined))!;
+        if (new DriveInfo(root).AvailableFreeSpace < total * 2)
+        {
+            StatusText.Text = $"{rom.Title} is in {parts.Count} pieces. Joining and extracting it needs about {Format.Bytes(total * 2)} free on {root}.";
+            return null;
+        }
+        await RomLibrary.JoinParts(parts, joined, new Progress<long>(done =>
+            StatusText.Text = $"Joining the {parts.Count} pieces of {rom.Title}…  {done * 100 / total}%"), stop);
+        return joined;
+    }
+
+    /// <summary>pkg_extractor --check-type: 101 a game, 102 an update, 103 DLC; anything else when it can't tell.</summary>
+    private static async Task<int> PkgKind(string cli, string pkg)
+    {
+        var start = new ProcessStartInfo(cli) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        start.ArgumentList.Add(pkg);
+        start.ArgumentList.Add("--check-type");
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not start it.");
+        var output = process.StandardOutput.ReadToEndAsync();
+        _ = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        await output;
+        return process.ExitCode;
+    }
+
+    /// <summary>
+    /// Extract an update .pkg beside its game: pkg_extractor names it &lt;TITLE_ID&gt;-patch, which shadPS4 loads over the game
+    /// folder of the same name by itself. The update then leaves the library; its .pkg stays on disk.
+    /// </summary>
+    private async Task InstallUpdate(string cli, Rom update, CancellationToken stop)
+    {
+        var id = RomLibrary.TitleId(update.Path);
+        var game = id is null ? null : _library!.Games.FirstOrDefault(g => g.Console == "PS4" && Directory.Exists(g.Path)
+            && Path.GetFileName(g.Path).Equals(id, StringComparison.OrdinalIgnoreCase));
+        if (game is null)
+        {
+            StatusText.Text = $"{update.Title} is an update{(id is null ? "" : $" for {id}")}. Play the game itself first so it's extracted, then press Play on the update.";
+            return;
+        }
+        var parent = Path.GetDirectoryName(game.Path)!;
+        if (await PackageSource(update, Path.Combine(parent, id + "-update.pkg"), stop) is not { } source) return;
+        if (!await RunUnpacker(cli, update, source, parent, true, stop)) return;
+        if (source != update.Path) try { File.Delete(source); } catch { }
+        if (!Directory.Exists(Path.Combine(parent, id + "-patch")))
+        {
+            StatusText.Text = $"Installing {update.Title} didn't finish. Press Play to try again.";
+            return;
+        }
+        _library!.Games.Remove(update);
+        RomLibrary.Save(_library);
+        PaintGames();
+        StatusText.Text = $"Installed the update for {game.Title}. shadPS4 uses it when you play the game.";
     }
 
     /// <summary>Run the unpacker, showing percent, speed and time left. False (with the reason shown) when it fails.</summary>
