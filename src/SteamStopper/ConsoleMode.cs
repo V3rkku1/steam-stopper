@@ -41,7 +41,7 @@ public sealed class ConsoleMode : Window
 
     private ConsoleMode(Window owner, IEnumerable<Rom> games, Func<Rom, Task> play, Func<Rom, bool> busy, Func<string> status)
     {
-        _games = games.OrderByDescending(g => g.LastPlayed ?? DateTime.MinValue).ThenByDescending(g => g.Added).ToList();
+        _games = games.Where(g => g.Kind.Length == 0).OrderByDescending(g => g.LastPlayed ?? DateTime.MinValue).ThenByDescending(g => g.Added).ToList();
         (_play, _busy, _status) = (play, busy, status);
         Owner = owner;
         Title = "Console mode";

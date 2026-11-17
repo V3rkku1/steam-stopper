@@ -131,12 +131,63 @@ public static class SaveBackup
             if (slash < 0 || entry.Name.Length == 0 || !int.TryParse(entry.FullName[..slash], out var i) || i >= places.Length) continue;
             var root = Path.GetFullPath(Resolve(places[i], appDir));
             var target = Path.GetFullPath(Path.Combine(root, entry.FullName[(slash + 1)..]));
-            // A crafted zip must not write outside the save folder ("../../Windows/...").
-            if (!target.StartsWith(root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) continue;
+            if (!Inside(root, target)) continue;
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             entry.ExtractToFile(target, true);
             count++;
         }
         return count;
+    }
+
+    // A crafted zip must not write outside the save folder ("../../Windows/...").
+    private static bool Inside(string root, string target) =>
+        target.StartsWith(root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsBackup(string zip)
+    {
+        try { using var z = ZipFile.OpenRead(zip); return z.GetEntry(Manifest) is not null; }
+        catch (InvalidDataException) { return false; }
+    }
+
+    /// <summary>
+    /// Bring in saves from anywhere (another PC, a download): one of our backups is restored where it came from; any other
+    /// zip is unpacked, and folders and files are copied, into the emulator's first save folder. Current saves are zipped
+    /// into "Before restore" first. Returns the files copied and the folder they went to.
+    /// </summary>
+    public static (int Count, string Folder) Import(string emulator, string appDir, IReadOnlyList<string> sources)
+    {
+        if (sources is [var one] && one.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) && IsBackup(one))
+            return (Restore(emulator, appDir, one), Found(emulator, appDir).FirstOrDefault().Dir ?? FolderFor(emulator));
+        // Guessing a folder the emulator doesn't use would hide the saves, so it has to exist already.
+        if (Found(emulator, appDir).FirstOrDefault().Dir is not { } target)
+            throw new DirectoryNotFoundException($"{emulator} has no save folder yet. Play any game once so it makes one, then import.");
+        target = Path.GetFullPath(target);
+        Create(emulator, appDir, Path.Combine(FolderFor(emulator), "Before restore"));
+        var count = 0;
+        void Put(string dest, Action<string> write)
+        {
+            if (!Inside(target, dest)) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+            write(dest);
+            count++;
+        }
+        foreach (var source in sources)
+        {
+            if (Directory.Exists(source))
+            {
+                // The folder itself goes in, since emulators keep one folder per game (named by its title id).
+                var name = Path.GetFileName(source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
+                    Put(Path.GetFullPath(Path.Combine(target, name, Path.GetRelativePath(source, file))), d => File.Copy(file, d, true));
+            }
+            else if (source.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                using var zip = ZipFile.OpenRead(source);
+                foreach (var entry in zip.Entries.Where(e => e.Name.Length > 0))
+                    Put(Path.GetFullPath(Path.Combine(target, entry.FullName)), d => entry.ExtractToFile(d, true));
+            }
+            else Put(Path.Combine(target, Path.GetFileName(source)), d => File.Copy(source, d, true));
+        }
+        return (count, target);
     }
 }

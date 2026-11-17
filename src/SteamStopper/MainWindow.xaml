@@ -263,16 +263,19 @@
                 </StackPanel>
                 <StackPanel>
                   <TextBlock Text="SAVE BACKUPS" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
-                  <TextBlock Text="Zips your emulator and PC port saves into Documents\Steam Multitool Backups. The last 10 are kept."
+                  <TextBlock Text="Zips your emulator and PC port saves into Documents\Steam Multitool Backups. The last 10 are kept. To import saves, drop files, folders or a zip on a row."
                              Foreground="{DynamicResource Faint}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,0"/>
                 </StackPanel>
               </DockPanel>
               <ItemsControl x:Name="SavesList">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,0,0,6">
+                    <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,0,0,6"
+                            Background="Transparent" AllowDrop="True" Drop="SaveImport_Drop" ToolTip="Drop save files, folders or a zip here to import them">
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                          <Button Content="Import…" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="SaveImport_Click" IsEnabled="{Binding HasSaves}"
+                                  ToolTip="Bring in saves from another PC or a download: save files, a game's save folder, or a zip"/>
                           <Button Content="Back up" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="SaveBackup_Click" IsEnabled="{Binding HasSaves}"/>
                           <Button Content="Restore…" Style="{StaticResource SmallButton}" Click="SaveRestore_Click" IsEnabled="{Binding HasBackups}"/>
                         </StackPanel>
@@ -1471,6 +1474,19 @@
                         </Border.Background>
                       </Border>
                     </Grid>
+                    <!-- UPDATE or DLC badge; games themselves have none. -->
+                    <Border DockPanel.Dock="Right" CornerRadius="4" Padding="5,1" Margin="6,0,4,0" VerticalAlignment="Center" Background="{DynamicResource Raised}">
+                      <Border.Style>
+                        <Style TargetType="Border">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding Kind}" Value="">
+                              <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
+                      <TextBlock Text="{Binding Kind}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"/>
+                    </Border>
                     <TextBlock Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                   </DockPanel>
                 </DataTemplate>
@@ -1516,7 +1532,7 @@
                     </Border>
                   </Grid>
                   <StackPanel VerticalAlignment="Bottom">
-                    <TextBlock Text="{Binding ConsoleName}" Foreground="#D0FFFFFF" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <TextBlock Foreground="#D0FFFFFF" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"><Run Text="{Binding ConsoleName, Mode=OneWay}"/><Run Text="{Binding KindTag, Mode=OneWay}"/></TextBlock>
                     <TextBlock Text="{Binding Title}" Foreground="White" FontSize="34" FontWeight="Bold" FontFamily="{StaticResource DisplayFont}" TextWrapping="Wrap">
                       <TextBlock.Effect>
                         <DropShadowEffect BlurRadius="12" ShadowDepth="1" Opacity="0.5"/>

@@ -97,6 +97,48 @@ public partial class MainWindow
         RefreshSaves();
     }
 
+    private void SaveImport_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: SaveRow row }) return;
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = $"Choose {row.Name} save files or a zip", Filter = "Save files and zips|*.*", Multiselect = true
+        };
+        if (dialog.ShowDialog(this) == true) _ = ImportSaves(row, dialog.FileNames);
+    }
+
+    // Files, folders or zips dropped on an emulator's row.
+    private void SaveImport_Drop(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: SaveRow row } && e.Data.GetData(DataFormats.FileDrop) is string[] { Length: > 0 } paths)
+            _ = ImportSaves(row, paths);
+    }
+
+    private async Task ImportSaves(SaveRow row, string[] paths)
+    {
+        if (EmulatorRunning(row.Name))
+        {
+            StatusText.Text = $"Close {row.Name} first, so it doesn't overwrite the imported saves.";
+            return;
+        }
+        if (Dialog.Show(this,
+                $"Import {paths.Length} item{(paths.Length == 1 ? "" : "s")} into {row.Name} saves?\n\nFiles with the same name are replaced. Your current saves are zipped into the \"Before restore\" folder first, so you can undo this.",
+                "Import saves", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            var (count, folder) = await Task.Run(() => SaveBackup.Import(row.Name, row.AppDir, paths));
+            StatusText.Text = $"Imported {count} {row.Name} save file{(count == 1 ? "" : "s")} into {folder}.";
+            // Show where they went, so a save that needs another subfolder is easy to move.
+            if (count > 0) Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true })?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Could not import {row.Name} saves: {ex.Message}";
+        }
+        RefreshSaves();
+    }
+
     private void SavesOpen_Click(object sender, RoutedEventArgs e)
     {
         Directory.CreateDirectory(SaveBackup.Root);

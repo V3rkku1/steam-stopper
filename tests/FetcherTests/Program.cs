@@ -246,6 +246,32 @@ if (args is ["--roms"])
     var hiddenAfter = RomLibrary.InstalledPackages(updLib).Select(g => Path.GetFileName(g.Path)).Order().ToList();
     if (!hiddenBefore.SequenceEqual(["game.pkg"]) || !hiddenAfter.SequenceEqual(["game.pkg", "update.pkg"])) bad.Add("installed update hides");
 
+    // Base game, update or DLC: PS4 header, Switch title id (name or NSP ticket), else the file name.
+    var dlc = Ps4Pkg("UP0000-CUSA01234_00-DLC0000000000000", 0x0A000000);
+    dlc[0x77] = 0x1B;
+    File.WriteAllBytes(Path.Combine(upd, "dlc.pkg"), dlc);
+    var nx = Directory.CreateDirectory(Path.Combine(root, "nx")).FullName;
+    byte[] Pfs0(string file)
+    {
+        var names = System.Text.Encoding.ASCII.GetBytes(file + "\0");
+        var b = new byte[0x10 + 0x18 + names.Length];
+        "PFS0"u8.CopyTo(b);
+        BitConverter.GetBytes(1).CopyTo(b, 4);
+        BitConverter.GetBytes(names.Length).CopyTo(b, 8);
+        names.CopyTo(b, 0x28);
+        return b;
+    }
+    File.WriteAllBytes(Path.Combine(nx, "Zelda.nsp"), Pfs0("0100abcd12340000000000000000000a.tik"));
+    File.WriteAllBytes(Path.Combine(nx, "Zelda v1.2.nsp"), Pfs0("0100abcd12340800000000000000000a.tik"));
+    File.WriteAllBytes(Path.Combine(nx, "Zelda Pack [0100ABCD12341001].nsp"), []);
+    var kinds = new[] { Path.Combine(upd, "game.pkg"), Path.Combine(upd, "update.pkg"), Path.Combine(upd, "dlc.pkg"),
+        Path.Combine(nx, "Zelda.nsp"), Path.Combine(nx, "Zelda v1.2.nsp"), Path.Combine(nx, "Zelda Pack [0100ABCD12341001].nsp"),
+        "Mario_Update_v2.xci", "Sonic (DLC).nsp", "Dispatch Updated.iso", "BLUS30443-A0102-V0100-PE.pkg", "steam://rungameid/1" }.Select(RomLibrary.KindOf);
+    if (!kinds.SequenceEqual(["", "Update", "DLC", "", "Update", "DLC", "Update", "DLC", "", "Update", ""])) bad.Add("game kinds: " + string.Join(",", kinds));
+    var nxLib = Directory.GetFiles(nx).Select(f => new Rom { Path = f, Title = "x" + f.Length, Console = "SWITCH" }).ToList();
+    var zelda = nxLib.Single(r => r.Path.EndsWith("Zelda.nsp"));
+    if (nxLib.Where(r => r != zelda).Any(r => RomLibrary.BaseOf(r, nxLib) != zelda)) bad.Add("update and DLC find their game by title id");
+
     var joinedPkg = Path.Combine(cut, "joined.pkg");
     RomLibrary.JoinParts(gt, joinedPkg, new Progress<long>(), default).GetAwaiter().GetResult();
     if (!File.ReadAllBytes(joinedPkg).SequenceEqual(gt.SelectMany(File.ReadAllBytes)) || File.Exists(joinedPkg + ".joining")) bad.Add("join pieces");
@@ -631,6 +657,21 @@ using (var z = System.IO.Compression.ZipFile.Open(evil, System.IO.Compression.Zi
 }
 SaveBackup.Restore("TestEmu", saveApp, evil);
 Check("restore never writes outside the save folder", !File.Exists(Path.Combine(saveApp, "..", "escaped.txt")) && !File.Exists(Path.Combine(saveApp, "escaped.txt")));
+var inbox = Directory.CreateDirectory(Path.Combine(saveApp, "inbox", "BLUS30443-SAVE")).FullName;
+File.WriteAllText(Path.Combine(inbox, "SAVE.DAT"), "s");
+File.WriteAllText(Path.Combine(saveApp, "inbox", "loose.sav"), "l");
+var foreign = Path.Combine(saveApp, "inbox", "pc.zip");
+using (var z = System.IO.Compression.ZipFile.Open(foreign, System.IO.Compression.ZipArchiveMode.Create))
+{
+    using (var w = new StreamWriter(z.CreateEntry("0100ABC/main").Open())) w.Write("m");
+    using (var w = new StreamWriter(z.CreateEntry("../../escaped2.txt").Open())) w.Write("x");
+}
+var (imported, importedTo) = SaveBackup.Import("TestEmu", saveApp, [inbox, Path.Combine(saveApp, "inbox", "loose.sav"), foreign]);
+string S(params string[] p) => Path.Combine([saveApp, "saves", .. p]);
+Check($"save import: folder, file and foreign zip land in the save folder ({imported})", imported == 3 && importedTo == Path.GetFullPath(S())
+    && File.Exists(S("BLUS30443-SAVE", "SAVE.DAT")) && File.Exists(S("loose.sav")) && File.Exists(S("0100ABC", "main"))
+    && !File.Exists(Path.Combine(saveApp, "escaped2.txt")));
+Check("save import: our own backup zip is restored instead", SaveBackup.Import("TestEmu", saveApp, [backup]).Count == 1);
 Directory.Delete(saveApp, true);
 // Restore also left a "Before restore" zip in the real backups folder.
 if (Directory.Exists(SaveBackup.FolderFor("TestEmu"))) Directory.Delete(SaveBackup.FolderFor("TestEmu"), true);

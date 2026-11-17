@@ -31,6 +31,9 @@ public sealed class Rom : INotifyPropertyChanged
     public string CustomCover { get; set; } = "";
     /// <summary>Store games: their box art, a local file or a web address. Emulator games find theirs by name.</summary>
     public string ArtUrl { get; set; } = "";
+    /// <summary>"" for a game, "Update" or "DLC" for an add-on. Worked out from the file once, then kept in games.json.</summary>
+    public string Kind { get => _kind ??= RomLibrary.KindOf(Path); set => _kind = value; }
+    private string? _kind;
     public DateTime Added { get; set; } = DateTime.Now;
     public DateTime? LastPlayed { get; set; }
     public double PlaySeconds { get; set; }
@@ -47,6 +50,7 @@ public sealed class Rom : INotifyPropertyChanged
     [JsonIgnore] public bool IsLink => Path.Contains("://");
     [JsonIgnore] public string Color => Tile?.Color ?? "#4A4A55";
     [JsonIgnore] public string ConsoleName => Tile?.Maker ?? "Unknown console";
+    [JsonIgnore] public string KindTag => Kind.Length > 0 ? "  ·  " + Kind : "";
     [JsonIgnore] public string Initials => string.Concat(Title.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpperInvariant(w[0])));
     [JsonIgnore] public string PlayTimeText => PlaySeconds < 60 ? (LastPlayed is null ? "Never played" : "Under a minute")
         : PlaySeconds < 90 ? "1 minute" : PlaySeconds < 3600 ? $"{PlaySeconds / 60:0} minutes" : $"{PlaySeconds / 3600:0.0} hours";
@@ -119,6 +123,62 @@ public static class RomLibrary
             return new uint[] { 0x100000, 0x200000, 0x40000000, 0x41000000, 0x60000000 }.Any(f => (flags & f) == f);
         }
         catch { return false; }
+    }
+
+    /// <summary>"Update" or "DLC" for an add-on, "" for a game: from a PS4 package header, a Switch title id, else the name.</summary>
+    public static string KindOf(string path)
+    {
+        if (path.Contains("://")) return "";
+        // An extracted PS4 or Vita update folder: param.sfo category "gp" (game patch).
+        if (Directory.Exists(path)) return SfoValue(System.IO.Path.Combine(path, "sce_sys", "param.sfo"), "CATEGORY") == "gp" ? "Update" : "";
+        if (path.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase) && HasMagic(path, "\u007FCNT"u8))
+        {
+            if (IsPs4Update(path)) return "Update";
+            try
+            {
+                using var s = File.OpenRead(path);
+                // Content type at 0x74: 0x1B additional content, 0x1C additional licence (DLC without data).
+                return Read(s, 0x74, 4) is [0, 0, 0, 0x1B or 0x1C] ? "DLC" : "";
+            }
+            catch { return ""; }
+        }
+        // Switch title ids end in 000 for the game, 800 for its update, anything else for DLC.
+        if (SwitchId(path) is { } id) return (id & 0xFFF) switch { 0 => "", 0x800 => "Update", _ => "DLC" };
+        // Letters-only edges, so "Dispatch" or "Updated" don't count; "-A0102-V0100" is how PS3 updates are named.
+        var name = System.IO.Path.GetFileNameWithoutExtension(path);
+        return Regex.IsMatch(name, "(?<![a-z])dlc(?![a-z])", RegexOptions.IgnoreCase) ? "DLC"
+            : Regex.IsMatch(name, "(?<![a-z])(update|upd|patch)(?![a-z])|-A\\d{4}-V\\d{4}", RegexOptions.IgnoreCase) ? "Update" : "";
+    }
+
+    /// <summary>A Switch file's title id: from its name ("[0100ABCD12340800]"), else an NSP's ticket name. Null when neither has one.</summary>
+    public static ulong? SwitchId(string path)
+    {
+        if (System.IO.Path.GetExtension(path).ToLowerInvariant() is not (".nsp" or ".nsz" or ".xci" or ".xcz")) return null;
+        if (Regex.Match(System.IO.Path.GetFileName(path), "(?<![0-9a-f])01[0-9a-f]{14}(?![0-9a-f])", RegexOptions.IgnoreCase) is { Success: true } m)
+            return Convert.ToUInt64(m.Value, 16);
+        try
+        {
+            // NSP/NSZ are PFS0 archives: count at 4, names at 0x10 + count * 0x18. A ticket is named after its rights id, title id first.
+            using var s = File.OpenRead(path);
+            var head = Read(s, 0, 0x10);
+            if (!head.AsSpan().StartsWith("PFS0"u8)) return null;
+            int count = BitConverter.ToInt32(head, 4), size = BitConverter.ToInt32(head, 8);
+            if (count is <= 0 or > 1000 || size is <= 0 or > 1 << 20) return null;
+            var names = Encoding.ASCII.GetString(Read(s, 0x10 + count * 0x18, size));
+            return Regex.Match(names, "([0-9a-f]{16})[0-9a-f]{16}\\.tik", RegexOptions.IgnoreCase) is { Success: true } t ? Convert.ToUInt64(t.Groups[1].Value, 16) : null;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>The game an update or DLC belongs to: same title id, else the same name on the same console.</summary>
+    public static Rom? BaseOf(Rom extra, IEnumerable<Rom> games)
+    {
+        var bases = games.Where(g => g != extra && g.Console == extra.Console && g.Kind == "").ToList();
+        // An update is the game's id with 800; DLC is the game's id + 0x1000 + n.
+        ulong? sid = SwitchId(extra.Path) is { } s ? (s & ~0xFFFUL) - (extra.Kind == "DLC" ? 0x1000UL : 0) : null;
+        var tid = TitleId(extra.Path);
+        return bases.FirstOrDefault(g => sid is not null ? SwitchId(g.Path) == sid : tid is not null && TitleId(g.Path) == tid)
+            ?? bases.FirstOrDefault(g => Key(g.Title) == Key(extra.Title));
     }
 
     /// <summary>A PS4 .pkg: shadPS4 can't install those, so Play extracts it with shadPS4Plus's pkg_extractor first.</summary>

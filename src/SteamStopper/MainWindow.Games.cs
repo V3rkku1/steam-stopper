@@ -34,6 +34,8 @@ public partial class MainWindow
             _gamesView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Rom.ConsoleName)));
             _gamesView.SortDescriptions.Add(new SortDescription(nameof(Rom.ConsoleName), ListSortDirection.Ascending));
             _gamesView.SortDescriptions.Add(new SortDescription(nameof(Rom.Title), ListSortDirection.Ascending));
+            // A game's update and DLC sit right under it ("" sorts first).
+            _gamesView.SortDescriptions.Add(new SortDescription(nameof(Rom.Kind), ListSortDirection.Ascending));
             _gamesView.Filter = o => o is Rom r && (GameSearchBox.Text.Trim() is not { Length: > 0 } q
                 || r.Title.Contains(q, StringComparison.OrdinalIgnoreCase) || r.ConsoleName.Contains(q, StringComparison.OrdinalIgnoreCase));
             GamesList.ItemsSource = _gamesView;
@@ -119,7 +121,22 @@ public partial class MainWindow
         GameHint.Text = !rom.Exists ? "The game file is gone. Remove it or rescan."
             : rom.Tile is null ? "Pick the console this game is for below."
             : !hasEmu ? $"No emulator for {rom.ConsoleName} is installed yet. Get Emulator opens the Emulators tab."
-            : "";
+            : AddOnHint(rom);
+    }
+
+    /// <summary>Updates and DLC aren't games: say which game they belong to and how the emulator takes them.</summary>
+    private string AddOnHint(Rom rom)
+    {
+        if (rom.Kind.Length == 0 || _library is null) return "";
+        var kind = rom.Kind == "DLC" ? "DLC" : "an update";
+        if (RomLibrary.IsPs4Package(rom)) return rom.Kind == "DLC" ? "This is DLC, not a game. Steam Multitool doesn't install PS4 add-ons yet."
+            : "This is an update, not a game. Play installs it beside its game for shadPS4.";
+        if (RomLibrary.InstallOnly(rom.Path)) return $"This is {kind}, not a game. Play opens the emulator so you can install it from its File menu.";
+        var game = RomLibrary.BaseOf(rom, _library.Games);
+        var how = rom.Console == "SWITCH" ? " Add it in the emulator first: Eden and its forks via File > Install Files to NAND, Ryujinx via right-click the game > Manage Title Updates or DLC." : "";
+        return game is null
+            ? $"This is {kind}, not a game. Add its base game to the library too.{how}"
+            : $"This is {kind} for {game.Title}. Play starts {game.Title}.{how}";
     }
 
     private async void GamePlay_Click(object sender, RoutedEventArgs e)
@@ -152,6 +169,13 @@ public partial class MainWindow
                 PaintPlay(rom);
                 StatusText.Text = $"Could not stop {rom.Title}. Close the emulator window yourself.";
             }
+            return;
+        }
+        // An update or DLC file doesn't boot; start the game it belongs to.
+        if (rom.Kind.Length > 0 && !RomLibrary.InstallOnly(rom.Path) && RomLibrary.BaseOf(rom, _library.Games) is { } game)
+        {
+            if (GameDetail.DataContext == rom) GamesList.SelectedItem = game;
+            await Play(game);
             return;
         }
         if (RomLibrary.IsPs5Image(rom.Path) || RomLibrary.IsPs4Package(rom))
@@ -464,7 +488,8 @@ public partial class MainWindow
         // KytyPS5's Play button opens its launcher; games start in its emulator exe next to it.
         if (RomLibrary.GameExe.TryGetValue(emu.Name, out var gameExe) && Path.Combine(Path.GetDirectoryName(exe)!, gameExe) is var direct && File.Exists(direct))
             exe = direct;
-        return (emu, exe, RomLibrary.Arguments(emu.Name, rom.Path, rom.Console));
+        // An add-on with no game to start: open the emulator alone so it can be installed there.
+        return (emu, exe, rom.Kind.Length > 0 ? RomLibrary.OpenArgs(emu.Name, exe) ?? "" : RomLibrary.Arguments(emu.Name, rom.Path, rom.Console));
     }
 
     private async void GamesToSteam_Click(object sender, RoutedEventArgs e)
