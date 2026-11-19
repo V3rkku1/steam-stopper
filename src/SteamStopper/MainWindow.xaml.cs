@@ -1248,7 +1248,23 @@ public partial class MainWindow : Window
     {
         if (_probing || _bondRows.Count < 2 || !(_bonder.Running || _fetchRuns.Count > 0)) return;
         _probing = true;
-        try { await LinkHealth.Probe(_bondRows); }
+        try
+        {
+            await LinkHealth.Probe(_bondRows);
+            var down = _bondRows.Where(l => l.Selected && l.Down).ToList();
+            if (down.Count == 0) return;
+            // A link that reconnected may have a new address; the old one would stay dead forever.
+            var now = await Task.Run(LinkBonder.Discover);
+            foreach (var link in down)
+                if (now.FirstOrDefault(n => n.Name == link.Name) is { } fresh && !fresh.Address.Equals(link.Address))
+                    (link.Address, link.DnsServers) = (fresh.Address, fresh.DnsServers);
+            // Every link offline: the proxy only blocks Steam now, so hand Windows its normal connection back.
+            if (_bonder.Running && !_bondWorking && _bondRows.Where(l => l.Selected).All(l => l.Down))
+            {
+                StopBondingCore();
+                StatusText.Text = "Every bonded link went offline, so bonding stopped and the Windows proxy was restored. Start it again once they're back.";
+            }
+        }
         catch { } // a link vanished mid-probe; the next round sees the new list
         finally { _probing = false; }
     }

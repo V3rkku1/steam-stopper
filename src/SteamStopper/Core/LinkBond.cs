@@ -35,9 +35,10 @@ public sealed class BondLink : INotifyPropertyChanged
     public int Index { get; init; }
     public string Description { get; init; } = "";
     public string Kind { get; init; } = "";
-    public IPAddress Address { get; init; } = IPAddress.None;
+    // Settable: a link that reconnects can come back with a new DHCP address.
+    public IPAddress Address { get; internal set; } = IPAddress.None;
     public string Gateway { get; init; } = "";
-    public IPAddress[] DnsServers { get; init; } = [];
+    public IPAddress[] DnsServers { get; internal set; } = [];
     /// <summary>Last round trip to the internet over this link, from the health probe.</summary>
     public double? RttMs { get; private set; }
     /// <summary>The health probe couldn't get out over this link twice in a row.</summary>
@@ -419,8 +420,12 @@ public sealed class LinkBonder
         if (IPAddress.TryParse(host, out var literal)) addresses = [literal];
         else
         {
-            try { addresses = await Dns.GetHostAddressesAsync(host, cancel); }
-            catch { return (null, null); }
+            // Windows may still ask the DNS of a link that just dropped: give it 3 s, then ask the live links' own DNS.
+            using var wait = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+            wait.CancelAfter(3000);
+            try { addresses = await Dns.GetHostAddressesAsync(host, wait.Token); }
+            catch when (!cancel.IsCancellationRequested) { addresses = await ResolveOverLinks(host, cancel); }
+            if (addresses.Length == 0) return (null, null);
         }
 
         var v4 = addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
@@ -454,6 +459,15 @@ public sealed class LinkBonder
             Interlocked.Exchange(ref link.FailUntilTicks, DateTime.UtcNow.Add(FailPenalty).Ticks);
         }
         return (null, null);
+    }
+
+    private async Task<IPAddress[]> ResolveOverLinks(string host, CancellationToken cancel)
+    {
+        foreach (var link in Ranked().Where(l => !l.Down))
+            foreach (var dns in link.DnsServers.Take(1))
+                try { if (await LinkDns.Resolve(host, dns, link.Address, cancel) is { Length: > 0 } found) return found; }
+                catch when (!cancel.IsCancellationRequested) { } // try the next link
+        return [];
     }
 
     // Weighted least-connections, healthy links first so a dead phone hotspot only costs one retry.
