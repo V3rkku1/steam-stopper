@@ -1293,6 +1293,11 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (_routeRules.Any(r => r.Proxy is not null && r.App.UsesSystemProxy))
+            {
+                StatusText.Text = "Steam is pinned to one link on Routes. Put it back on the main connection first.";
+                return;
+            }
             if (!int.TryParse(BondPortBox.Text.Trim(), out var port))
             {
                 StatusText.Text = "The proxy port must be a number.";
@@ -1421,6 +1426,8 @@ public partial class MainWindow : Window
 
             var link = LinkBonder.Discover().FirstOrDefault(l => l.Name == wanted);
             if (link is null) return $"{wanted} is not connected right now.";
+            // Both use the one Windows proxy setting.
+            if (rule.App.UsesSystemProxy && _bonder.Running) return "Stop bonding first: it already steers Steam.";
             var proxy = new LinkBonder();
             var started = proxy.Start([link], port, 1);
             if (!proxy.Running) return started;
@@ -1429,6 +1436,7 @@ public partial class MainWindow : Window
             rule.Pinned = link;
             Watchdog.Ensure();
             Watchdog.TrackRouted(rule.App.Key, exe);
+            if (rule.App.UsesSystemProxy) SystemProxy.Enable(port);
             AppRoutes.Restart(rule.App, exe, port);
             Dispatcher.Invoke(() => rule.Status = $"Using {link.Name}");
             return routeError is null
@@ -1459,6 +1467,7 @@ public partial class MainWindow : Window
     private static void StopRoute(RouteRule rule)
     {
         if (rule.Proxy is not null) Watchdog.TrackRouted(rule.App.Key, null);
+        if (rule.Proxy is not null && rule.App.UsesSystemProxy) try { SystemProxy.Restore(); } catch { }
         rule.Proxy?.Stop();
         if (rule.Pinned is not null) AppRoutes.RemoveRoutes(rule.App, rule.Pinned);
         rule.Proxy = null;

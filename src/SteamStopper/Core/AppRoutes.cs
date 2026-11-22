@@ -13,6 +13,8 @@ public sealed class RouteApp
     // Destination ranges sent out the app's link with a plain Windows route. Catches the app's
     // UDP traffic (Discord voice) that a proxy can't carry.
     public string[] Networks { get; init; } = [];
+    // No proxy switch on the command line (Steam): point the Windows proxy setting at the pinned proxy instead.
+    public bool UsesSystemProxy { get; init; }
     public Func<string?> Find { get; init; } = () => null;
     public Func<string, int?, ProcessStartInfo> Launch { get; init; } = (_, _) => new ProcessStartInfo();
 }
@@ -64,6 +66,16 @@ public static class AppRoutes
 
     public static readonly RouteApp[] Catalog =
     [
+        new()
+        {
+            Key = "steam",
+            Name = "Steam",
+            Processes = ["steam", "steamwebhelper"],
+            // No Valve address routes: CS2 and Dota match traffic lives in those ranges and must stay on main.
+            UsesSystemProxy = true,
+            Find = () => SteamClient.FindRoot() is { } root ? FirstFile(Path.Combine(root, "steam.exe")) : null,
+            Launch = (exe, _) => new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! }
+        },
         new()
         {
             Key = "discord",
@@ -140,7 +152,8 @@ public static class AppRoutes
             {
                 using (p)
                 {
-                    try { p.Kill(true); } catch { }
+                    // Not the tree for Steam: games it started are its children.
+                    try { p.Kill(!app.UsesSystemProxy); } catch { }
                 }
             }
         }

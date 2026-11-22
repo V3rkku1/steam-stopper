@@ -1155,7 +1155,7 @@
               <TextBlock x:Name="RoutesBusy" Text="" Foreground="{DynamicResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
               <TextBlock Text="HOW IT WORKS" Style="{StaticResource SectionLabel}" Margin="0,18,0,6"/>
               <TextBlock Foreground="{DynamicResource Faint}" FontSize="11" TextWrapping="Wrap"
-                         Text="Steam Multitool never touches the game, so anti-cheat has nothing to see. An app sent to another link is restarted through a small proxy pinned to that link. Discord voice also gets a Windows route to Discord's voice servers. Closing Steam Multitool restarts routed apps on the main connection."/>
+                         Text="Steam Multitool never touches the game, so anti-cheat has nothing to see. An app sent to another link is restarted through a small proxy pinned to that link. Discord voice also gets a Windows route to Discord's voice servers. Steam has no proxy switch, so while it is routed the Windows proxy setting points at its link; apps that follow that setting go the same way. Closing Steam Multitool restarts routed apps on the main connection."/>
             </StackPanel>
           </ScrollViewer>
         </Border>

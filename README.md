@@ -217,9 +217,11 @@ Progress is kept in `name.part.json` next to the unfinished `name.part`, so **Pa
 The **Routes** page chooses which internet connection each app uses, for example Valorant on Ethernet and Discord on your phone.
 
 1. **Main connection**: pick your steadiest link (usually Ethernet) and press **Make main**. Everything without its own route uses it, including games. **Restore automatic** undoes it.
-2. **Apps**: pick a connection next to Discord, Chrome, Edge, Brave, Opera GX or Spotify and press **Apply**. The app restarts on that link.
+2. **Apps**: pick a connection next to Steam, Discord, Chrome, Edge, Brave, Opera GX or Spotify and press **Apply**. The app restarts on that link.
 
 How it works: Steam Multitool never touches the game, so anti-cheat such as Vanguard has nothing to see. A routed app is restarted with `--proxy-server` pointing at a local proxy pinned to its link. Discord voice runs over UDP, which a proxy can't carry, so Discord also gets a Windows route that sends Discord's voice servers (`66.22.192.0/18`) out the same link. That route disappears on reboot.
+
+Steam has no proxy switch, so routing it points the Windows proxy setting at its link instead; other apps that follow that setting go the same way. Games are left alone: Steam's downloads and store use the link, game traffic stays on the main connection. Bonding and a Steam route both use the Windows proxy setting, so only one can be on at a time.
 
 Closing Steam Multitool or pressing **Reset all** restarts routed apps on the main connection. If the routed link drops, that app goes offline until you switch it back.
 
