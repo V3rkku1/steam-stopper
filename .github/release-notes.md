@@ -1,8 +1,16 @@
-## PS4
+## Routes
 
-- **Game updates install themselves**: press Play on an update .pkg and it's extracted next to its game as <TITLE_ID>-patch, which shadPS4 uses automatically. Extract the game first (Play on it), then Play on the update.
-- **DLC packages** say they're DLC instead of being extracted as a game.
-- Update .pkg files stay in the library until they're installed, and PS4 title ids are read from the right place in the package.
+- **Steam can be pinned to one connection**: pick a link next to Steam and press Apply. Its downloads and store use that link; games stay on the main connection, and running games aren't closed by the restart.
+- Steam has no proxy switch, so while it's routed the Windows proxy setting points at its link. Bonding and a Steam route can't be on together.
+
+## Games and saves
+
+- **Updates and DLC** get a badge, sort under their game, and Play starts the game they belong to. Console mode lists games only.
+- **Saves import** from save files, folders or any zip (button or drag and drop); current saves are zipped first.
+
+## Bonding
+
+- A dropped link no longer breaks DNS for every connection, a link that comes back with a new address is picked up again, and when every link is offline bonding stops and the Windows proxy is restored.
 
 ## Downloads
 

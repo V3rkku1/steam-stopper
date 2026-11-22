@@ -27,6 +27,13 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.19
+
+- **Routes for Steam**: pin Steam's downloads and store to one connection; games stay on the main one.
+- **Updates and DLC** get a badge and sort under their game; Play starts the game they belong to.
+- **Saves import** from files, folders or zips.
+- **Bonding survives a link dropping**, and stops cleanly when every link is offline.
+
 ## What's new in 2.5.18
 
 - **PS4 updates**: Play on an update .pkg installs it beside its game for shadPS4.
