@@ -13,6 +13,8 @@
     <Compile Include="../../src/SteamStopper/Core/EmuStore.cs" />
     <Compile Include="../../src/SteamStopper/Core/AppHub.cs" />
     <Compile Include="../../src/SteamStopper/Core/RomLibrary.cs" />
+    <Compile Include="../../src/SteamStopper/Core/StoreGames.cs" />
+    <Compile Include="../../src/SteamStopper/Core/SwitchFiles.cs" />
     <Compile Include="../../src/SteamStopper/Core/Updater.cs" />
     <Compile Include="../../src/SteamStopper/Core/SteamShortcuts.cs" />
     <Compile Include="../../src/SteamStopper/Core/Vdf.cs" />

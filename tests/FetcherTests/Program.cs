@@ -86,7 +86,7 @@ if (args is ["--roms"])
     Put(Path.Combine(root, "b.pkg"), Pkg("\u007FPKG", 1, "UP9000-BCUS98174_00-0000000000000000"));
     Put(Path.Combine(root, "c.pkg"), Pkg("\u007FPKG", 2, "UP9000-PCSA00001_00-0000000000000000"));
     Put(Path.Combine(root, "d.pkg"), Pkg("\u007FPKG", 2, "UP9000-ULUS10041_00-0000000000000000"));
-    Put(Path.Combine(root, "e.pkg"), [1, 2, 3]);
+    Put(Path.Combine(root, "e.pkg"), [1, 2, 3]); // no package header: a piece of a cut-up package, not listed
     Put(Path.Combine(root, "f.vpk"), [1]);
     Put(Path.Combine(root, "PCSE00001", "eboot.bin"), [1]);
     Put(Path.Combine(root, "PCSE00001", "sce_sys", "param.sfo"), Sfo("Gravity Rush", ("TITLE_ID", "PCSE00001")));
@@ -103,7 +103,7 @@ if (args is ["--roms"])
     var want = new Dictionary<string, string>
     {
         ["ps4"] = "PS4|Bloodborne", ["ps3disc"] = "PS3|Demon's Souls", ["NPUB30001"] = "PS3|Flower",
-        ["a.pkg"] = "PS4|a", ["b.pkg"] = "PS3|b", ["c.pkg"] = "VITA|c", ["d.pkg"] = "|d", ["e.pkg"] = "|e", ["f.vpk"] = "VITA|f",
+        ["a.pkg"] = "PS4|a", ["b.pkg"] = "PS3|b", ["c.pkg"] = "VITA|c", ["d.pkg"] = "|d", ["f.vpk"] = "VITA|f",
         ["PCSE00001"] = "VITA|Gravity Rush", ["BCUS98174"] = "PS3|Uncharted",
         [Path.Combine("ps2", "Okami.chd")] = "PS2|Okami", [Path.Combine("Sega Dreamcast", "Shenmue.m3u")] = "DREAMCAST|Shenmue", ["Crash.chd"] = "PS1|Crash"
     };
@@ -138,6 +138,50 @@ if (args is ["--roms"])
     var into = RomLibrary.UnpackedDir(Path.Combine(imageDir, "Packed.ffpfs"));
     RomLibrary.UnpackRoot = "";
     if (into != Path.Combine(unpackTo, "Packed")) bad.Add("unpack folder setting");
+
+    // Steam: fully installed games only, the redistributables left out, Steam's cached art first.
+    var steamRoot = Directory.CreateDirectory(Path.Combine(root, "Steam")).FullName;
+    var steamApps = Directory.CreateDirectory(Path.Combine(steamRoot, "steamapps")).FullName;
+    string Acf(string id, string name, int flags) => $"\"AppState\"\n{{\n\"appid\" \"{id}\"\n\"name\" \"{name}\"\n\"StateFlags\" \"{flags}\"\n}}\n";
+    File.WriteAllText(Path.Combine(steamApps, "appmanifest_10.acf"), Acf("10", "Counter-Strike", 4));
+    File.WriteAllText(Path.Combine(steamApps, "appmanifest_20.acf"), Acf("20", "Half Done", 1026));
+    File.WriteAllText(Path.Combine(steamApps, "appmanifest_228980.acf"), Acf("228980", "Steamworks Common Redistributables", 4));
+    Directory.CreateDirectory(Path.Combine(steamRoot, "appcache", "librarycache", "10"));
+    File.WriteAllText(Path.Combine(steamRoot, "appcache", "librarycache", "10", "library_600x900.jpg"), "");
+    var steamGames = StoreGames.Steam([steamRoot], steamRoot);
+    if (steamGames is not [{ Title: "Counter-Strike", Path: "steam://rungameid/10", Console: "STEAM", IsLink: true, Exists: true } cs]
+        || cs.ArtUrl != Path.Combine(steamRoot, "appcache", "librarycache", "10", "library_600x900.jpg")
+        || !StoreGames.Steam([steamRoot], null)[0].ArtUrl.StartsWith("https://")) bad.Add("Steam games");
+
+    // Epic: the game, not its DLC or a broken install.
+    var epic = Directory.CreateDirectory(Path.Combine(root, "Manifests")).FullName;
+    File.WriteAllText(Path.Combine(epic, "a.item"), """{"DisplayName":"Fortnite","AppName":"Fortnite","MainGameAppName":"Fortnite","CatalogNamespace":"fn","CatalogItemId":"4fe7","InstallLocation":"C:\\FN"}""");
+    File.WriteAllText(Path.Combine(epic, "b.item"), """{"DisplayName":"Some DLC","AppName":"Dlc1","MainGameAppName":"Fortnite","CatalogNamespace":"fn","CatalogItemId":"x"}""");
+    File.WriteAllText(Path.Combine(epic, "c.item"), """{"DisplayName":"Broken","AppName":"Br","MainGameAppName":"Br","bIsIncompleteInstall":true}""");
+    File.WriteAllText(Path.Combine(epic, "d.item"), "not json");
+    if (StoreGames.Epic(epic) is not [{ Title: "Fortnite", Console: "EPIC" } fn]
+        || fn.Path != "com.epicgames.launcher://apps/fn%3A4fe7%3AFortnite?action=launch&silent=true") bad.Add("Epic games");
+
+    // Heroic: Epic through legendary (no DLC), GOG named from its library cache, and added apps that are installed.
+    var heroic = Path.Combine(root, "heroic");
+    Directory.CreateDirectory(Path.Combine(heroic, "legendaryConfig", "legendary"));
+    Directory.CreateDirectory(Path.Combine(heroic, "gog_store"));
+    Directory.CreateDirectory(Path.Combine(heroic, "store_cache"));
+    Directory.CreateDirectory(Path.Combine(heroic, "sideload_apps"));
+    File.WriteAllText(Path.Combine(heroic, "legendaryConfig", "legendary", "installed.json"),
+        """{"Quail":{"app_name":"Quail","title":"Quail Game","is_dlc":false},"QDlc":{"title":"Quail DLC","is_dlc":true}}""");
+    File.WriteAllText(Path.Combine(heroic, "store_cache", "legendary_library.json"), """{"library":[{"app_name":"Quail","title":"Quail Game","art_square":"https://img/q.jpg"}]}""");
+    File.WriteAllText(Path.Combine(heroic, "gog_store", "installed.json"), """{"installed":[{"appName":"1207658924","install_path":"C:\\G"}]}""");
+    File.WriteAllText(Path.Combine(heroic, "store_cache", "gog_library.json"), """{"games":[{"app_name":"1207658924","title":"Witcher","art_square":"https://img/w.jpg"}]}""");
+    File.WriteAllText(Path.Combine(heroic, "sideload_apps", "library.json"),
+        """{"games":[{"app_name":"abc","title":"My App","is_installed":true,"art_square":"https://img/a.jpg"},{"app_name":"old","title":"Gone","is_installed":false}]}""");
+    var heroicGames = StoreGames.Heroic(heroic).Select(g => $"{g.Title}|{g.Path}|{g.ArtUrl}").ToList();
+    if (!heroicGames.SequenceEqual([
+            "Quail Game|heroic://launch?appName=Quail&runner=legendary|https://img/q.jpg",
+            "Witcher|heroic://launch?appName=1207658924&runner=gog|https://img/w.jpg",
+            "My App|heroic://launch?appName=abc&runner=sideload|https://img/a.jpg"]))
+        bad.Add("Heroic games: " + string.Join("; ", heroicGames));
+    if (StoreGames.Heroic(Path.Combine(root, "nope")).Count != 0 || StoreGames.Epic(Path.Combine(root, "nope")).Count != 0) bad.Add("missing launchers");
     if (RomLibrary.Arguments("RetroArch", "x.cue", "PS1") != "-L \"cores\\swanstation_libretro.dll\" \"x.cue\""
         || !RomLibrary.Arguments("RetroArch", "x.nes", "NES · SNES").Contains("mesen_libretro") || RomLibrary.Arguments("RetroArch", "x", "PS2") != "\"x\"") bad.Add("RetroArch args");
     var emu = Path.Combine(root, "emu");
@@ -145,6 +189,112 @@ if (args is ["--roms"])
     Directory.CreateDirectory(Path.Combine(emu, "dev_hdd0", "game"));
     if (!RomLibrary.EmulatorGameFolders("shadPS4", Path.Combine(emu, "shadPS4.exe")).SequenceEqual([root])) bad.Add("shadPS4 install dirs from config.toml");
     if (!RomLibrary.EmulatorGameFolders("RPCS3", Path.Combine(emu, "rpcs3.exe")).SequenceEqual([Path.Combine(emu, "dev_hdd0", "game")])) bad.Add("RPCS3 game folder");
+    // Newer shadPS4: config.json, disabled folders left out; command line only unless the Qt DLLs are beside it.
+    var emu2 = Path.Combine(root, "emu2");
+    var games2 = Directory.CreateDirectory(Path.Combine(root, "ps4games")).FullName;
+    Put(Path.Combine(emu2, "user", "config.json"), System.Text.Encoding.UTF8.GetBytes(
+        $"{{\"General\":{{\"install_dirs\":[{{\"path\":\"{games2.Replace("\\", "\\\\")}\",\"enabled\":true}},{{\"path\":\"{root.Replace("\\", "\\\\")}\",\"enabled\":false}}]}}}}"));
+    if (!RomLibrary.EmulatorGameFolders("shadPS4", Path.Combine(emu2, "shadps4.exe")).SequenceEqual([games2])) bad.Add("shadPS4 install dirs from config.json");
+    if (RomLibrary.OpenArgs("shadPS4", Path.Combine(emu2, "shadps4.exe")) != "-b" || RomLibrary.OpenArgs("RPCS3", Path.Combine(emu2, "rpcs3.exe")) is not null) bad.Add("shadPS4 opens with -b");
+    Put(Path.Combine(emu2, "Qt6Core.dll"), [1]);
+    if (RomLibrary.OpenArgs("shadPS4", Path.Combine(emu2, "shadps4.exe")) is not null) bad.Add("old Qt shadPS4 opens bare");
+    // PS4 .pkg games are extracted before playing; PS3 ones aren't.
+    if (!RomLibrary.IsPs4Package(new Rom { Path = "x/G.PKG", Console = "PS4" }) || RomLibrary.IsPs4Package(new Rom { Path = "x/G.pkg", Console = "PS3" })
+        || RomLibrary.IsPs4Package(new Rom { Path = "x/G", Console = "PS4" })) bad.Add("PS4 package detection");
+    if (RomLibrary.ExtractProgress("\r      Extracting file 12 of 340") != (12, 340) || RomLibrary.ExtractProgress("Extracting file 0 of 5") != (1, 5)
+        || RomLibrary.ExtractProgress("Extracting file 1 of 0") is not null || RomLibrary.ExtractProgress("THE END x.pkg") is not null) bad.Add("pkg_extractor progress");
+    Put(Path.Combine(root, "unp", "CUSA12345", "eboot.bin"), [1]);
+    Directory.CreateDirectory(Path.Combine(root, "unp", "empty"));
+    if (RomLibrary.ExtractedGame(Path.Combine(root, "unp")) != Path.Combine(root, "unp", "CUSA12345") || RomLibrary.ExtractedGame(Path.Combine(root, "none")) is not null)
+        bad.Add("extracted game folder");
+    Put(Path.Combine(emu2, "sub", "a.bin"), new byte[300]);
+    if (RomLibrary.FolderSize(emu2) < 300 || RomLibrary.FolderSize(Path.Combine(root, "nope")) != 0) bad.Add("folder size");
+
+    // A PS4 package cut into pieces: only the first is a game, the rest join on in order.
+    var cut = Directory.CreateDirectory(Path.Combine(root, "cut")).FullName;
+    byte[] Pkg4(byte fill) => [0x7F, (byte)'C', (byte)'N', (byte)'T', .. Enumerable.Repeat(fill, 1100)];
+    File.WriteAllBytes(Path.Combine(cut, "Gran Turismo 7 part 1.pkg"), Pkg4(1));
+    File.WriteAllBytes(Path.Combine(cut, "Gran Turismo 7 part 2.pkg"), Enumerable.Repeat((byte)2, 64).ToArray());
+    File.WriteAllBytes(Path.Combine(cut, "Gran Turismo 7 part 3.pkg"), Enumerable.Repeat((byte)3, 10).ToArray());
+    File.WriteAllBytes(Path.Combine(cut, "Gran Turismo 7 part 5.pkg"), Enumerable.Repeat((byte)5, 10).ToArray()); // a gap ends the run
+    File.WriteAllBytes(Path.Combine(cut, "Racer_0.pkg"), Pkg4(9));
+    File.WriteAllBytes(Path.Combine(cut, "Racer_1.pkg"), Pkg4(8)); // its own header: a separate package, not a piece
+    var gt = RomLibrary.PkgParts(Path.Combine(cut, "Gran Turismo 7 part 1.pkg"));
+    if (!gt.Select(Path.GetFileName).SequenceEqual(["Gran Turismo 7 part 1.pkg", "Gran Turismo 7 part 2.pkg", "Gran Turismo 7 part 3.pkg"])
+        || RomLibrary.PkgParts(Path.Combine(cut, "Racer_0.pkg")).Count != 1
+        || RomLibrary.ConsoleOf(Path.Combine(cut, "Gran Turismo 7 part 2.pkg")) is not null || RomLibrary.ConsoleOf(Path.Combine(cut, "Gran Turismo 7 part 1.pkg")) != "PS4")
+        bad.Add("PS4 package pieces");
+    // PS4 updates: told apart by a PATCH content flag; the title id comes from the content id at 0x40.
+    byte[] Ps4Pkg(string contentId, uint flags)
+    {
+        var b = new byte[1100];
+        "\u007FCNT"u8.CopyTo(b);
+        System.Text.Encoding.ASCII.GetBytes(contentId).CopyTo(b, 0x40);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(b.AsSpan(0x78), flags);
+        return b;
+    }
+    var upd = Directory.CreateDirectory(Path.Combine(root, "upd")).FullName;
+    File.WriteAllBytes(Path.Combine(upd, "game.pkg"), Ps4Pkg("UP0000-CUSA01234_00-GAME000000000000", 0x0A000000));
+    File.WriteAllBytes(Path.Combine(upd, "update.pkg"), Ps4Pkg("UP0000-CUSA01234_00-GAME000000000000", 0x40000000 | 0x0A000000));
+    if (RomLibrary.IsPs4Update(Path.Combine(upd, "game.pkg")) || !RomLibrary.IsPs4Update(Path.Combine(upd, "update.pkg"))
+        || RomLibrary.TitleId(Path.Combine(upd, "update.pkg")) != "CUSA01234") bad.Add("PS4 update packages");
+    // Once the game is extracted its .pkg hides; the update's stays until its -patch folder is there.
+    Directory.CreateDirectory(Path.Combine(upd, "out", "CUSA01234"));
+    var updLib = new[] { new Rom { Path = Path.Combine(upd, "out", "CUSA01234") }, new Rom { Path = Path.Combine(upd, "game.pkg") }, new Rom { Path = Path.Combine(upd, "update.pkg") } };
+    var hiddenBefore = RomLibrary.InstalledPackages(updLib).Select(g => Path.GetFileName(g.Path)).ToList();
+    Directory.CreateDirectory(Path.Combine(upd, "out", "CUSA01234-patch"));
+    var hiddenAfter = RomLibrary.InstalledPackages(updLib).Select(g => Path.GetFileName(g.Path)).Order().ToList();
+    if (!hiddenBefore.SequenceEqual(["game.pkg"]) || !hiddenAfter.SequenceEqual(["game.pkg", "update.pkg"])) bad.Add("installed update hides");
+
+    // Base game, update or DLC: PS4 header, Switch title id (name or NSP ticket), else the file name.
+    var dlc = Ps4Pkg("UP0000-CUSA01234_00-DLC0000000000000", 0x0A000000);
+    dlc[0x77] = 0x1B;
+    File.WriteAllBytes(Path.Combine(upd, "dlc.pkg"), dlc);
+    var nx = Directory.CreateDirectory(Path.Combine(root, "nx")).FullName;
+    byte[] Pfs0(string file)
+    {
+        var names = System.Text.Encoding.ASCII.GetBytes(file + "\0");
+        var b = new byte[0x10 + 0x18 + names.Length];
+        "PFS0"u8.CopyTo(b);
+        BitConverter.GetBytes(1).CopyTo(b, 4);
+        BitConverter.GetBytes(names.Length).CopyTo(b, 8);
+        names.CopyTo(b, 0x28);
+        return b;
+    }
+    File.WriteAllBytes(Path.Combine(nx, "Zelda.nsp"), Pfs0("0100abcd12340000000000000000000a.tik"));
+    File.WriteAllBytes(Path.Combine(nx, "Zelda v1.2.nsp"), Pfs0("0100abcd12340800000000000000000a.tik"));
+    File.WriteAllBytes(Path.Combine(nx, "Zelda Pack [0100ABCD12341001].nsp"), []);
+    var kinds = new[] { Path.Combine(upd, "game.pkg"), Path.Combine(upd, "update.pkg"), Path.Combine(upd, "dlc.pkg"),
+        Path.Combine(nx, "Zelda.nsp"), Path.Combine(nx, "Zelda v1.2.nsp"), Path.Combine(nx, "Zelda Pack [0100ABCD12341001].nsp"),
+        "Mario_Update_v2.xci", "Sonic (DLC).nsp", "Dispatch Updated.iso", "BLUS30443-A0102-V0100-PE.pkg", "steam://rungameid/1" }.Select(RomLibrary.KindOf);
+    if (!kinds.SequenceEqual(["", "Update", "DLC", "", "Update", "DLC", "Update", "DLC", "", "Update", ""])) bad.Add("game kinds: " + string.Join(",", kinds));
+    var nxLib = Directory.GetFiles(nx).Select(f => new Rom { Path = f, Title = "x" + f.Length, Console = "SWITCH" }).ToList();
+    var zelda = nxLib.Single(r => r.Path.EndsWith("Zelda.nsp"));
+    if (nxLib.Where(r => r != zelda).Any(r => RomLibrary.BaseOf(r, nxLib) != zelda)) bad.Add("update and DLC find their game by title id");
+
+    var joinedPkg = Path.Combine(cut, "joined.pkg");
+    RomLibrary.JoinParts(gt, joinedPkg, new Progress<long>(), default).GetAwaiter().GetResult();
+    if (!File.ReadAllBytes(joinedPkg).SequenceEqual(gt.SelectMany(File.ReadAllBytes)) || File.Exists(joinedPkg + ".joining")) bad.Add("join pieces");
+
+    // Switch splitting: parts of the given size, joined back they're the original; NSP into a folder, XCI as .xc0, .xc1…
+    var sw = Directory.CreateDirectory(Path.Combine(root, "switch")).FullName;
+    var swBytes = Enumerable.Range(0, 2500).Select(i => (byte)i).ToArray();
+    File.WriteAllBytes(Path.Combine(sw, "Game.nsp"), swBytes);
+    File.WriteAllBytes(Path.Combine(sw, "Cart.xci"), swBytes);
+    var nspOut = SwitchFiles.Split(Path.Combine(sw, "Game.nsp"), new Progress<long>(), default, 1000).GetAwaiter().GetResult();
+    var xciOut = SwitchFiles.Split(Path.Combine(sw, "Cart.xci"), new Progress<long>(), default, 1000).GetAwaiter().GetResult();
+    var nspParts = Directory.GetFiles(nspOut).Order().ToArray();
+    if (Path.GetFileName(nspOut) != "Game_split.nsp" || nspParts.Select(Path.GetFileName).SequenceEqual(["00", "01", "02"]) is false
+        || !nspParts.SelectMany(File.ReadAllBytes).SequenceEqual(swBytes) || new FileInfo(nspParts[0]).Length != 1000) bad.Add("NSP split");
+    var xciParts = new[] { "Cart.xc0", "Cart.xc1", "Cart.xc2" }.Select(n => Path.Combine(sw, n)).ToArray();
+    if (xciOut != xciParts[0] || !xciParts.All(File.Exists) || !xciParts.SelectMany(File.ReadAllBytes).SequenceEqual(swBytes)) bad.Add("XCI split");
+    try { SwitchFiles.Split(Path.Combine(sw, "Game.nsp"), new Progress<long>(), default, 1000).GetAwaiter().GetResult(); bad.Add("split over an old split"); } catch (IOException) { }
+    if (SwitchFiles.CanSplit(Path.Combine(sw, "Game.nsp")) || !SwitchFiles.CanConvert("a/b.XCZ") || SwitchFiles.CanConvert("a/b.nsp")
+        || SwitchFiles.ConvertedPath("a/Game.nsz", "out") != Path.Combine("out", "Game.nsp") || SwitchFiles.ConvertedPath("a/Game.xcz", "out") != Path.Combine("out", "Game.xci"))
+        bad.Add("Switch convert names");
+    Put(Path.Combine(sw, "AppData", "Ryujinx", "system", "prod.keys"), [1]);
+    if (SwitchFiles.FindKeys(Path.Combine(sw, "AppData"), Path.Combine(sw, "home")) != Path.Combine(sw, "AppData", "Ryujinx", "system", "prod.keys")
+        || SwitchFiles.FindKeys(Path.Combine(sw, "nope"), Path.Combine(sw, "nope")) is not null) bad.Add("Switch keys");
     Directory.Delete(root, true);
     bad.ForEach(Console.WriteLine);
     Console.WriteLine(bad.Count == 0 ? "ROMS OK" : $"{bad.Count} ROM CHECKS FAILED");
@@ -507,6 +657,21 @@ using (var z = System.IO.Compression.ZipFile.Open(evil, System.IO.Compression.Zi
 }
 SaveBackup.Restore("TestEmu", saveApp, evil);
 Check("restore never writes outside the save folder", !File.Exists(Path.Combine(saveApp, "..", "escaped.txt")) && !File.Exists(Path.Combine(saveApp, "escaped.txt")));
+var inbox = Directory.CreateDirectory(Path.Combine(saveApp, "inbox", "BLUS30443-SAVE")).FullName;
+File.WriteAllText(Path.Combine(inbox, "SAVE.DAT"), "s");
+File.WriteAllText(Path.Combine(saveApp, "inbox", "loose.sav"), "l");
+var foreign = Path.Combine(saveApp, "inbox", "pc.zip");
+using (var z = System.IO.Compression.ZipFile.Open(foreign, System.IO.Compression.ZipArchiveMode.Create))
+{
+    using (var w = new StreamWriter(z.CreateEntry("0100ABC/main").Open())) w.Write("m");
+    using (var w = new StreamWriter(z.CreateEntry("../../escaped2.txt").Open())) w.Write("x");
+}
+var (imported, importedTo) = SaveBackup.Import("TestEmu", saveApp, [inbox, Path.Combine(saveApp, "inbox", "loose.sav"), foreign]);
+string S(params string[] p) => Path.Combine([saveApp, "saves", .. p]);
+Check($"save import: folder, file and foreign zip land in the save folder ({imported})", imported == 3 && importedTo == Path.GetFullPath(S())
+    && File.Exists(S("BLUS30443-SAVE", "SAVE.DAT")) && File.Exists(S("loose.sav")) && File.Exists(S("0100ABC", "main"))
+    && !File.Exists(Path.Combine(saveApp, "escaped2.txt")));
+Check("save import: our own backup zip is restored instead", SaveBackup.Import("TestEmu", saveApp, [backup]).Count == 1);
 Directory.Delete(saveApp, true);
 // Restore also left a "Before restore" zip in the real backups folder.
 if (Directory.Exists(SaveBackup.FolderFor("TestEmu"))) Directory.Delete(SaveBackup.FolderFor("TestEmu"), true);

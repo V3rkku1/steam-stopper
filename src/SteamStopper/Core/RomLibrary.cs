@@ -29,6 +29,11 @@ public sealed class Rom : INotifyPropertyChanged
     }
     public string Emulator { get; set; } = "";
     public string CustomCover { get; set; } = "";
+    /// <summary>Store games: their box art, a local file or a web address. Emulator games find theirs by name.</summary>
+    public string ArtUrl { get; set; } = "";
+    /// <summary>"" for a game, "Update" or "DLC" for an add-on. Worked out from the file once, then kept in games.json.</summary>
+    public string Kind { get => _kind ??= RomLibrary.KindOf(Path); set => _kind = value; }
+    private string? _kind;
     public DateTime Added { get; set; } = DateTime.Now;
     public DateTime? LastPlayed { get; set; }
     public double PlaySeconds { get; set; }
@@ -40,9 +45,12 @@ public sealed class Rom : INotifyPropertyChanged
         get => _cover;
         set { _cover = value; OnChanged(); }
     }
-    [JsonIgnore] public ConsoleTile? Tile => AppHub.Consoles.FirstOrDefault(c => c.Name == Console);
+    [JsonIgnore] public ConsoleTile? Tile => AppHub.Consoles.Concat(AppHub.Stores).FirstOrDefault(c => c.Name == Console);
+    /// <summary>A Steam, Epic or Heroic game: its path is the launcher link that starts it.</summary>
+    [JsonIgnore] public bool IsLink => Path.Contains("://");
     [JsonIgnore] public string Color => Tile?.Color ?? "#4A4A55";
     [JsonIgnore] public string ConsoleName => Tile?.Maker ?? "Unknown console";
+    [JsonIgnore] public string KindTag => Kind.Length > 0 ? "  ·  " + Kind : "";
     [JsonIgnore] public string Initials => string.Concat(Title.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpperInvariant(w[0])));
     [JsonIgnore] public string PlayTimeText => PlaySeconds < 60 ? (LastPlayed is null ? "Never played" : "Under a minute")
         : PlaySeconds < 90 ? "1 minute" : PlaySeconds < 3600 ? $"{PlaySeconds / 60:0} minutes" : $"{PlaySeconds / 3600:0.0} hours";
@@ -50,8 +58,8 @@ public sealed class Rom : INotifyPropertyChanged
         : t.Date == DateTime.Today ? "Today" : t.Date == DateTime.Today.AddDays(-1) ? "Yesterday" : t.ToString("d MMM yyyy");
     // Under a cover on the Home shelf: when it was played, or its console when it never was.
     [JsonIgnore] public string ShelfText => LastPlayed is null ? ConsoleName : "Played " + (LastPlayed.Value.Date >= DateTime.Today.AddDays(-1) ? LastPlayedText.ToLowerInvariant() : LastPlayedText);
-    [JsonIgnore] public bool Exists => File.Exists(Path) || Directory.Exists(Path);
-    [JsonIgnore] public string SizeText => File.Exists(Path) ? Format.Bytes(new FileInfo(Path).Length) : Directory.Exists(Path) ? "Game folder" : "File missing";
+    [JsonIgnore] public bool Exists => IsLink || File.Exists(Path) || Directory.Exists(Path);
+    [JsonIgnore] public string SizeText => IsLink ? $"Installed in {ConsoleName}" : File.Exists(Path) ? Format.Bytes(new FileInfo(Path).Length) : Directory.Exists(Path) ? "Game folder" : "File missing";
 
     public void Refresh() => OnChanged(null);
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -63,7 +71,7 @@ public static class RomLibrary
 {
     private static readonly Dictionary<string, string> ByExtension = new(StringComparer.OrdinalIgnoreCase)
     {
-        [".nsp"] = "SWITCH", [".xci"] = "SWITCH", [".nro"] = "SWITCH",
+        [".nsp"] = "SWITCH", [".xci"] = "SWITCH", [".nro"] = "SWITCH", [".nsz"] = "SWITCH", [".xcz"] = "SWITCH",
         // Switch 2 archive used by Lichii and Eglantine: base game plus updates in one file (magic "NUP\x01").
         [".nup"] = "SWITCH 2",
         [".3ds"] = "3DS", [".cci"] = "3DS", [".3dsx"] = "3DS", [".cxi"] = "3DS",
@@ -102,6 +110,144 @@ public static class RomLibrary
 
     /// <summary>Settings: unpack PS5 images into this folder instead of next to them. Empty or missing means next to them.</summary>
     public static string UnpackRoot { get; set; } = "";
+
+    /// <summary>A PS4 update package: any PATCH content flag (at 0x78), as shadPS4's extractor decides it.</summary>
+    public static bool IsPs4Update(string path)
+    {
+        try
+        {
+            using var s = File.OpenRead(path);
+            var head = Read(s, 0, 0x80);
+            if (!head.AsSpan().StartsWith("\u007FCNT"u8)) return false;
+            var flags = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(head.AsSpan(0x78));
+            return new uint[] { 0x100000, 0x200000, 0x40000000, 0x41000000, 0x60000000 }.Any(f => (flags & f) == f);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>"Update" or "DLC" for an add-on, "" for a game: from a PS4 package header, a Switch title id, else the name.</summary>
+    public static string KindOf(string path)
+    {
+        if (path.Contains("://")) return "";
+        // An extracted PS4 or Vita update folder: param.sfo category "gp" (game patch).
+        if (Directory.Exists(path)) return SfoValue(System.IO.Path.Combine(path, "sce_sys", "param.sfo"), "CATEGORY") == "gp" ? "Update" : "";
+        if (path.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase) && HasMagic(path, "\u007FCNT"u8))
+        {
+            if (IsPs4Update(path)) return "Update";
+            try
+            {
+                using var s = File.OpenRead(path);
+                // Content type at 0x74: 0x1B additional content, 0x1C additional licence (DLC without data).
+                return Read(s, 0x74, 4) is [0, 0, 0, 0x1B or 0x1C] ? "DLC" : "";
+            }
+            catch { return ""; }
+        }
+        // Switch title ids end in 000 for the game, 800 for its update, anything else for DLC.
+        if (SwitchId(path) is { } id) return (id & 0xFFF) switch { 0 => "", 0x800 => "Update", _ => "DLC" };
+        // Letters-only edges, so "Dispatch" or "Updated" don't count; "-A0102-V0100" is how PS3 updates are named.
+        var name = System.IO.Path.GetFileNameWithoutExtension(path);
+        return Regex.IsMatch(name, "(?<![a-z])dlc(?![a-z])", RegexOptions.IgnoreCase) ? "DLC"
+            : Regex.IsMatch(name, "(?<![a-z])(update|upd|patch)(?![a-z])|-A\\d{4}-V\\d{4}", RegexOptions.IgnoreCase) ? "Update" : "";
+    }
+
+    /// <summary>A Switch file's title id: from its name ("[0100ABCD12340800]"), else an NSP's ticket name. Null when neither has one.</summary>
+    public static ulong? SwitchId(string path)
+    {
+        if (System.IO.Path.GetExtension(path).ToLowerInvariant() is not (".nsp" or ".nsz" or ".xci" or ".xcz")) return null;
+        if (Regex.Match(System.IO.Path.GetFileName(path), "(?<![0-9a-f])01[0-9a-f]{14}(?![0-9a-f])", RegexOptions.IgnoreCase) is { Success: true } m)
+            return Convert.ToUInt64(m.Value, 16);
+        try
+        {
+            // NSP/NSZ are PFS0 archives: count at 4, names at 0x10 + count * 0x18. A ticket is named after its rights id, title id first.
+            using var s = File.OpenRead(path);
+            var head = Read(s, 0, 0x10);
+            if (!head.AsSpan().StartsWith("PFS0"u8)) return null;
+            int count = BitConverter.ToInt32(head, 4), size = BitConverter.ToInt32(head, 8);
+            if (count is <= 0 or > 1000 || size is <= 0 or > 1 << 20) return null;
+            var names = Encoding.ASCII.GetString(Read(s, 0x10 + count * 0x18, size));
+            return Regex.Match(names, "([0-9a-f]{16})[0-9a-f]{16}\\.tik", RegexOptions.IgnoreCase) is { Success: true } t ? Convert.ToUInt64(t.Groups[1].Value, 16) : null;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>The game an update or DLC belongs to: same title id, else the same name on the same console.</summary>
+    public static Rom? BaseOf(Rom extra, IEnumerable<Rom> games)
+    {
+        var bases = games.Where(g => g != extra && g.Console == extra.Console && g.Kind == "").ToList();
+        // An update is the game's id with 800; DLC is the game's id + 0x1000 + n.
+        ulong? sid = SwitchId(extra.Path) is { } s ? (s & ~0xFFFUL) - (extra.Kind == "DLC" ? 0x1000UL : 0) : null;
+        var tid = TitleId(extra.Path);
+        return bases.FirstOrDefault(g => sid is not null ? SwitchId(g.Path) == sid : tid is not null && TitleId(g.Path) == tid)
+            ?? bases.FirstOrDefault(g => Key(g.Title) == Key(extra.Title));
+    }
+
+    /// <summary>A PS4 .pkg: shadPS4 can't install those, so Play extracts it with shadPS4Plus's pkg_extractor first.</summary>
+    public static bool IsPs4Package(Rom rom) => rom.Console == "PS4" && rom.Path.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase);
+
+    // Big PS4 packages are often shared cut into pieces: "Game part 1.pkg", "Game part 2.pkg…" or "Game_0.pkg", "Game_1.pkg…".
+    private static readonly Regex PartName = new(@"^(?<base>.*?)[ ._-]*(?:part|pt)?[ ._-]*(?<n>\d{1,3})$", RegexOptions.IgnoreCase);
+
+    /// <summary>A package and the pieces that continue it (numbered next, same name, no package header of their own), in order.</summary>
+    public static List<string> PkgParts(string first)
+    {
+        var parts = new List<string> { first };
+        if (PartName.Match(System.IO.Path.GetFileNameWithoutExtension(first)) is not { Success: true } m) return parts;
+        var siblings = Directory.EnumerateFiles(System.IO.Path.GetDirectoryName(first)!, "*.pkg")
+            .Select(f => (File: f, Match: PartName.Match(System.IO.Path.GetFileNameWithoutExtension(f))))
+            .Where(x => x.Match.Success && x.Match.Groups["base"].Value.Equals(m.Groups["base"].Value, StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(x => int.Parse(x.Match.Groups["n"].Value), x => x.File);
+        for (var n = int.Parse(m.Groups["n"].Value) + 1; siblings.TryGetValue(n, out var next) && !HasMagic(next, "\u007FCNT"u8); n++)
+            parts.Add(next);
+        return parts;
+    }
+
+    /// <summary>Join package pieces into one file. Written beside the target and renamed at the end, so a stopped join leaves no half file.</summary>
+    public static async Task JoinParts(IReadOnlyList<string> parts, string target, IProgress<long> progress, CancellationToken cancel)
+    {
+        var temp = target + ".joining";
+        try
+        {
+            await using (var output = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 1 << 20, useAsync: true))
+            {
+                var buffer = new byte[4 << 20];
+                long done = 0;
+                foreach (var part in parts)
+                {
+                    await using var input = new FileStream(part, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 20, useAsync: true);
+                    int read;
+                    while ((read = await input.ReadAsync(buffer, cancel)) > 0)
+                    {
+                        await output.WriteAsync(buffer.AsMemory(0, read), cancel);
+                        progress.Report(done += read);
+                    }
+                }
+            }
+            File.Move(temp, target, true);
+        }
+        catch
+        {
+            try { File.Delete(temp); } catch { }
+            throw;
+        }
+    }
+
+    /// <summary>The game pkg_extractor made inside an unpack folder: the &lt;TITLE_ID&gt; folder holding eboot.bin.</summary>
+    public static string? ExtractedGame(string dir) =>
+        Directory.Exists(dir) ? Directory.EnumerateDirectories(dir).FirstOrDefault(d => File.Exists(System.IO.Path.Combine(d, "eboot.bin"))) : null;
+
+    /// <summary>File number and count from pkg_extractor's "Extracting file 12 of 340", else null.</summary>
+    public static (int File, int Files)? ExtractProgress(string line) =>
+        Regex.Match(line, @"Extracting file (\d+) of (\d+)") is { Success: true } m && int.Parse(m.Groups[2].Value) is > 0 and var files
+            ? (Math.Max(1, int.Parse(m.Groups[1].Value)), files) : null;
+
+    /// <summary>Left in an unpack folder once extracting finished, since pkg_extractor writes file by file.</summary>
+    public const string UnpackedMark = "steam-multitool.extracted";
+
+    public static ulong FolderSize(string dir)
+    {
+        try { return Directory.Exists(dir) ? (ulong)Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length) : 0; }
+        catch { return 0; } // a file vanished while counting
+    }
 
     /// <summary>Where an image is unpacked: a folder of the same name in <see cref="UnpackRoot"/>, else next to it.</summary>
     public static string UnpackedDir(string image) =>
@@ -192,6 +338,8 @@ public static class RomLibrary
     {
         public List<string> Folders { get; set; } = [];
         public List<Rom> Games { get; set; } = [];
+        // Steam, Epic and Heroic games the user removed, by link, so the next sync doesn't add them back.
+        public List<string> HiddenLinks { get; set; } = [];
     }
 
     public static Store Load()
@@ -237,7 +385,7 @@ public static class RomLibrary
                 }
                 if (known.Contains(file) || ConsoleOf(file) is not { } console) continue;
                 // Already unpacked: the folder is the game, so the image isn't listed twice.
-                if (IsPs5Image(file) && Directory.Exists(UnpackedDir(file))) continue;
+                if ((IsPs5Image(file) || console == "PS4" && InstallOnly(file)) && Directory.Exists(UnpackedDir(file))) continue;
                 store.Games.Add(new Rom { Path = file, Title = TitleOf(file), Console = console });
                 known.Add(file);
                 added++;
@@ -319,7 +467,9 @@ public static class RomLibrary
         if (console == "PS1" && !file.EndsWith(".m3u", StringComparison.OrdinalIgnoreCase) && InM3u(file)) return null;
         // .chd, .cue and .m3u are PS1 unless a folder says otherwise; telling them apart by content means decompressing.
         if (console == "PS1" && FolderHint(file) is { } hinted) return hinted;
-        return console.Length > 0 && console is not ("WII" or "GAMECUBE") ? console : Sniff(file) ?? console;
+        if (console.Length > 0 && console is not ("WII" or "GAMECUBE")) return console;
+        // A .pkg with no package header is a later piece of a cut-up package, not a game of its own.
+        return Sniff(file) ?? (file.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase) && !HasMagic(file, "\u007FPKG"u8) ? null : console);
     }
 
     private static readonly Dictionary<string, string> FolderHints = new()
@@ -421,6 +571,27 @@ public static class RomLibrary
             : $"\"{rom}\"" :
         LaunchArgs.TryGetValue(emulator, out var template) ? template.Replace("{rom}", rom).Replace("{id}", FolderName(rom)) : $"\"{rom}\"";
 
+    // config.json: { "General": { "install_dirs": [ { "path": "…", "enabled": true } ] } }
+    private static IEnumerable<string> ShadInstallDirs(string config)
+    {
+        try
+        {
+            if (!File.Exists(config)) return [];
+            using var json = JsonDocument.Parse(File.ReadAllText(config));
+            return json.RootElement.GetProperty("General").GetProperty("install_dirs").EnumerateArray()
+                .Where(d => !d.TryGetProperty("enabled", out var on) || on.ValueKind != JsonValueKind.False)
+                .Select(d => d.GetProperty("path").GetString() ?? "").ToList();
+        }
+        catch { return []; } // older or hand-edited config
+    }
+
+    /// <summary>
+    /// Arguments to open an emulator on its own, or null for none. Newer shadPS4 builds are command line only and
+    /// quit with a message when started bare; -b opens their own game picker. The old Qt build (Qt DLLs beside it) has a window.
+    /// </summary>
+    public static string? OpenArgs(string emulator, string exe) =>
+        emulator == "shadPS4" && !File.Exists(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(exe) ?? "", "Qt6Core.dll")) ? "-b" : null;
+
     /// <summary>Where an emulator keeps the games it installed from .pkg files, so they join the library by themselves.</summary>
     public static IEnumerable<string> EmulatorGameFolders(string emulator, string exe)
     {
@@ -432,10 +603,11 @@ public static class RomLibrary
             // Vita3K's pref-path in config.yml, else next to the exe or in AppData.
             "Vita3K" => new[] { Setting(System.IO.Path.Combine(dir, "config.yml"), @"^pref-path:\s*['""]?([^'""\r\n]+)").FirstOrDefault(), dir, System.IO.Path.Combine(appData, "Vita3K", "Vita3K") }
                 .OfType<string>().Select(p => System.IO.Path.Combine(p, "ux0", "app")),
-            // shadPS4 lists its install folders in config.toml (portable user folder, else AppData).
-            "shadPS4" => new[] { System.IO.Path.Combine(dir, "user", "config.toml"), System.IO.Path.Combine(appData, "shadPS4", "config.toml") }
-                .SelectMany(c => Setting(c, @"^installDirs?\s*=\s*(\[[^\]]*\]|""[^""]*"")"))
-                .SelectMany(v => Regex.Matches(v, @"""((?:[^""\\]|\\.)*)""").Select(m => m.Groups[1].Value.Replace(@"\\", @"\"))),
+            // shadPS4 lists its install folders in config.json (newer builds) or config.toml, in the portable user folder, else AppData.
+            "shadPS4" => new[] { System.IO.Path.Combine(dir, "user"), System.IO.Path.Combine(appData, "shadPS4") }
+                .SelectMany(u => ShadInstallDirs(System.IO.Path.Combine(u, "config.json")).Concat(
+                    Setting(System.IO.Path.Combine(u, "config.toml"), @"^installDirs?\s*=\s*(\[[^\]]*\]|""[^""]*"")")
+                        .SelectMany(v => Regex.Matches(v, @"""((?:[^""\\]|\\.)*)""").Select(m => m.Groups[1].Value.Replace(@"\\", @"\"))))),
             _ => []
         };
         return found.Where(p => p.Length > 0 && Directory.Exists(p)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
@@ -451,14 +623,17 @@ public static class RomLibrary
     public static List<Rom> InstalledPackages(IEnumerable<Rom> games)
     {
         var list = games.ToList();
-        var installed = list.Where(g => Directory.Exists(g.Path)).Select(g => TitleId(g.Path)).OfType<string>().ToHashSet();
-        return installed.Count == 0 ? [] : list.Where(g => InstallOnly(g.Path) && TitleId(g.Path) is { } id && installed.Contains(id)).ToList();
+        var folders = list.Where(g => Directory.Exists(g.Path)).Select(g => (Path: g.Path, Id: TitleId(g.Path))).Where(f => f.Id is not null).ToList();
+        // An update's .pkg stays listed until it's installed beside its game (the <game>-patch folder shadPS4 reads).
+        return folders.Count == 0 ? [] : list.Where(g => InstallOnly(g.Path) && TitleId(g.Path) is { } id
+            && (IsPs4Update(g.Path) ? folders.Any(f => f.Id == id && Directory.Exists(f.Path + "-patch")) : folders.Any(f => f.Id == id))).ToList();
     }
 
     /// <summary>Local box art for a game, downloading it from libretro-thumbnails or GameTDB the first time.</summary>
     public static async Task<string?> CoverFor(Rom rom, HttpClient http)
     {
         if (rom.CustomCover.Length > 0 && File.Exists(rom.CustomCover)) return rom.CustomCover;
+        if (rom.IsLink) return await StoreCover(rom, http);
         // PS3, PS4 and PS5 folder dumps carry their own art.
         if (Directory.Exists(rom.Path) && new[] { @"sce_sys\icon0.png", @"PS3_GAME\ICON0.PNG", "ICON0.PNG" }
             .Select(i => System.IO.Path.Combine(rom.Path, i)).FirstOrDefault(File.Exists) is { } icon) return icon;
@@ -498,6 +673,24 @@ public static class RomLibrary
         }
         catch { }
         return null;
+    }
+
+    /// <summary>A store game's art: Steam's own cached file as is, a web address downloaded once and kept.</summary>
+    private static async Task<string?> StoreCover(Rom rom, HttpClient http)
+    {
+        if (rom.ArtUrl.Length == 0) return null;
+        if (!rom.ArtUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return File.Exists(rom.ArtUrl) ? rom.ArtUrl : null;
+        var cached = System.IO.Path.Combine(CoverDir, Safe($"{rom.Console} - {rom.Title}") + ".jpg");
+        if (File.Exists(cached)) return cached;
+        try
+        {
+            using var response = await http.GetAsync(rom.ArtUrl);
+            if (!response.IsSuccessStatusCode) return null;
+            Directory.CreateDirectory(CoverDir);
+            await File.WriteAllBytesAsync(cached, await response.Content.ReadAsByteArrayAsync());
+            return cached;
+        }
+        catch { return null; }
     }
 
     // GameTDB keeps some art only in the full-size folder or under another region, so fall back to those.
@@ -656,7 +849,7 @@ public static class RomLibrary
         catch { return null; }
     }
 
-    /// <summary>A PS3 title id like NPUA80490 from the file or folder name, else from a .pkg's content id.</summary>
+    /// <summary>A title id like NPUA80490 or CUSA00001 from the file or folder name, else from a .pkg's content id.</summary>
     public static string? TitleId(string path)
     {
         if (Regex.Match(System.IO.Path.GetFileName(path), @"[A-Z]{4}\d{5}") is { Success: true } m) return m.Value;
@@ -664,7 +857,8 @@ public static class RomLibrary
         try
         {
             using var s = File.OpenRead(path);
-            var id = Encoding.ASCII.GetString(Read(s, 0x37, 9));
+            // The content id ("UP0000-CUSA00001_00-…") is at 0x40 in PS4 packages, 0x30 in PS3 ones; the title id is 7 in.
+            var id = Encoding.ASCII.GetString(Read(s, Read(s, 0, 4).AsSpan().SequenceEqual("\u007FCNT"u8) ? 0x47 : 0x37, 9));
             return Regex.IsMatch(id, @"^[A-Z]{4}\d{5}$") ? id : null;
         }
         catch { return null; }

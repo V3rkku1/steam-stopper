@@ -108,6 +108,9 @@
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top"
                   shell:WindowChrome.IsHitTestVisibleInChrome="True">
+        <Button Style="{StaticResource CaptionButton}" Click="ConsoleMode_Click" ToolTip="Console mode (F11)">
+          <TextBlock Text="&#xE7FC;" FontFamily="{StaticResource IconFont}" FontSize="14"/>
+        </Button>
         <Button x:Name="SettingsButton" Style="{StaticResource CaptionButton}" Click="Settings_Click" ToolTip="Settings">
           <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="14"/>
         </Button>
@@ -244,8 +247,8 @@
                 <Button Content="Change" Style="{StaticResource SmallPrimary}" Click="UnpackFolder_Click"/>
               </StackPanel>
               <StackPanel Margin="0,0,12,0">
-                <TextBlock Text="PS5 UNPACK FOLDER" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
-                <TextBlock Text="Where Play unpacks .ffpfs, .ffpfsc and .ffpkg games for KytyPS5. A fast drive with free space makes it quicker."
+                <TextBlock Text="UNPACK FOLDER" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
+                <TextBlock Text="Where Play unpacks PS5 .ffpfs/.ffpkg images and PS4 .pkg games for KytyPS5 and shadPS4. A fast drive with free space makes it quicker."
                            Foreground="{DynamicResource Faint}" FontSize="12" TextWrapping="Wrap"/>
                 <TextBlock x:Name="UnpackFolderText" Foreground="{DynamicResource Muted}" FontSize="12" Margin="0,6,0,0" TextTrimming="CharacterEllipsis"/>
               </StackPanel>
@@ -260,16 +263,19 @@
                 </StackPanel>
                 <StackPanel>
                   <TextBlock Text="SAVE BACKUPS" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
-                  <TextBlock Text="Zips your emulator and PC port saves into Documents\Steam Multitool Backups. The last 10 are kept."
+                  <TextBlock Text="Zips your emulator and PC port saves into Documents\Steam Multitool Backups. The last 10 are kept. To import saves, drop files, folders or a zip on a row."
                              Foreground="{DynamicResource Faint}" FontSize="12" TextWrapping="Wrap" Margin="0,0,12,0"/>
                 </StackPanel>
               </DockPanel>
               <ItemsControl x:Name="SavesList">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,0,0,6">
+                    <Border BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" Padding="14,10" Margin="0,0,0,6"
+                            Background="Transparent" AllowDrop="True" Drop="SaveImport_Drop" ToolTip="Drop save files, folders or a zip here to import them">
                       <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                          <Button Content="Import…" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="SaveImport_Click" IsEnabled="{Binding HasSaves}"
+                                  ToolTip="Bring in saves from another PC or a download: save files, a game's save folder, or a zip"/>
                           <Button Content="Back up" Style="{StaticResource SmallButton}" Margin="0,0,8,0" Click="SaveBackup_Click" IsEnabled="{Binding HasSaves}"/>
                           <Button Content="Restore…" Style="{StaticResource SmallButton}" Click="SaveRestore_Click" IsEnabled="{Binding HasBackups}"/>
                         </StackPanel>
@@ -1149,7 +1155,7 @@
               <TextBlock x:Name="RoutesBusy" Text="" Foreground="{DynamicResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
               <TextBlock Text="HOW IT WORKS" Style="{StaticResource SectionLabel}" Margin="0,18,0,6"/>
               <TextBlock Foreground="{DynamicResource Faint}" FontSize="11" TextWrapping="Wrap"
-                         Text="Steam Multitool never touches the game, so anti-cheat has nothing to see. An app sent to another link is restarted through a small proxy pinned to that link. Discord voice also gets a Windows route to Discord's voice servers. Closing Steam Multitool restarts routed apps on the main connection."/>
+                         Text="Steam Multitool never touches the game, so anti-cheat has nothing to see. An app sent to another link is restarted through a small proxy pinned to that link. Discord voice also gets a Windows route to Discord's voice servers. Steam has no proxy switch, so while it is routed the Windows proxy setting points at its link; apps that follow that setting go the same way. Closing Steam Multitool restarts routed apps on the main connection."/>
             </StackPanel>
           </ScrollViewer>
         </Border>
@@ -1468,6 +1474,19 @@
                         </Border.Background>
                       </Border>
                     </Grid>
+                    <!-- UPDATE or DLC badge; games themselves have none. -->
+                    <Border DockPanel.Dock="Right" CornerRadius="4" Padding="5,1" Margin="6,0,4,0" VerticalAlignment="Center" Background="{DynamicResource Raised}">
+                      <Border.Style>
+                        <Style TargetType="Border">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding Kind}" Value="">
+                              <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
+                      <TextBlock Text="{Binding Kind}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"/>
+                    </Border>
                     <TextBlock Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                   </DockPanel>
                 </DataTemplate>
@@ -1513,7 +1532,7 @@
                     </Border>
                   </Grid>
                   <StackPanel VerticalAlignment="Bottom">
-                    <TextBlock Text="{Binding ConsoleName}" Foreground="#D0FFFFFF" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                    <TextBlock Foreground="#D0FFFFFF" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,4"><Run Text="{Binding ConsoleName, Mode=OneWay}"/><Run Text="{Binding KindTag, Mode=OneWay}"/></TextBlock>
                     <TextBlock Text="{Binding Title}" Foreground="White" FontSize="34" FontWeight="Bold" FontFamily="{StaticResource DisplayFont}" TextWrapping="Wrap">
                       <TextBlock.Effect>
                         <DropShadowEffect BlurRadius="12" ShadowDepth="1" Opacity="0.5"/>
@@ -1548,7 +1567,7 @@
                 <StackPanel Margin="30,20,30,20">
                   <TextBlock x:Name="GameHint" Foreground="{DynamicResource AccentText}" TextWrapping="Wrap" Margin="0,0,0,14"/>
                   <UniformGrid Columns="2" Margin="0,0,0,16">
-                    <StackPanel Margin="0,0,12,0">
+                    <StackPanel x:Name="GameConsolePanel" Margin="0,0,12,0">
                       <TextBlock Text="Console" Style="{StaticResource FieldLabel}"/>
                       <ComboBox x:Name="GameConsoleBox" SelectionChanged="GameConsole_Changed" ToolTip="Fix this if the game was put under the wrong console"/>
                     </StackPanel>
@@ -1593,12 +1612,16 @@
                   <TextBlock Text="File" Style="{StaticResource FieldLabel}"/>
                   <TextBlock Text="{Binding Path}" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,0,0,18"/>
                   <WrapPanel>
-                    <Button Content="Open file location" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameOpenFolder_Click"/>
+                    <Button x:Name="GameOpenFolderButton" Content="Open file location" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameOpenFolder_Click"/>
                     <Button Content="Rename" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameRename_Click"/>
                     <Button Content="Change cover" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameCover_Click"
                             ToolTip="Search box art for this game and pick one, or use an image file."/>
-                    <Button Content="Back up saves" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameSaves_Click"
+                    <Button x:Name="GameSavesButton" Content="Back up saves" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameSaves_Click"
                             ToolTip="Zip the saves of this game's emulator. Restore is in Settings."/>
+                    <Button x:Name="GameSplitButton" Content="Split for FAT32" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameSplit_Click"
+                            ToolTip="Cut this file into parts under 4 GB for a FAT32 SD card. Switch installers read the parts as one file. The original stays."/>
+                    <Button x:Name="GameConvertButton" Content="Convert" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameConvert_Click"
+                            ToolTip="Turn this compressed file back into a normal one with nsz, using your Switch's prod.keys. The original stays."/>
                     <Button Content="Remove from library" Style="{StaticResource SmallButton}" Margin="0,0,8,8" Click="GameRemove_Click"
                             ToolTip="Takes it off this list. The game file stays on disk."/>
                   </WrapPanel>

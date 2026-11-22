@@ -27,10 +27,15 @@ public partial class MainWindow
         if (_library is null)
         {
             _library = RomLibrary.Load();
+            // Pieces of a cut-up .pkg that older versions listed as unknown games.
+            if (_library.Games.RemoveAll(g => g.Console.Length == 0 && g.Path.EndsWith(".pkg", StringComparison.OrdinalIgnoreCase) && File.Exists(g.Path) && RomLibrary.ConsoleOf(g.Path) is null) > 0)
+                RomLibrary.Save(_library);
             _gamesView = CollectionViewSource.GetDefaultView(_library.Games);
             _gamesView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Rom.ConsoleName)));
             _gamesView.SortDescriptions.Add(new SortDescription(nameof(Rom.ConsoleName), ListSortDirection.Ascending));
             _gamesView.SortDescriptions.Add(new SortDescription(nameof(Rom.Title), ListSortDirection.Ascending));
+            // A game's update and DLC sit right under it ("" sorts first).
+            _gamesView.SortDescriptions.Add(new SortDescription(nameof(Rom.Kind), ListSortDirection.Ascending));
             _gamesView.Filter = o => o is Rom r && (GameSearchBox.Text.Trim() is not { Length: > 0 } q
                 || r.Title.Contains(q, StringComparison.OrdinalIgnoreCase) || r.ConsoleName.Contains(q, StringComparison.OrdinalIgnoreCase));
             GamesList.ItemsSource = _gamesView;
@@ -38,6 +43,7 @@ public partial class MainWindow
             _ = LoadCoversAsync(_library.Games.ToList());
             WatchLibrary();
         }
+        _ = SyncStoreGames();
         // Emulators may have been installed or removed on the Emulators tab since last time.
         _emuInstalled = AppHub.Snapshot(AppHub.Emulators).Where(e => e.LaunchPath is not null).ToList();
         // Games installed inside RPCS3, shadPS4 or Vita3K since last time; once per run, the folder watcher covers the rest.
@@ -77,6 +83,12 @@ public partial class MainWindow
         if (rom is null) return;
         _gamesFilling = true;
         GameConsoleBox.SelectedItem = rom.Tile?.Maker;
+        // A store game's launcher is fixed, so there's no console to pick.
+        GameConsolePanel.Visibility = rom.IsLink ? Visibility.Hidden : Visibility.Visible;
+        GameOpenFolderButton.Visibility = GameSavesButton.Visibility = rom.IsLink ? Visibility.Collapsed : Visibility.Visible;
+        GameSplitButton.Visibility = SwitchFiles.CanSplit(rom.Path) ? Visibility.Visible : Visibility.Collapsed;
+        GameConvertButton.Visibility = SwitchFiles.CanConvert(rom.Path) ? Visibility.Visible : Visibility.Collapsed;
+        GameConvertButton.Content = rom.Path.EndsWith(".xcz", StringComparison.OrdinalIgnoreCase) ? "Convert to XCI" : "Convert to NSP";
         var choices = EmulatorsFor(rom);
         GameEmuBox.ItemsSource = choices.Select(e => e.Name).ToList();
         GameEmuBox.SelectedItem = choices.FirstOrDefault()?.Name;
@@ -99,8 +111,9 @@ public partial class MainWindow
 
     private void PaintPlay(Rom rom)
     {
+        if (GameDetail.DataContext != rom) return; // console mode can play a game whose page isn't open
         var running = _playing.ContainsKey(rom) || _unpackRom == rom;
-        var hasEmu = EmulatorsFor(rom).Count > 0;
+        var hasEmu = rom.IsLink || EmulatorsFor(rom).Count > 0;
         GamePlayButton.Content = running ? "STOP" : hasEmu ? "PLAY" : "GET EMULATOR";
         // Tag switches the button to Steam's blue Stop look, or blue with a download arrow for Get Emulator.
         GamePlayButton.Tag = running ? "Stop" : hasEmu ? null : "Get";
@@ -108,12 +121,40 @@ public partial class MainWindow
         GameHint.Text = !rom.Exists ? "The game file is gone. Remove it or rescan."
             : rom.Tile is null ? "Pick the console this game is for below."
             : !hasEmu ? $"No emulator for {rom.ConsoleName} is installed yet. Get Emulator opens the Emulators tab."
-            : "";
+            : AddOnHint(rom);
+    }
+
+    /// <summary>Updates and DLC aren't games: say which game they belong to and how the emulator takes them.</summary>
+    private string AddOnHint(Rom rom)
+    {
+        if (rom.Kind.Length == 0 || _library is null) return "";
+        var kind = rom.Kind == "DLC" ? "DLC" : "an update";
+        if (RomLibrary.IsPs4Package(rom)) return rom.Kind == "DLC" ? "This is DLC, not a game. Steam Multitool doesn't install PS4 add-ons yet."
+            : "This is an update, not a game. Play installs it beside its game for shadPS4.";
+        if (RomLibrary.InstallOnly(rom.Path)) return $"This is {kind}, not a game. Play opens the emulator so you can install it from its File menu.";
+        var game = RomLibrary.BaseOf(rom, _library.Games);
+        var how = rom.Console == "SWITCH" ? " Add it in the emulator first: Eden and its forks via File > Install Files to NAND, Ryujinx via right-click the game > Manage Title Updates or DLC." : "";
+        return game is null
+            ? $"This is {kind}, not a game. Add its base game to the library too.{how}"
+            : $"This is {kind} for {game.Title}. Play starts {game.Title}.{how}";
     }
 
     private async void GamePlay_Click(object sender, RoutedEventArgs e)
     {
-        if (GameDetail.DataContext is not Rom rom || _library is null) return;
+        if (GameDetail.DataContext is Rom rom) await Play(rom);
+    }
+
+    private void ConsoleMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (OwnedWindows.OfType<ConsoleMode>().FirstOrDefault() is { } open) { open.Activate(); return; }
+        RefreshGamesUi(); // loads the library, its covers and the installed emulators
+        ConsoleMode.Open(this, _library!.Games, Play, rom => _playing.ContainsKey(rom) || _unpackRom == rom, () => StatusText.Text);
+    }
+
+    /// <summary>Play, or stop, a game: from its page or from console mode.</summary>
+    internal async Task Play(Rom rom)
+    {
+        if (_library is null) return;
         if (_unpackRom == rom)
         {
             _unpackStop?.Cancel();
@@ -122,7 +163,7 @@ public partial class MainWindow
         if (_playing.TryGetValue(rom, out var playing))
         {
             StatusText.Text = $"Stopping {rom.Title}…";
-            GamePlayButton.IsEnabled = false;
+            if (GameDetail.DataContext == rom) GamePlayButton.IsEnabled = false;
             if (!await Task.Run(() => Stop(playing)))
             {
                 PaintPlay(rom);
@@ -130,10 +171,43 @@ public partial class MainWindow
             }
             return;
         }
-        if (RomLibrary.IsPs5Image(rom.Path) && !await UnpackPs5(rom)) return;
+        // An update or DLC file doesn't boot; start the game it belongs to.
+        if (rom.Kind.Length > 0 && !RomLibrary.InstallOnly(rom.Path) && RomLibrary.BaseOf(rom, _library.Games) is { } game)
+        {
+            if (GameDetail.DataContext == rom) GamesList.SelectedItem = game;
+            await Play(game);
+            return;
+        }
+        if (RomLibrary.IsPs5Image(rom.Path) || RomLibrary.IsPs4Package(rom))
+        {
+            // Ask for the emulator before a long unpack, not after it.
+            if (EmulatorsFor(rom).Count == 0)
+            {
+                OpenEmulatorsFor(rom.Tile);
+                StatusText.Text = $"No emulator for {rom.ConsoleName} is installed yet. Get one on the Emulators tab.";
+                return;
+            }
+            if (!await Unpack(rom)) return;
+        }
+        if (rom.IsLink)
+        {
+            // Steam, Epic and Heroic start their own games (and count play time themselves).
+            try { Process.Start(new ProcessStartInfo(rom.Path) { UseShellExecute = true })?.Dispose(); }
+            catch (Exception ex)
+            {
+                StatusText.Text = $"Could not open {rom.ConsoleName} for {rom.Title}: {ex.Message}";
+                return;
+            }
+            rom.LastPlayed = DateTime.Now;
+            RomLibrary.Save(_library);
+            rom.Refresh();
+            StatusText.Text = $"Starting {rom.Title} in {rom.ConsoleName}.";
+            return;
+        }
         if (LaunchFor(rom) is not { } launch)
         {
             OpenEmulatorsFor(rom.Tile);
+            StatusText.Text = $"No emulator for {rom.ConsoleName} is installed yet. Get one on the Emulators tab.";
             return;
         }
         var (emu, exe, args) = launch;
@@ -181,7 +255,7 @@ public partial class MainWindow
         StatusText.Text = $"Played {rom.Title} for {Format.Duration((DateTime.Now - started).TotalSeconds)}.";
     }
 
-    // The one PS5 image being unpacked; Play on it again stops it.
+    // The one game being unpacked (a PS5 image or a PS4 .pkg); Play on it again stops it.
     private Rom? _unpackRom;
     private CancellationTokenSource? _unpackStop;
 
@@ -195,22 +269,31 @@ public partial class MainWindow
         catch { return false; }
     }
 
-    /// <summary>Unpack a .ffpfs/.ffpfsc/.ffpkg into a folder with PS5 Dump Forge, then point the game at the folder.</summary>
-    private async Task<bool> UnpackPs5(Rom rom)
+    /// <summary>
+    /// Unpack a PS5 image with PS5 Dump Forge, or extract a PS4 .pkg with shadPS4Plus's pkg_extractor, into a game folder;
+    /// then point the game at it.
+    /// KytyPS5 and shadPS4 only run folders.
+    /// </summary>
+    private async Task<bool> Unpack(Rom rom)
     {
         if (_unpackRom is { } busy)
         {
             StatusText.Text = $"Wait for {busy.Title} to finish unpacking, or press Stop on it.";
             return false;
         }
+        var ps4 = RomLibrary.IsPs4Package(rom);
         var dir = RomLibrary.UnpackedDir(rom.Path);
-        if (!File.Exists(Path.Combine(dir, "eboot.bin")))
+        // Forge publishes the folder whole; pkg_extractor writes file by file into dir\<TITLE_ID>, so only its finished mark counts.
+        string? Game() => ps4 ? RomLibrary.ExtractedGame(dir) : File.Exists(Path.Combine(dir, "eboot.bin")) ? dir : null;
+        if (ps4 ? !File.Exists(Path.Combine(dir, RomLibrary.UnpackedMark)) || Game() is null : Game() is null)
         {
-            var cli = EmuStore.Find("PS5 Dump Forge")?.Exe is { } app ? Path.Combine(Path.GetDirectoryName(app)!, "ps5-dump-forge.exe") : null;
+            var tool = ps4 ? "shadPS4Plus" : "PS5 Dump Forge";
+            var cli = EmuStore.Find(tool)?.Exe is { } app ? ps4 ? app : Path.Combine(Path.GetDirectoryName(app)!, "ps5-dump-forge.exe") : null;
             if (cli is null || !File.Exists(cli))
             {
                 OpenEmulatorsFor(rom.Tile);
-                StatusText.Text = "Install PS5 Dump Forge to play .ffpfs games. Play unpacks them for KytyPS5.";
+                StatusText.Text = ps4 ? "Install shadPS4Plus (its PKG extractor) to play PS4 .pkg games. Play extracts them for shadPS4."
+                    : "Install PS5 Dump Forge to play .ffpfs games. Play unpacks them for KytyPS5.";
                 return false;
             }
             _unpackRom = rom;
@@ -219,25 +302,42 @@ public partial class MainWindow
             try
             {
                 // Forge can't resume, but one started before the app closed keeps going: wait for it instead of starting over.
-                if (RomLibrary.UnpackLeftovers(dir, ForgeAlive) is { } pid)
+                if (!ps4 && RomLibrary.UnpackLeftovers(dir, ForgeAlive) is { } pid)
                 {
                     StatusText.Text = $"Still unpacking {rom.Title} from before…";
                     using var earlier = Process.GetProcessById(pid);
                     using (_unpackStop.Token.Register(() => { try { earlier.Kill(entireProcessTree: true); } catch { } }))
                         await earlier.WaitForExitAsync(_unpackStop.Token);
                 }
-                else if (!await RunForge(cli, rom, dir, _unpackStop.Token)) return false;
-                if (!File.Exists(Path.Combine(dir, "eboot.bin")))
+                else
+                {
+                    // Updates go next to their game and DLC isn't handled; only a base game is extracted to play.
+                    if (ps4 && await PkgKind(cli, rom.Path) is var kind and (102 or 103))
+                    {
+                        if (kind == 102) await InstallUpdate(cli, rom, _unpackStop.Token);
+                        else StatusText.Text = $"{rom.Title} is DLC. Steam Multitool doesn't install add-ons yet; the base game plays without it.";
+                        return false;
+                    }
+                    var joined = dir + ".pkg";
+                    if (await PackageSource(rom, joined, _unpackStop.Token) is not { } source) return false;
+                    if (!await RunUnpacker(cli, rom, source, dir, ps4, _unpackStop.Token)) return false;
+                    if (source == joined && Game() is not null) try { File.Delete(joined); } catch { } // the pieces stay
+                }
+                if (Game() is null)
                 {
                     StatusText.Text = $"Unpacking {rom.Title} didn't finish. Press Play to try again.";
                     return false;
                 }
+                if (ps4) File.WriteAllText(Path.Combine(dir, RomLibrary.UnpackedMark), "");
             }
             catch (OperationCanceledException)
             {
-                // Forge was killed mid-write: clear its half-written folder now instead of next time.
-                await Task.Delay(500);
-                RomLibrary.UnpackLeftovers(dir, ForgeAlive);
+                if (!ps4)
+                {
+                    // Forge was killed mid-write: clear its half-written folder now instead of next time.
+                    await Task.Delay(500);
+                    RomLibrary.UnpackLeftovers(dir, ForgeAlive);
+                }
                 StatusText.Text = $"Stopped unpacking {rom.Title}. Unpacking starts over next time.";
                 return false;
             }
@@ -254,34 +354,114 @@ public partial class MainWindow
                 if (GameDetail.DataContext is Rom shown) PaintPlay(shown);
             }
         }
-        // The image stays; the folder is what plays from now on.
-        rom.Path = dir;
+        // The image or package stays; the folder is what plays from now on.
+        rom.Path = Game()!;
         RomLibrary.Save(_library!);
         rom.Refresh();
         return true;
     }
 
-    /// <summary>Run ps5-dump-forge convert, showing percent, speed and time left. False (with the reason shown) when it fails.</summary>
-    private async Task<bool> RunForge(string cli, Rom rom, string dir, CancellationToken stop)
+    /// <summary>
+    /// The file to extract: the package itself, or its pieces joined into <paramref name="joined"/> first (the extractor
+    /// reads one whole package). Null, with the reason shown, when there's no room to join.
+    /// </summary>
+    private async Task<string?> PackageSource(Rom rom, string joined, CancellationToken stop)
+    {
+        var parts = RomLibrary.IsPs4Package(rom) ? RomLibrary.PkgParts(rom.Path) : [rom.Path];
+        if (parts.Count == 1) return rom.Path;
+        var total = parts.Sum(p => new FileInfo(p).Length);
+        if (File.Exists(joined) && new FileInfo(joined).Length == total) return joined;
+        var root = Path.GetPathRoot(Path.GetFullPath(joined))!;
+        if (new DriveInfo(root).AvailableFreeSpace < total * 2)
+        {
+            StatusText.Text = $"{rom.Title} is in {parts.Count} pieces. Joining and extracting it needs about {Format.Bytes(total * 2)} free on {root}.";
+            return null;
+        }
+        await RomLibrary.JoinParts(parts, joined, new Progress<long>(done =>
+            StatusText.Text = $"Joining the {parts.Count} pieces of {rom.Title}…  {done * 100 / total}%"), stop);
+        return joined;
+    }
+
+    /// <summary>pkg_extractor --check-type: 101 a game, 102 an update, 103 DLC; anything else when it can't tell.</summary>
+    private static async Task<int> PkgKind(string cli, string pkg)
+    {
+        var start = new ProcessStartInfo(cli) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        start.ArgumentList.Add(pkg);
+        start.ArgumentList.Add("--check-type");
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not start it.");
+        var output = process.StandardOutput.ReadToEndAsync();
+        _ = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        await output;
+        return process.ExitCode;
+    }
+
+    /// <summary>
+    /// Extract an update .pkg beside its game: pkg_extractor names it &lt;TITLE_ID&gt;-patch, which shadPS4 loads over the game
+    /// folder of the same name by itself. The update then leaves the library; its .pkg stays on disk.
+    /// </summary>
+    private async Task InstallUpdate(string cli, Rom update, CancellationToken stop)
+    {
+        var id = RomLibrary.TitleId(update.Path);
+        var game = id is null ? null : _library!.Games.FirstOrDefault(g => g.Console == "PS4" && Directory.Exists(g.Path)
+            && Path.GetFileName(g.Path).Equals(id, StringComparison.OrdinalIgnoreCase));
+        if (game is null)
+        {
+            StatusText.Text = $"{update.Title} is an update{(id is null ? "" : $" for {id}")}. Play the game itself first so it's extracted, then press Play on the update.";
+            return;
+        }
+        var parent = Path.GetDirectoryName(game.Path)!;
+        if (await PackageSource(update, Path.Combine(parent, id + "-update.pkg"), stop) is not { } source) return;
+        if (!await RunUnpacker(cli, update, source, parent, true, stop)) return;
+        if (source != update.Path) try { File.Delete(source); } catch { }
+        if (!Directory.Exists(Path.Combine(parent, id + "-patch")))
+        {
+            StatusText.Text = $"Installing {update.Title} didn't finish. Press Play to try again.";
+            return;
+        }
+        _library!.Games.Remove(update);
+        RomLibrary.Save(_library);
+        PaintGames();
+        StatusText.Text = $"Installed the update for {game.Title}. shadPS4 uses it when you play the game.";
+    }
+
+    /// <summary>Run the unpacker, showing percent, speed and time left. False (with the reason shown) when it fails.</summary>
+    private async Task<bool> RunUnpacker(string cli, Rom rom, string source, string dir, bool ps4, CancellationToken stop)
     {
         StatusText.Text = $"Unpacking {rom.Title}…";
         var start = new ProcessStartInfo(cli) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "convert", rom.Path, "--to", "folder", "-o", dir }) start.ArgumentList.Add(arg);
+        // pkg_extractor <pkg> <folder> writes into <folder>\<TITLE_ID>; with both arguments it doesn't wait for Enter.
+        string[] args = ps4 ? [source, dir] : ["convert", source, "--to", "folder", "-o", dir];
+        foreach (var arg in args) start.ArgumentList.Add(arg);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not start it.");
         using var kill = stop.Register(() => { try { process.Kill(entireProcessTree: true); } catch { } });
         var errors = process.StandardError.ReadToEndAsync();
         var clock = Stopwatch.StartNew();
+        string? said = null;
         while (await process.StandardOutput.ReadLineAsync() is { } line)
         {
-            if (RomLibrary.UnpackProgress(line) is not var (done, total)) continue;
-            var bps = done / Math.Max(clock.Elapsed.TotalSeconds, 0.001);
-            StatusText.Text = $"Unpacking {rom.Title}…  {done * 100 / total}%  ·  {Format.Speed(bps)}"
-                + (bps > 0 && done > 0 ? $"  ·  {Format.Duration((total - done) / bps)} left" : "");
+            if (ps4)
+            {
+                // "Extracting file 12 of 340", rewritten in place with \r; anything starting "Cannot"/"Could not" is why it failed.
+                if (RomLibrary.ExtractProgress(line) is var (file, files))
+                {
+                    var left = clock.Elapsed.TotalSeconds * (files - file) / file;
+                    StatusText.Text = $"Unpacking {rom.Title}…  {file * 100 / files}%  ·  file {file} of {files}" + (file > 1 ? $"  ·  {Format.Duration(left)} left" : "");
+                }
+                else if (line.Trim() is { Length: > 0 } text && (text.StartsWith("Cannot") || text.StartsWith("Could not") || text.Contains("doesn't appear to be a valid PKG"))) said = text;
+            }
+            else if (RomLibrary.UnpackProgress(line) is var (done, total))
+            {
+                var bps = done / Math.Max(clock.Elapsed.TotalSeconds, 0.001);
+                StatusText.Text = $"Unpacking {rom.Title}…  {done * 100 / total}%  ·  {Format.Speed(bps)}"
+                    + (bps > 0 && done > 0 ? $"  ·  {Format.Duration((total - done) / bps)} left" : "");
+            }
         }
         await process.WaitForExitAsync();
         stop.ThrowIfCancellationRequested();
-        if (process.ExitCode == 0) return true;
-        var why = (await errors).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault();
+        // pkg_extractor always exits 0; the game folder it leaves decides.
+        if (ps4 ? said is null : process.ExitCode == 0) return true;
+        var why = said ?? (await errors).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault();
         StatusText.Text = $"Could not unpack {rom.Title}: {why ?? "PS5 Dump Forge failed."}";
         return false;
     }
@@ -308,7 +488,8 @@ public partial class MainWindow
         // KytyPS5's Play button opens its launcher; games start in its emulator exe next to it.
         if (RomLibrary.GameExe.TryGetValue(emu.Name, out var gameExe) && Path.Combine(Path.GetDirectoryName(exe)!, gameExe) is var direct && File.Exists(direct))
             exe = direct;
-        return (emu, exe, RomLibrary.Arguments(emu.Name, rom.Path, rom.Console));
+        // An add-on with no game to start: open the emulator alone so it can be installed there.
+        return (emu, exe, rom.Kind.Length > 0 ? RomLibrary.OpenArgs(emu.Name, exe) ?? "" : RomLibrary.Arguments(emu.Name, rom.Path, rom.Console));
     }
 
     private async void GamesToSteam_Click(object sender, RoutedEventArgs e)
@@ -507,6 +688,42 @@ public partial class MainWindow
         });
     }
 
+    /// <summary>Steam, Epic and Heroic games: add new installs and drop ones that were uninstalled.</summary>
+    private bool _syncingStores;
+
+    private async Task SyncStoreGames()
+    {
+        // One at a time: two overlapping syncs would both add the same new games.
+        if (_library is null || _syncingStores) return;
+        _syncingStores = true;
+        try { await SyncStoreGamesCore(); }
+        finally { _syncingStores = false; }
+    }
+
+    private async Task SyncStoreGamesCore()
+    {
+        if (_library is null) return;
+        var root = _steamRoot;
+        List<Rom> found;
+        try
+        {
+            found = await Task.Run(() => StoreGames.Steam(root is null ? [] : SteamClient.LibraryPaths(root), root)
+                .Concat(StoreGames.Epic(StoreGames.EpicManifests))
+                .Concat(StoreGames.Heroic(StoreGames.HeroicFolder)).ToList());
+        }
+        catch { return; } // a launcher's files mid-write; next visit tries again
+        var paths = found.Select(g => g.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var gone = _library.Games.Where(g => g.IsLink && !paths.Contains(g.Path)).ToList();
+        var have = _library.Games.Select(g => g.Path).Concat(_library.HiddenLinks).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var added = found.Where(g => have.Add(g.Path)).ToList();
+        if (gone.Count + added.Count == 0) return;
+        foreach (var game in gone) _library.Games.Remove(game);
+        _library.Games.AddRange(added);
+        RomLibrary.Save(_library);
+        PaintGames();
+        _ = LoadCoversAsync(added);
+    }
+
     /// <summary>Fill in box art one game at a time, so a big library doesn't flood the art server.</summary>
     private async Task LoadCoversAsync(List<Rom> roms)
     {
@@ -524,7 +741,7 @@ public partial class MainWindow
 
     private void GameOpenFolder_Click(object sender, RoutedEventArgs e)
     {
-        if (GameDetail.DataContext is Rom rom && rom.Exists)
+        if (GameDetail.DataContext is Rom rom && rom.Exists && !rom.IsLink)
             Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{rom.Path}\"") { UseShellExecute = true });
     }
 
@@ -568,13 +785,72 @@ public partial class MainWindow
         StatusText.Text = $"Set {set} cover(s).";
     }
 
+    private async void GameSplit_Click(object sender, RoutedEventArgs e)
+    {
+        if (GameDetail.DataContext is not Rom rom) return;
+        var size = new FileInfo(rom.Path).Length;
+        GameSplitButton.IsEnabled = false;
+        try
+        {
+            var made = await SwitchFiles.Split(rom.Path, new Progress<long>(done => StatusText.Text = $"Splitting {rom.Title}…  {done * 100 / size}%"));
+            StatusText.Text = $"Split into {Path.GetFileName(made)}{(made.EndsWith(".xc0") ? ", .xc1…" : "")}. Copy that to your SD card.";
+        }
+        catch (Exception ex) { StatusText.Text = $"Could not split {rom.Title}: {ex.Message}"; }
+        finally { GameSplitButton.IsEnabled = true; }
+    }
+
+    private async void GameConvert_Click(object sender, RoutedEventArgs e)
+    {
+        if (GameDetail.DataContext is not Rom rom) return;
+        if (EmuStore.Find("nsz")?.Exe is not { } nsz)
+        {
+            OpenEmulatorsFor(rom.Tile);
+            StatusText.Text = "Install nsz to convert .nsz and .xcz games.";
+            return;
+        }
+        if (SwitchFiles.FindKeys() is not { } keys)
+        {
+            StatusText.Text = "nsz needs your Switch's prod.keys. Put them in Eden or Ryujinx (or %USERPROFILE%\\.switch), then try again.";
+            return;
+        }
+        var dir = Path.GetDirectoryName(rom.Path)!;
+        var output = SwitchFiles.ConvertedPath(rom.Path, dir);
+        if (File.Exists(output)) { StatusText.Text = $"{Path.GetFileName(output)} is already there."; return; }
+        GameConvertButton.IsEnabled = false;
+        try
+        {
+            var start = new ProcessStartInfo(nsz) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var arg in new[] { "-D", "--keys", keys, "--machine-readable", "-o", dir, rom.Path }) start.ArgumentList.Add(arg);
+            using var process = Process.Start(start) ?? throw new InvalidOperationException("Windows did not start it.");
+            var output1 = process.StandardOutput.ReadToEndAsync();
+            var errors = process.StandardError.ReadToEndAsync();
+            var exited = process.WaitForExitAsync();
+            // nsz doesn't say how big the result will be, so show how much it has written.
+            while (await Task.WhenAny(exited, Task.Delay(1000)) != exited)
+                StatusText.Text = $"Converting {rom.Title}…  {Format.Bytes(File.Exists(output) ? new FileInfo(output).Length : 0)} written";
+            var said = (await output1 + "\n" + await errors).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (process.ExitCode != 0 || !File.Exists(output))
+            {
+                StatusText.Text = $"Could not convert {rom.Title}: {said.LastOrDefault() ?? "nsz failed."}";
+                return;
+            }
+            await AddToLibrary([], [output], quiet: true);
+            StatusText.Text = $"Converted to {Path.GetFileName(output)}; it's in the library now. The original stays.";
+        }
+        catch (Exception ex) { StatusText.Text = $"Could not convert {rom.Title}: {ex.Message}"; }
+        finally { GameConvertButton.IsEnabled = true; }
+    }
+
     private void GameRemove_Click(object sender, RoutedEventArgs e)
     {
         if (GameDetail.DataContext is not Rom rom || _library is null) return;
         _library.Games.Remove(rom);
+        if (rom.IsLink) _library.HiddenLinks.Add(rom.Path);
         RomLibrary.Save(_library);
         GamesList.SelectedItem = null;
         PaintGames();
-        StatusText.Text = $"Removed {rom.Title} from the library. The file is still on disk; Rescan would add it back.";
+        StatusText.Text = rom.IsLink
+            ? $"Removed {rom.Title} from the library. It stays installed in {rom.ConsoleName}."
+            : $"Removed {rom.Title} from the library. The file is still on disk; Rescan would add it back.";
     }
 }

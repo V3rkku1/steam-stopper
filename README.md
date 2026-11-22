@@ -27,6 +27,35 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.19
+
+- **Routes for Steam**: pin Steam's downloads and store to one connection; games stay on the main one.
+- **Updates and DLC** get a badge and sort under their game; Play starts the game they belong to.
+- **Saves import** from files, folders or zips.
+- **Bonding survives a link dropping**, and stops cleanly when every link is offline.
+
+## What's new in 2.5.18
+
+- **PS4 updates**: Play on an update .pkg installs it beside its game for shadPS4.
+
+## What's new in 2.5.17
+
+- **PS4 .pkg extraction** now uses shadPS4Plus's PKG extractor, and packages cut into pieces (part 1, part 2…) are joined first.
+
+## What's new in 2.5.16
+
+- **PS4 .pkg games** are extracted with Orbis when you press Play, then run in shadPS4; shadPS4 opens again from Emulators.
+- **Switch**: split .nsp/.xci for FAT32 SD cards, and convert .nsz/.xcz back to .nsp/.xci with nsz.
+
+## What's new in 2.5.15
+
+- **Fetch retries failed downloads by itself**, up to 10 times in a row with growing waits.
+
+## What's new in 2.5.14
+
+- **Console mode**: a fullscreen game row for keyboard or controller (F11).
+- **Steam, Epic and Heroic games** appear in the Games library and start in their launcher.
+
 ## What's new in 2.5.13
 
 - **PS5 unpacking**: choose the unpack folder, see speed and time left, stop an unpack, and pick up one still running after the app closed.
@@ -195,9 +224,11 @@ Progress is kept in `name.part.json` next to the unfinished `name.part`, so **Pa
 The **Routes** page chooses which internet connection each app uses, for example Valorant on Ethernet and Discord on your phone.
 
 1. **Main connection**: pick your steadiest link (usually Ethernet) and press **Make main**. Everything without its own route uses it, including games. **Restore automatic** undoes it.
-2. **Apps**: pick a connection next to Discord, Chrome, Edge, Brave, Opera GX or Spotify and press **Apply**. The app restarts on that link.
+2. **Apps**: pick a connection next to Steam, Discord, Chrome, Edge, Brave, Opera GX or Spotify and press **Apply**. The app restarts on that link.
 
 How it works: Steam Multitool never touches the game, so anti-cheat such as Vanguard has nothing to see. A routed app is restarted with `--proxy-server` pointing at a local proxy pinned to its link. Discord voice runs over UDP, which a proxy can't carry, so Discord also gets a Windows route that sends Discord's voice servers (`66.22.192.0/18`) out the same link. That route disappears on reboot.
+
+Steam has no proxy switch, so routing it points the Windows proxy setting at its link instead; other apps that follow that setting go the same way. Games are left alone: Steam's downloads and store use the link, game traffic stays on the main connection. Bonding and a Steam route both use the Windows proxy setting, so only one can be on at a time.
 
 Closing Steam Multitool or pressing **Reset all** restarts routed apps on the main connection. If the routed link drops, that app goes offline until you switch it back.
 
