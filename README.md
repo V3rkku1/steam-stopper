@@ -27,6 +27,13 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.20
+
+- **Bond every app** (optional): a virtual network adapter from net-merge bonds every app, TCP and UDP, not only Steam and browsers. The Bond page lists its downsides before you turn it on.
+- **Faster bonding**: Steam's download connections are kept open and reused instead of reconnecting for every chunk.
+- **Steadier bonding**: a slow or refusing server no longer knocks out a link, speed estimates don't jump on one burst, and connections stay on their adapter even with Mobile Hotspot on.
+- **Fetch** asks each link's own DNS, so every link downloads from a server near its provider.
+
 ## What's new in 2.5.19
 
 - **Routes for Steam**: pin Steam's downloads and store to one connection; games stay on the main one.

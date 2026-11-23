@@ -1,16 +1,13 @@
-## Routes
-
-- **Steam can be pinned to one connection**: pick a link next to Steam and press Apply. Its downloads and store use that link; games stay on the main connection, and running games aren't closed by the restart.
-- Steam has no proxy switch, so while it's routed the Windows proxy setting points at its link. Bonding and a Steam route can't be on together.
-
-## Games and saves
-
-- **Updates and DLC** get a badge, sort under their game, and Play starts the game they belong to. Console mode lists games only.
-- **Saves import** from save files, folders or any zip (button or drag and drop); current saves are zipped first.
-
 ## Bonding
 
-- A dropped link no longer breaks DNS for every connection, a link that comes back with a new address is picked up again, and when every link is offline bonding stops and the Windows proxy is restored.
+- **Bond every app (optional)**: turn on "Bond every app" on the Bond page and every app is bonded, TCP and UDP, through a virtual network adapter from [net-merge](https://github.com/net-merge/net-merge) (MIT), not only Steam and browsers. net-merge is downloaded from GitHub the first time.
+  - **Downsides**: games and voice chat are spread over the links too and can lag; sites and game servers may see two addresses and log you out or ask for a captcha; links no longer use their own DNS; it adds a virtual adapter and routes, which some VPNs, anti-cheat or firewall software may not like. The Bond page shows these and asks before turning it on.
+- **Faster**: Steam's download connections to its servers are kept open and reused, so each chunk no longer waits on a new connection and a slow start.
+- **Steadier**: only real link failures take a link out of use, not a slow or refusing server. Link speeds rise within seconds and fall slowly, so one burst doesn't flip the balance. Connections stay on their adapter even with Mobile Hotspot or connection sharing on.
+
+## Fetch
+
+- Each link asks its own DNS, so a CDN hands every link a server near its provider.
 
 ## Downloads
 
