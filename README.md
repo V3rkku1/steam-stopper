@@ -203,7 +203,7 @@ The **Bond** page lets Steam download over two or more internet connections at o
 3. Tick the connections to combine. Give a faster one a higher **weight** so it gets more of the traffic.
 4. Press **Start bonding**. Steam restarts and its downloads are spread across the links. The per-link speed columns show it working.
 
-How it works: Steam Multitool runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and the proxy sends each new connection out a different link, so the speeds add up. A single connection still runs over one link, so one big HTTPS file in a browser will not get faster. If a link drops, new connections move to the others.
+How it works: Steam Multitool runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and the proxy sends each new connection out a different link, so the speeds add up. A single connection still runs over one link, so one big HTTPS file in a browser will not get faster. If a link drops, new connections move to the others. Each Steam download request picks its link afresh, and the connection to the server is kept open for that link's next request, so chunks don't wait on a new connection each time.
 
 Stopping bonding or closing the app puts your old proxy setting back. If the app crashes, it is restored the next time Steam Multitool starts. Mobile data counts against your phone plan, so watch the totals.
 

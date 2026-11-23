@@ -623,7 +623,7 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
                 var host = context.DnsEndPoint.Host;
                 var targets = IPAddress.TryParse(host, out var literal)
                     ? [literal]
-                    : await IPv4Of(host, cancel);
+                    : await LinkIPv4Of(link, host, cancel) ?? await IPv4Of(host, cancel);
                 if (targets.Length == 0)
                 {
                     // IPv6-only host: the links are bound by IPv4 address, so let Windows route this one.
@@ -649,6 +649,14 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
         var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
         http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
         return http;
+    }
+
+    /// <summary>Ask the link's own DNS, like Bond does, so a CDN hands each link a server near its provider.</summary>
+    private static async Task<IPAddress[]?> LinkIPv4Of(BondLink link, string host, CancellationToken cancel)
+    {
+        if (link.DnsServers.FirstOrDefault() is not { } dns) return null;
+        try { return await LinkDns.Resolve(host, dns, link.Address, cancel) is { Length: > 0 } found ? found : null; }
+        catch when (!cancel.IsCancellationRequested) { return null; } // that DNS didn't answer: use Windows' answer
     }
 
     private static async Task<IPAddress[]> IPv4Of(string host, CancellationToken cancel)
