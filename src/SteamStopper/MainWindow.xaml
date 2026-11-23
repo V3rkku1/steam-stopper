@@ -863,6 +863,22 @@
                 <ToggleButton x:Name="BondGamesBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Click="BondOptions_Click"/>
                 <TextBlock Style="{StaticResource OptionText}" Text="Keep games and voice chat on the quickest link"/>
               </DockPanel>
+              <DockPanel Style="{StaticResource Option}" Margin="0,-10,0,18"
+                         ToolTip="Uses net-merge's virtual network adapter (Wintun) instead of the proxy, so every app is bonded, TCP and UDP, not only Steam and browsers.">
+                <ToggleButton x:Name="BondEveryAppBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Click="BondOptions_Click"/>
+                <StackPanel>
+                  <TextBlock Style="{StaticResource OptionText}" Text="Bond every app, not only Steam and browsers"/>
+                  <TextBlock Text="System-wide virtual adapter from net-merge. Read the downsides first." Foreground="{DynamicResource Faint}" FontSize="11" TextWrapping="Wrap" Margin="0,2,10,0"/>
+                </StackPanel>
+              </DockPanel>
+              <!-- What every-app mode costs, shown while it's switched on. -->
+              <Border x:Name="BondEveryAppNote" Margin="0,-6,0,18" Background="#2E2614" BorderBrush="#4A3B17" BorderThickness="1"
+                      CornerRadius="10" Padding="14,10" Visibility="Collapsed">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" FontFamily="{StaticResource IconFont}" FontSize="16" Foreground="{DynamicResource Amber}" VerticalAlignment="Top" Margin="0,1,10,0"/>
+                  <TextBlock x:Name="BondEveryAppNoteText" Foreground="{DynamicResource Amber}" FontSize="11.5" TextWrapping="Wrap"/>
+                </DockPanel>
+              </Border>
               <Button x:Name="BondButton" Content="Start bonding" Style="{StaticResource WideSafe}" Click="BondToggle_Click"/>
               <TextBlock x:Name="BondBusy" Text="" Foreground="{DynamicResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
               <TextBlock Text="HOW IT WORKS" Style="{StaticResource SectionLabel}" Margin="0,18,0,6"/>

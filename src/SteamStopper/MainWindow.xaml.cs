@@ -226,6 +226,7 @@ public partial class MainWindow : Window
         BondRestartBox.IsChecked = _settings.BondRestartSteam;
         BondAutoBox.IsChecked = BondLink.AutoBalance = _settings.BondAutoBalance;
         BondGamesBox.IsChecked = _bonder.KeepGamesOnOneLink = _settings.BondKeepGames;
+        BondEveryAppBox.IsChecked = _settings.BondEveryApp;
         ApplyWatcherSettings();
         _suppress = false;
         ActionBox.SelectionChanged += WatchSettings_Changed;
@@ -1199,7 +1200,13 @@ public partial class MainWindow : Window
         BondButton.Content = running ? "Stop bonding" : "Start bonding";
         BondButton.Style = (Style)FindResource(running ? "WideDanger" : "WideSafe");
         BondButton.IsEnabled = !_bondWorking;
-        BondPortBox.IsEnabled = !running;
+        // Port, Steam restart and keeping games on one link are proxy settings; every-app mode ignores them.
+        var everyApp = BondEveryAppBox.IsChecked == true;
+        BondEveryAppBox.IsEnabled = !running;
+        BondEveryAppNote.Visibility = everyApp ? Visibility.Visible : Visibility.Collapsed;
+        BondEveryAppNoteText.Text = EveryAppDownsides;
+        BondPortBox.IsEnabled = !running && !everyApp;
+        BondRestartBox.IsEnabled = BondGamesBox.IsEnabled = !everyApp;
         if (!running)
         {
             BondChip.Text = "";
@@ -1233,11 +1240,25 @@ public partial class MainWindow : Window
 
     private async void BondToggle_Click(object sender, RoutedEventArgs e) => await ToggleBondAsync();
 
+    private const string EveryAppDownsides =
+        "Downsides of bonding every app:\n" +
+        "• Games and voice chat are spread over the links too, so they can lag or drop when a link is slow. " +
+        "\"Keep games on the quickest link\" doesn't work in this mode.\n" +
+        "• Sites and game servers may see you coming from two addresses at once, and some log you out or ask for a captcha.\n" +
+        "• Each link no longer asks its own DNS, so CDNs may pick a farther server for some links.\n" +
+        "• It adds a virtual network adapter and routes. VPNs and some anti-cheat or firewall software may not like that.\n" +
+        "• net-merge is a separate program (MIT license). Its latest release is downloaded from GitHub the first time.";
+
     private void BondOptions_Click(object sender, RoutedEventArgs e)
     {
+        if (sender == BondEveryAppBox && BondEveryAppBox.IsChecked == true &&
+            Dialog.Show(this, EveryAppDownsides + "\n\nTurn it on?", "Bond every app", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            BondEveryAppBox.IsChecked = false;
         _settings.BondAutoBalance = BondLink.AutoBalance = BondAutoBox.IsChecked == true;
         _settings.BondKeepGames = _bonder.KeepGamesOnOneLink = BondGamesBox.IsChecked == true;
+        _settings.BondEveryApp = BondEveryAppBox.IsChecked == true;
         _settings.Save();
+        PaintBond();
     }
 
     private bool _probing;
@@ -1274,7 +1295,8 @@ public partial class MainWindow : Window
         if (_bondWorking) return;
         // From the tray the Bond page may never have been opened, so the link list is still empty.
         if (!_bonder.Running && _bondRows.Count == 0) RefreshBondUi();
-        var restart = BondRestartBox.IsChecked == true && _steamRoot is not null;
+        // Every-app mode leaves the Windows proxy alone, so Steam needs no restart.
+        var restart = BondRestartBox.IsChecked == true && _steamRoot is not null && !_settings.BondEveryApp;
         var root = _steamRoot;
         _bondWorking = true;
         PaintBond();
@@ -1293,6 +1315,18 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (_settings.BondEveryApp)
+            {
+                BondBusy.Text = "Starting bonding for every app (downloads net-merge the first time)…";
+                StatusText.Text = await _bonder.StartEveryApp(_bondRows);
+                if (_bonder.Running)
+                {
+                    Watchdog.Ensure();
+                    SaveBondLinks();
+                    _settings.Save();
+                }
+                return;
+            }
             if (_routeRules.Any(r => r.Proxy is not null && r.App.UsesSystemProxy))
             {
                 StatusText.Text = "Steam is pinned to one link on Routes. Put it back on the main connection first.";

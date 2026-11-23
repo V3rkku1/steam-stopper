@@ -13,16 +13,16 @@ public static class LinkHealth
     private static readonly IPEndPoint[] Targets = [new(IPAddress.Parse("1.1.1.1"), 443), new(IPAddress.Parse("8.8.8.8"), 443)];
 
     public static Task Probe(IEnumerable<BondLink> links) =>
-        Task.WhenAll(links.Where(l => l.Selected).Select(async link => link.Probed(await Rtt(link.Address))));
+        Task.WhenAll(links.Where(l => l.Selected).Select(async link => link.Probed(await Rtt(link))));
 
-    private static async Task<double?> Rtt(IPAddress source)
+    private static async Task<double?> Rtt(BondLink link)
     {
         foreach (var target in Targets)
         {
             using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             try
             {
-                socket.Bind(new IPEndPoint(source, 0));
+                link.Pin(socket);
                 using var timeout = new CancellationTokenSource(1500);
                 var watch = Stopwatch.StartNew();
                 await socket.ConnectAsync(target, timeout.Token);

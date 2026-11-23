@@ -53,6 +53,7 @@ public static class Watchdog
     public static void Recover()
     {
         try { SystemProxy.Restore(); } catch { }
+        try { NetMerge.Stop(); } catch { }
         foreach (var (key, exe) in Routed())
         {
             var app = AppRoutes.Catalog.FirstOrDefault(a => a.Key == key);

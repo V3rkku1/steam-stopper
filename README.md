@@ -27,6 +27,13 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+## What's new in 2.5.20
+
+- **Bond every app** (optional): a virtual network adapter from net-merge bonds every app, TCP and UDP, not only Steam and browsers. The Bond page lists its downsides before you turn it on.
+- **Faster bonding**: Steam's download connections are kept open and reused instead of reconnecting for every chunk.
+- **Steadier bonding**: a slow or refusing server no longer knocks out a link, speed estimates don't jump on one burst, and connections stay on their adapter even with Mobile Hotspot on.
+- **Fetch** asks each link's own DNS, so every link downloads from a server near its provider.
+
 ## What's new in 2.5.19
 
 - **Routes for Steam**: pin Steam's downloads and store to one connection; games stay on the main one.
@@ -203,7 +210,9 @@ The **Bond** page lets Steam download over two or more internet connections at o
 3. Tick the connections to combine. Give a faster one a higher **weight** so it gets more of the traffic.
 4. Press **Start bonding**. Steam restarts and its downloads are spread across the links. The per-link speed columns show it working.
 
-How it works: Steam Multitool runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and the proxy sends each new connection out a different link, so the speeds add up. A single connection still runs over one link, so one big HTTPS file in a browser will not get faster. If a link drops, new connections move to the others.
+How it works: Steam Multitool runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and the proxy sends each new connection out a different link, so the speeds add up. A single connection still runs over one link, so one big HTTPS file in a browser will not get faster. If a link drops, new connections move to the others. Each Steam download request picks its link afresh, and the connection to the server is kept open for that link's next request, so chunks don't wait on a new connection each time.
+
+**Bond every app** (option on the Bond page) uses [net-merge](https://github.com/net-merge/net-merge) (MIT) instead of the proxy: a Wintun virtual network adapter that spreads every app's connections, TCP and UDP, over the ticked links. It is downloaded the first time you turn it on and stopped when bonding stops or the app closes. In this mode games are spread too, and each link doesn't use its own DNS.
 
 Stopping bonding or closing the app puts your old proxy setting back. If the app crashes, it is restored the next time Steam Multitool starts. Mobile data counts against your phone plan, so watch the totals.
 

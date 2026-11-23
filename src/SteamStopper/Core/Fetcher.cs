@@ -449,7 +449,8 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
             }
             catch (Exception ex) when (ex is not FatalFetchException && !cancel.IsCancellationRequested)
             {
-                if (link is not null) Interlocked.Exchange(ref link.FailUntilTicks, DateTime.UtcNow.Add(FailPenalty).Ticks);
+                // A server error or stall isn't the link's fault; a link that really died fails its health probe.
+                if (link is not null && BondLink.IsLinkFault(ex)) Interlocked.Exchange(ref link.FailUntilTicks, DateTime.UtcNow.Add(FailPenalty).Ticks);
                 job.NoteError(Describe(ex));
                 if (++failures >= MaxFailures) throw;
                 if (!job.Ranged)
@@ -599,12 +600,12 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
         lock (_clients)
         {
             if (!_clients.TryGetValue(key, out var client))
-                _clients[key] = client = Create(link?.Address);
+                _clients[key] = client = Create(link);
             return client;
         }
     }
 
-    private static HttpClient Create(IPAddress? source)
+    private static HttpClient Create(BondLink? link)
     {
         var handler = new SocketsHttpHandler
         {
@@ -615,14 +616,14 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
             PooledConnectionIdleTimeout = TimeSpan.FromSeconds(30),
             MaxConnectionsPerServer = 64
         };
-        if (source is not null)
+        if (link is not null)
         {
             handler.ConnectCallback = async (context, cancel) =>
             {
                 var host = context.DnsEndPoint.Host;
                 var targets = IPAddress.TryParse(host, out var literal)
                     ? [literal]
-                    : await IPv4Of(host, cancel);
+                    : await LinkIPv4Of(link, host, cancel) ?? await IPv4Of(host, cancel);
                 if (targets.Length == 0)
                 {
                     // IPv6-only host: the links are bound by IPv4 address, so let Windows route this one.
@@ -633,8 +634,7 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
                 var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
                 try
                 {
-                    // Windows sends from the adapter that owns the bound source address (strong host model).
-                    socket.Bind(new IPEndPoint(source, 0));
+                    link.Pin(socket);
                     await socket.ConnectAsync(targets, context.DnsEndPoint.Port, cancel);
                     return new NetworkStream(socket, ownsSocket: true);
                 }
@@ -649,6 +649,14 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
         var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
         http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
         return http;
+    }
+
+    /// <summary>Ask the link's own DNS, like Bond does, so a CDN hands each link a server near its provider.</summary>
+    private static async Task<IPAddress[]?> LinkIPv4Of(BondLink link, string host, CancellationToken cancel)
+    {
+        if (link.DnsServers.FirstOrDefault() is not { } dns) return null;
+        try { return await LinkDns.Resolve(host, dns, link.Address, cancel) is { Length: > 0 } found ? found : null; }
+        catch when (!cancel.IsCancellationRequested) { return null; } // that DNS didn't answer: use Windows' answer
     }
 
     private static async Task<IPAddress[]> IPv4Of(string host, CancellationToken cancel)

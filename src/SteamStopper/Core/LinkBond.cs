@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -24,6 +25,8 @@ public sealed class BondLink : INotifyPropertyChanged
     internal long FailUntilTicks;
     // Best recent speed, falling slowly, as the link's capacity for auto-balance.
     private double _peak;
+    private bool _idle;
+    private long _adapterBase = -1;
     private int _misses;
     // Weight times measured capacity: what Bond and Fetch share connections by.
     internal double Share = 1;
@@ -76,7 +79,11 @@ public sealed class BondLink : INotifyPropertyChanged
         // Smoothed so a second without a finished chunk doesn't show the link as idle ("—").
         var now = seconds > 0 ? Math.Max(0, bytes - _lastBytes) / seconds : 0;
         _bps = seconds <= 0 ? 0 : _bps > 0 ? _bps * 0.6 + now * 0.4 : now;
-        _peak = seconds <= 0 ? 0 : Math.Max(_peak * Math.Pow(0.995, seconds), _bps);
+        // Capacity: grows within seconds, falls over half a minute, and holds while the link is idle,
+        // so one burst or one quiet second doesn't flip which link is preferred (as in net-merge).
+        _idle = _bps < MeasuredBps || _bps < 0.05 * _peak;
+        if (seconds <= 0) _peak = 0;
+        else if (!_idle) _peak = _peak == 0 ? _bps : _peak + (_bps - _peak) * (1 - Math.Exp(-seconds / (_bps > _peak ? 2 : 30)));
         _lastBytes = bytes;
         _bytesShown = bytes;
         _activeShown = Volatile.Read(ref ActiveCount);
@@ -85,15 +92,47 @@ public sealed class BondLink : INotifyPropertyChanged
         OnChanged(nameof(TotalText));
     }
 
+    private const double MeasuredBps = 50_000;
+
     /// <summary>Recompute each link's share: its weight, times its speed against the fastest link when auto-balance is on.</summary>
     public static void Rebalance(IEnumerable<BondLink> links)
     {
-        var list = links.ToList();
+        var list = links.Where(l => l.Selected && !l.Down).ToList();
         var fastest = list.Count == 0 ? 0 : list.Max(l => l._peak);
-        foreach (var link in list)
-            // Until links have carried real traffic (64 KB/s), or with auto off, only the weight counts.
-            // A floor of a fifth keeps a slow link in use, so its speed keeps being measured.
-            link.Share = link.Weight * (AutoBalance && fastest > 65536 ? Math.Clamp(link._peak / fastest, 0.2, 1) : 1);
+        // An idle link's low estimate creeps back up (never past half the fastest), so it gets tried again.
+        foreach (var link in list.Where(l => l._idle && l._peak > 0))
+            link._peak = Math.Min(link._peak * 1.03, Math.Max(link._peak, 0.5 * fastest));
+        // Until every link has carried real traffic, or with auto off, only the weight counts.
+        var measured = list.Count > 1 && list.All(l => l._peak >= MeasuredBps);
+        foreach (var link in links)
+            link.Share = link.Weight * (AutoBalance && measured ? Math.Clamp(link._peak / fastest, 0.05, 1) : 1);
+    }
+
+    /// <summary>
+    /// Send this socket out of this link: bind its address, and also force the adapter with IP_UNICAST_IF,
+    /// since binding alone isn't enough where Windows uses the weak host model (Mobile Hotspot and connection
+    /// sharing turn it on). Idea from net-merge.
+    /// </summary>
+    internal void Pin(Socket socket)
+    {
+        socket.Bind(new IPEndPoint(Address, 0));
+        // IPv4 wants the interface index in network byte order; 31 = IP_UNICAST_IF, which .NET doesn't name.
+        try { if (Index > 0) socket.SetSocketOption(SocketOptionLevel.IP, (SocketOptionName)31, IPAddress.HostToNetworkOrder(Index)); }
+        catch (SocketException) { } // the bind still picks the link in the usual strong host model
+    }
+
+    /// <summary>
+    /// Did this fail because the link itself is broken? Only then is the link sidelined; a slow or refusing
+    /// server would fail on every link, and blaming each link in turn left none to use.
+    /// </summary>
+    internal static bool IsLinkFault(SocketError error)
+        => error is SocketError.NetworkDown or SocketError.NetworkUnreachable or SocketError.AddressNotAvailable;
+
+    internal static bool IsLinkFault(Exception? ex)
+    {
+        for (; ex is not null; ex = ex.InnerException)
+            if (ex is SocketException socket) return IsLinkFault(socket.SocketErrorCode);
+        return false;
     }
 
     /// <summary>Record a health probe: two misses in a row take the link out of use until it answers again.</summary>
@@ -114,8 +153,22 @@ public sealed class BondLink : INotifyPropertyChanged
         OnChanged(nameof(SpeedText));
     }
 
+    /// <summary>Count the adapter's traffic by any app from Windows' counters (every-app mode has no proxy to count it).</summary>
+    internal void CountAdapter(NetworkInterface[] nics)
+    {
+        try
+        {
+            if (nics.FirstOrDefault(n => n.Name == Name)?.GetIPStatistics() is not { } stats) return;
+            var total = stats.BytesReceived + stats.BytesSent;
+            if (_adapterBase < 0) _adapterBase = total;
+            Interlocked.Exchange(ref ByteCount, Math.Max(0, total - _adapterBase));
+        }
+        catch (NetworkInformationException) { }
+    }
+
     internal void ResetCounters()
     {
+        _adapterBase = -1;
         Interlocked.Exchange(ref ByteCount, 0);
         Interlocked.Exchange(ref FailUntilTicks, 0);
         _lastBytes = 0;
@@ -145,7 +198,9 @@ public sealed class LinkBonder
     private List<BondLink> _links = [];
     private DateTime _lastSample = DateTime.UtcNow;
 
-    public bool Running => _listener is not null;
+    private bool _everyApp;
+
+    public bool Running => _listener is not null || _everyApp;
     public int Port { get; private set; }
     public IReadOnlyList<BondLink> Links => _links;
 
@@ -232,8 +287,28 @@ public sealed class LinkBonder
         }
     }
 
+    /// <summary>Bond every app, not only Steam and browsers, through net-merge's virtual adapter.</summary>
+    public async Task<string> StartEveryApp(List<BondLink> links)
+    {
+        if (Running) return "Bonding is already running.";
+        var chosen = links.Where(l => l.Selected).ToList();
+        if (chosen.Count < 2) return "Pick at least two internet connections to bond.";
+        await NetMerge.Ensure();
+        if (await NetMerge.Start(chosen) is { } error) return error;
+        foreach (var link in links) link.ResetCounters();
+        _links = links;
+        _lastSample = DateTime.UtcNow;
+        _everyApp = true;
+        return $"Bonding {chosen.Count} links for every app.";
+    }
+
     public void Stop()
     {
+        if (_everyApp)
+        {
+            NetMerge.Stop();
+            _everyApp = false;
+        }
         lock (_gate)
         {
             try { _stop?.Cancel(); } catch { }
@@ -242,6 +317,7 @@ public sealed class LinkBonder
             _stop = null;
             _listener = null;
         }
+        Sweep(all: true);
     }
 
     /// <summary>Refresh the per-link speed columns. Call from the UI thread about once a second.</summary>
@@ -250,8 +326,16 @@ public sealed class LinkBonder
         var now = DateTime.UtcNow;
         var seconds = (now - _lastSample).TotalSeconds;
         _lastSample = now;
+        if (_everyApp)
+        {
+            NetworkInterface[] nics;
+            try { nics = NetworkInterface.GetAllNetworkInterfaces(); }
+            catch (NetworkInformationException) { nics = []; }
+            foreach (var link in _links.Where(l => l.Selected)) link.CountAdapter(nics);
+        }
         foreach (var link in _links) link.Sample(seconds);
         BondLink.Rebalance(_links);
+        Sweep();
         return _links.Sum(l => l.Bps);
     }
 
@@ -270,11 +354,10 @@ public sealed class LinkBonder
     {
         using var _ = client;
         client.NoDelay = true;
-        Socket? upstream = null;
-        BondLink? link = null;
+        var wire = new Wire(client);
         try
         {
-            var (head, extra) = await ReadHead(client, cancel);
+            var head = await wire.ReadHead(cancel);
             if (head is null) return;
             var request = ParseRequest(head);
             if (request is null)
@@ -282,32 +365,211 @@ public sealed class LinkBonder
                 await Reply(client, "400 Bad Request", cancel);
                 return;
             }
+            var latency = LatencyApp(client);
+            if (!request.Value.Tunnel)
+            {
+                await ServeHttp(wire, head, request.Value, latency, cancel);
+                return;
+            }
 
-            (upstream, link) = await ConnectUpstream(request.Value.Host, request.Value.Port, LatencyApp(client), cancel);
+            var (upstream, link, _) = await ConnectUpstream(request.Value.Host, request.Value.Port, latency, false, cancel);
             if (upstream is null)
             {
                 await Reply(client, "502 Bad Gateway", cancel);
                 return;
             }
-
-            if (request.Value.Tunnel)
+            try
             {
-                await client.SendAsync(Encoding.ASCII.GetBytes("HTTP/1.1 200 Connection established\r\n\r\n"), SocketFlags.None, cancel);
+                await Send(client, "HTTP/1.1 200 Connection established\r\n\r\n", cancel);
+                await SendAll(upstream, wire.TakeBuffered(), cancel);
+                await Pipe(client, upstream, link, cancel);
             }
-            else
+            finally
             {
-                await upstream.SendAsync(Encoding.Latin1.GetBytes(request.Value.Forward), SocketFlags.None, cancel);
+                if (link is not null) Interlocked.Decrement(ref link.ActiveCount);
+                upstream.Dispose();
             }
-            if (extra.Length > 0)
-                await upstream.SendAsync(extra, SocketFlags.None, cancel);
-
-            await Pipe(client, upstream, link, cancel);
         }
         catch { }
-        finally
+    }
+
+    /// <summary>
+    /// Plain HTTP (Steam's content downloads). Each request still picks its link afresh, but the connection to
+    /// the server is kept and reused by the next request on that link, so a chunk doesn't pay for a new TCP
+    /// handshake and slow start every time.
+    /// </summary>
+    private async Task ServeHttp(Wire client, string head, ProxyRequest request, bool latency, CancellationToken cancel)
+    {
+        while (true)
         {
-            if (link is not null) Interlocked.Decrement(ref link.ActiveCount);
-            upstream?.Dispose();
+            var lines = head.Split("\r\n");
+            var keepClient = KeepsAlive(lines[0].Split(' ')[^1], Header(lines, "Proxy-Connection") ?? Header(lines, "Connection"));
+            var body = Has(Header(lines, "Transfer-Encoding"), "chunked") ? -1
+                : long.TryParse(Header(lines, "Content-Length"), out var length) ? length : 0;
+            var method = lines[0].Split(' ')[0];
+            if (!await Exchange(client, request, method, body, latency, cancel) || !keepClient) return;
+
+            var next = await client.ReadHead(cancel);
+            if (next is null) return;
+            if (ParseRequest(next) is not { Tunnel: false } parsed)
+            {
+                await Reply(client.Socket, "400 Bad Request", cancel);
+                return;
+            }
+            (head, request) = (next, parsed);
+        }
+    }
+
+    /// <summary>One request and its response. True when the client connection can carry another request.</summary>
+    private async Task<bool> Exchange(Wire client, ProxyRequest request, string method, long body, bool latency, CancellationToken cancel)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            var (upstream, link, reused) = await ConnectUpstream(request.Host, request.Port, latency, true, cancel);
+            if (upstream is null)
+            {
+                await Reply(client.Socket, "502 Bad Gateway", cancel);
+                return false;
+            }
+            var server = new Wire(upstream);
+            var answered = false;
+            var keep = false;
+            try
+            {
+                await Send(upstream, request.Forward, cancel);
+                if (body != 0 && !await client.RelayBody(upstream, body, null, cancel)) return false;
+                var head = await server.ReadHead(cancel) ?? throw new IOException("The server closed the connection.");
+                var status = Status(head);
+                // Interim answers (100 Continue) go straight through; the real one follows.
+                while (status is >= 100 and < 200 and not 101)
+                {
+                    answered = true;
+                    await Send(client.Socket, head + "\r\n\r\n", cancel);
+                    head = await server.ReadHead(cancel) ?? throw new IOException("The server closed the connection.");
+                    status = Status(head);
+                }
+                answered = true;
+                if (status == 101)
+                {
+                    // Switching protocols (WebSocket): from here on it's a plain tunnel.
+                    await Send(client.Socket, head + "\r\n\r\n", cancel);
+                    await SendAll(client.Socket, server.TakeBuffered(), cancel);
+                    await SendAll(upstream, client.TakeBuffered(), cancel);
+                    await Pipe(client.Socket, upstream, link, cancel);
+                    return false;
+                }
+
+                var lines = head.Split("\r\n");
+                // -1 chunked, -2 until the server closes, else the exact length.
+                var length = method.Equals("HEAD", StringComparison.OrdinalIgnoreCase) || status is 204 or 304 ? 0
+                    : Has(Header(lines, "Transfer-Encoding"), "chunked") ? -1
+                    : long.TryParse(Header(lines, "Content-Length"), out var n) ? n : -2;
+                var reply = new StringBuilder();
+                foreach (var line in lines)
+                {
+                    var name = line.Split(':', 2)[0].Trim();
+                    if (name.Equals("Connection", StringComparison.OrdinalIgnoreCase) ||
+                        name.Equals("Keep-Alive", StringComparison.OrdinalIgnoreCase) ||
+                        name.Equals("Proxy-Connection", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    reply.Append(line).Append("\r\n");
+                }
+                reply.Append(length == -2 ? "Connection: close\r\n\r\n" : "Connection: keep-alive\r\n\r\n");
+                await Send(client.Socket, reply.ToString(), cancel);
+                if (length == -2)
+                {
+                    await server.Relay(client.Socket, long.MaxValue, link, cancel);
+                    return false;
+                }
+                if (!await server.RelayBody(client.Socket, length, link, cancel)) return false;
+                keep = link is not null && KeepsAlive(lines[0].Split(' ')[0], Header(lines, "Connection")) && server.Empty;
+                return true;
+            }
+            // A kept connection the server had already closed: ask again on a fresh one, while nothing reached the client yet.
+            catch (Exception) when (reused && attempt == 0 && body == 0 && !answered && !cancel.IsCancellationRequested)
+            {
+                continue;
+            }
+            finally
+            {
+                if (link is not null) Interlocked.Decrement(ref link.ActiveCount);
+                if (keep) Park(link!, request.Host, request.Port, upstream);
+                else upstream.Dispose();
+            }
+        }
+    }
+
+    private static bool KeepsAlive(string version, string? connection)
+        => version.Equals("HTTP/1.1", StringComparison.OrdinalIgnoreCase) ? !Has(connection, "close") : Has(connection, "keep-alive");
+
+    private static int Status(string head)
+    {
+        var parts = head.Split(' ', 3);
+        return parts.Length > 1 && int.TryParse(parts[1], out var code) ? code : 0;
+    }
+
+    private static string? Header(string[] lines, string name)
+    {
+        foreach (var line in lines.Skip(1))
+        {
+            var colon = line.IndexOf(':');
+            if (colon > 0 && line.AsSpan(0, colon).Trim().Equals(name, StringComparison.OrdinalIgnoreCase))
+                return line[(colon + 1)..].Trim();
+        }
+        return null;
+    }
+
+    private static bool Has(string? value, string token) => value?.Contains(token, StringComparison.OrdinalIgnoreCase) == true;
+
+    private static async Task SendAll(Socket to, ReadOnlyMemory<byte> data, CancellationToken cancel)
+    {
+        while (data.Length > 0)
+            data = data[await to.SendAsync(data, SocketFlags.None, cancel)..];
+    }
+
+    private static Task Send(Socket to, string text, CancellationToken cancel) => SendAll(to, Encoding.Latin1.GetBytes(text), cancel);
+
+    // Idle server connections by link and server, reused for that link's next request to the same server.
+    private readonly Dictionary<(BondLink, string, int), Stack<(Socket Socket, long Since)>> _parked = [];
+    private const int ParkMs = 15_000;
+
+    private void Park(BondLink link, string host, int port, Socket socket)
+    {
+        lock (_parked)
+        {
+            if (!_parked.TryGetValue((link, host, port), out var stack)) _parked[(link, host, port)] = stack = new();
+            if (stack.Count < 32) { stack.Push((socket, Environment.TickCount64)); return; }
+        }
+        socket.Dispose();
+    }
+
+    private Socket? Unpark(BondLink link, string host, int port)
+    {
+        lock (_parked)
+        {
+            if (!_parked.TryGetValue((link, host, port), out var stack)) return null;
+            while (stack.TryPop(out var idle))
+            {
+                // Readable while idle means the server closed it.
+                if (Environment.TickCount64 - idle.Since < ParkMs && !idle.Socket.Poll(0, SelectMode.SelectRead)) return idle.Socket;
+                idle.Socket.Dispose();
+            }
+            return null;
+        }
+    }
+
+    /// <summary>Close idle server connections older than the park time, or all of them.</summary>
+    private void Sweep(bool all = false)
+    {
+        lock (_parked)
+        {
+            foreach (var (key, stack) in _parked.ToList())
+            {
+                var fresh = stack.Where(i => !all && Environment.TickCount64 - i.Since < ParkMs).Reverse().ToList();
+                foreach (var stale in stack.Except(fresh)) stale.Socket.Dispose();
+                if (fresh.Count == 0) _parked.Remove(key);
+                else _parked[key] = new Stack<(Socket, long)>(fresh);
+            }
         }
     }
 
@@ -329,8 +591,7 @@ public sealed class LinkBonder
         if (!Uri.TryCreate(target, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttp)
             return null;
 
-        // One request per proxied connection: every request (each Steam content chunk) gets its
-        // own pick of link instead of sticking to whichever link the first request landed on.
+        // Every request (each Steam content chunk) gets its own pick of link; see ServeHttp.
         var forward = new StringBuilder();
         forward.Append(method).Append(' ').Append(uri.PathAndQuery).Append(' ').Append(version).Append("\r\n");
         foreach (var line in lines.Skip(1))
@@ -343,7 +604,7 @@ public sealed class LinkBonder
                 continue;
             forward.Append(line).Append("\r\n");
         }
-        forward.Append("Connection: close\r\n\r\n");
+        forward.Append("Connection: keep-alive\r\n\r\n");
         return new ProxyRequest(false, uri.IdnHost, uri.Port, forward.ToString());
     }
 
@@ -360,29 +621,6 @@ public sealed class LinkBonder
         var colon = target.LastIndexOf(':');
         if (colon < 0) return (target, fallback);
         return int.TryParse(target[(colon + 1)..], out var port) ? (target[..colon], port) : (null, 0);
-    }
-
-    private static async Task<(string? Head, byte[] Extra)> ReadHead(Socket client, CancellationToken cancel)
-    {
-        var buffer = new byte[8192];
-        using var collected = new MemoryStream();
-        while (collected.Length < MaxHead)
-        {
-            var read = await client.ReceiveAsync(buffer, SocketFlags.None, cancel);
-            if (read <= 0) return (null, []);
-            collected.Write(buffer, 0, read);
-            var split = SplitHead(collected.GetBuffer(), (int)collected.Length);
-            if (split is not null) return split.Value;
-        }
-        return (null, []);
-    }
-
-    private static (string?, byte[])? SplitHead(byte[] buffer, int length)
-    {
-        var data = buffer.AsSpan(0, length);
-        var end = data.IndexOf("\r\n\r\n"u8);
-        if (end < 0) return null;
-        return (Encoding.Latin1.GetString(data[..end]), data[(end + 4)..].ToArray());
     }
 
     private static Task Reply(Socket client, string status, CancellationToken cancel)
@@ -414,8 +652,17 @@ public sealed class LinkBonder
         return latency;
     }
 
-    private async Task<(Socket?, BondLink?)> ConnectUpstream(string host, int port, bool latency, CancellationToken cancel)
+    private async Task<(Socket?, BondLink?, bool Reused)> ConnectUpstream(string host, int port, bool latency, bool reuse, CancellationToken cancel)
     {
+        var links = Ranked();
+        // Latency apps: the quickest healthy link first, the rest only as fallbacks.
+        if (latency) links = [.. links.OrderBy(l => l.Down).ThenBy(l => l.RttMs ?? double.MaxValue)];
+        if (reuse && links.FirstOrDefault() is { Failing: false } first && Unpark(first, host, port) is { } idle)
+        {
+            Interlocked.Increment(ref first.ActiveCount);
+            return (idle, first, true);
+        }
+
         IPAddress[] addresses;
         if (IPAddress.TryParse(host, out var literal)) addresses = [literal];
         else
@@ -425,7 +672,7 @@ public sealed class LinkBonder
             wait.CancelAfter(3000);
             try { addresses = await Dns.GetHostAddressesAsync(host, wait.Token); }
             catch when (!cancel.IsCancellationRequested) { addresses = await ResolveOverLinks(host, cancel); }
-            if (addresses.Length == 0) return (null, null);
+            if (addresses.Length == 0) return (null, null, false);
         }
 
         var v4 = addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
@@ -433,14 +680,11 @@ public sealed class LinkBonder
         {
             // Local or IPv6-only target: let Windows route it normally.
             var target = addresses.FirstOrDefault();
-            if (target is null) return (null, null);
-            var plain = await TryConnect(target, port, null, cancel);
-            return (plain, null);
+            if (target is null) return (null, null, false);
+            var (plain, _) = await TryConnect(target, port, null, cancel);
+            return (plain, null, false);
         }
 
-        var links = Ranked();
-        // Latency apps: the quickest healthy link first, the rest only as fallbacks.
-        if (latency) links = [.. links.OrderBy(l => l.Down).ThenBy(l => l.RttMs ?? double.MaxValue)];
         foreach (var link in links)
         {
             Interlocked.Increment(ref link.ActiveCount);
@@ -449,16 +693,19 @@ public sealed class LinkBonder
             if (literal is null && link.DnsServers.FirstOrDefault() is { } dns)
                 try { target = (await LinkDns.Resolve(host, dns, link.Address, cancel)).FirstOrDefault() ?? v4; }
                 catch when (!cancel.IsCancellationRequested) { } // that DNS didn't answer: use Windows' answer
-            var socket = await TryConnect(target, port, link.Address, cancel);
+            var (socket, error) = await TryConnect(target, port, link, cancel);
             if (socket is not null)
             {
                 socket.NoDelay = true;
-                return (socket, link);
+                return (socket, link, false);
             }
             Interlocked.Decrement(ref link.ActiveCount);
-            Interlocked.Exchange(ref link.FailUntilTicks, DateTime.UtcNow.Add(FailPenalty).Ticks);
+            if (BondLink.IsLinkFault(error))
+                Interlocked.Exchange(ref link.FailUntilTicks, DateTime.UtcNow.Add(FailPenalty).Ticks);
+            // The server itself said no; every other link would hear the same.
+            if (error == SocketError.ConnectionRefused) break;
         }
-        return (null, null);
+        return (null, null, false);
     }
 
     private async Task<IPAddress[]> ResolveOverLinks(string host, CancellationToken cancel)
@@ -483,23 +730,116 @@ public sealed class LinkBonder
             .ToList();
     }
 
-    private static async Task<Socket?> TryConnect(IPAddress target, int port, IPAddress? source, CancellationToken cancel)
+    private static async Task<(Socket?, SocketError)> TryConnect(IPAddress target, int port, BondLink? link, CancellationToken cancel)
     {
         var socket = new Socket(target.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         try
         {
-            // Windows sends from the adapter that owns the bound source address (strong host model),
-            // so binding is all it takes to push this connection out a specific link.
-            if (source is not null) socket.Bind(new IPEndPoint(source, 0));
+            link?.Pin(socket);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
             timeout.CancelAfter(ConnectTimeout);
             await socket.ConnectAsync(new IPEndPoint(target, port), timeout.Token);
-            return socket;
+            return (socket, SocketError.Success);
+        }
+        catch (SocketException ex)
+        {
+            socket.Dispose();
+            return (null, ex.SocketErrorCode);
         }
         catch
         {
             socket.Dispose();
-            return null;
+            return (null, SocketError.TimedOut);
+        }
+    }
+
+    /// <summary>A socket read through a buffer, so HTTP heads and exact-length bodies can be taken off it.</summary>
+    private sealed class Wire(Socket socket)
+    {
+        private static readonly byte[] HeadEnd = "\r\n\r\n"u8.ToArray(), LineEnd = "\r\n"u8.ToArray();
+        private readonly byte[] _buffer = new byte[MaxHead];
+        private int _start, _end;
+
+        public Socket Socket { get; } = socket;
+        public bool Empty => _start == _end;
+
+        private async Task<bool> Fill(CancellationToken cancel)
+        {
+            if (_start == _end) _start = _end = 0;
+            else if (_end == _buffer.Length)
+            {
+                if (_start == 0) return false; // a head bigger than the buffer
+                Buffer.BlockCopy(_buffer, _start, _buffer, 0, _end - _start);
+                (_end, _start) = (_end - _start, 0);
+            }
+            var read = await Socket.ReceiveAsync(_buffer.AsMemory(_end), SocketFlags.None, cancel);
+            if (read <= 0) return false;
+            _end += read;
+            return true;
+        }
+
+        private async Task<string?> ReadUntil(byte[] end, CancellationToken cancel)
+        {
+            while (true)
+            {
+                var at = _buffer.AsSpan(_start, _end - _start).IndexOf(end);
+                if (at >= 0)
+                {
+                    var text = Encoding.Latin1.GetString(_buffer, _start, at);
+                    _start += at + end.Length;
+                    return text;
+                }
+                if (!await Fill(cancel)) return null;
+            }
+        }
+
+        /// <summary>The head of a request or response, without its blank line; null if the stream ended first.</summary>
+        public Task<string?> ReadHead(CancellationToken cancel) => ReadUntil(HeadEnd, cancel);
+
+        public ReadOnlyMemory<byte> TakeBuffered()
+        {
+            var rest = _buffer.AsMemory(_start, _end - _start).ToArray();
+            _start = _end = 0;
+            return rest;
+        }
+
+        /// <summary>Pass on exactly count bytes, or (long.MaxValue) everything until the stream ends.</summary>
+        public async Task<bool> Relay(Socket to, long count, BondLink? link, CancellationToken cancel)
+        {
+            var toEnd = count == long.MaxValue;
+            while (count > 0)
+            {
+                if (_start == _end && !await Fill(cancel)) return toEnd;
+                var n = (int)Math.Min(count, _end - _start);
+                await SendAll(to, _buffer.AsMemory(_start, n), cancel);
+                _start += n;
+                if (!toEnd) count -= n;
+                if (link is not null) Interlocked.Add(ref link.ByteCount, n);
+            }
+            return true;
+        }
+
+        /// <summary>Pass on a body: length bytes, or (-1) chunked up to its last chunk and trailers.</summary>
+        public async Task<bool> RelayBody(Socket to, long length, BondLink? link, CancellationToken cancel)
+        {
+            if (length >= 0) return await Relay(to, length, link, cancel);
+            while (true)
+            {
+                var line = await ReadUntil(LineEnd, cancel);
+                if (line is null) return false;
+                await Send(to, line + "\r\n", cancel);
+                var size = line.Split(';')[0].Trim();
+                if (!long.TryParse(size, NumberStyles.HexNumber, null, out var bytes) || bytes < 0) return false;
+                if (bytes == 0) break;
+                if (!await Relay(to, bytes + 2, link, cancel)) return false;
+            }
+            while (true)
+            {
+                var line = await ReadUntil(LineEnd, cancel);
+                if (line is null) return false;
+                await Send(to, line + "\r\n", cancel);
+                if (line.Length == 0) return true;
+            }
         }
     }
 

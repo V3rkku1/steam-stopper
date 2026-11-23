@@ -746,7 +746,7 @@ var slowLink = new BondLink { Name = "slow" };
 Interlocked.Add(ref fastLink.ByteCount, 10_000_000); fastLink.Sample(1);
 Interlocked.Add(ref slowLink.ByteCount, 1_000_000); slowLink.Sample(1);
 BondLink.Rebalance([fastLink, slowLink]);
-Check($"auto-balance: shares follow measured speed ({fastLink.Share:0.##} vs {slowLink.Share:0.##})", fastLink.Share == 1 && slowLink.Share == 0.2);
+Check($"auto-balance: shares follow measured speed ({fastLink.Share:0.##} vs {slowLink.Share:0.##})", fastLink.Share == 1 && Math.Abs(slowLink.Share - 0.1) < 1e-9);
 BondLink.AutoBalance = false; BondLink.Rebalance([fastLink, slowLink]); BondLink.AutoBalance = true;
 Check("auto-balance off: weight only", fastLink.Share == 1 && slowLink.Share == 1);
 var tail = new FetchJob { Url = "http://x/tail", Ranged = true, Total = 4 << 20, Segments = [new FetchSegment { Pos = (4 << 20) - (1536 << 10), End = 4 << 20, Busy = true }] };
