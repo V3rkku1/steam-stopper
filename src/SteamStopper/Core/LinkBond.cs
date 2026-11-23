@@ -26,6 +26,7 @@ public sealed class BondLink : INotifyPropertyChanged
     // Best recent speed, falling slowly, as the link's capacity for auto-balance.
     private double _peak;
     private bool _idle;
+    private long _adapterBase = -1;
     private int _misses;
     // Weight times measured capacity: what Bond and Fetch share connections by.
     internal double Share = 1;
@@ -152,8 +153,22 @@ public sealed class BondLink : INotifyPropertyChanged
         OnChanged(nameof(SpeedText));
     }
 
+    /// <summary>Count the adapter's traffic by any app from Windows' counters (every-app mode has no proxy to count it).</summary>
+    internal void CountAdapter(NetworkInterface[] nics)
+    {
+        try
+        {
+            if (nics.FirstOrDefault(n => n.Name == Name)?.GetIPStatistics() is not { } stats) return;
+            var total = stats.BytesReceived + stats.BytesSent;
+            if (_adapterBase < 0) _adapterBase = total;
+            Interlocked.Exchange(ref ByteCount, Math.Max(0, total - _adapterBase));
+        }
+        catch (NetworkInformationException) { }
+    }
+
     internal void ResetCounters()
     {
+        _adapterBase = -1;
         Interlocked.Exchange(ref ByteCount, 0);
         Interlocked.Exchange(ref FailUntilTicks, 0);
         _lastBytes = 0;
@@ -183,7 +198,9 @@ public sealed class LinkBonder
     private List<BondLink> _links = [];
     private DateTime _lastSample = DateTime.UtcNow;
 
-    public bool Running => _listener is not null;
+    private bool _everyApp;
+
+    public bool Running => _listener is not null || _everyApp;
     public int Port { get; private set; }
     public IReadOnlyList<BondLink> Links => _links;
 
@@ -270,8 +287,28 @@ public sealed class LinkBonder
         }
     }
 
+    /// <summary>Bond every app, not only Steam and browsers, through net-merge's virtual adapter.</summary>
+    public async Task<string> StartEveryApp(List<BondLink> links)
+    {
+        if (Running) return "Bonding is already running.";
+        var chosen = links.Where(l => l.Selected).ToList();
+        if (chosen.Count < 2) return "Pick at least two internet connections to bond.";
+        await NetMerge.Ensure();
+        if (await NetMerge.Start(chosen) is { } error) return error;
+        foreach (var link in links) link.ResetCounters();
+        _links = links;
+        _lastSample = DateTime.UtcNow;
+        _everyApp = true;
+        return $"Bonding {chosen.Count} links for every app.";
+    }
+
     public void Stop()
     {
+        if (_everyApp)
+        {
+            NetMerge.Stop();
+            _everyApp = false;
+        }
         lock (_gate)
         {
             try { _stop?.Cancel(); } catch { }
@@ -289,6 +326,13 @@ public sealed class LinkBonder
         var now = DateTime.UtcNow;
         var seconds = (now - _lastSample).TotalSeconds;
         _lastSample = now;
+        if (_everyApp)
+        {
+            NetworkInterface[] nics;
+            try { nics = NetworkInterface.GetAllNetworkInterfaces(); }
+            catch (NetworkInformationException) { nics = []; }
+            foreach (var link in _links.Where(l => l.Selected)) link.CountAdapter(nics);
+        }
         foreach (var link in _links) link.Sample(seconds);
         BondLink.Rebalance(_links);
         Sweep();

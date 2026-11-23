@@ -863,6 +863,11 @@
                 <ToggleButton x:Name="BondGamesBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Click="BondOptions_Click"/>
                 <TextBlock Style="{StaticResource OptionText}" Text="Keep games and voice chat on the quickest link"/>
               </DockPanel>
+              <DockPanel Style="{StaticResource Option}" Margin="0,-10,0,18"
+                         ToolTip="Uses net-merge's virtual network adapter (Wintun) instead of the proxy, so every app is bonded, TCP and UDP, not only Steam and browsers. Downloaded from github.com/net-merge/net-merge the first time. Games are spread too, and per-link DNS doesn't apply.">
+                <ToggleButton x:Name="BondEveryAppBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Click="BondOptions_Click"/>
+                <TextBlock Style="{StaticResource OptionText}" Text="Bond every app (virtual adapter, uses net-merge)"/>
+              </DockPanel>
               <Button x:Name="BondButton" Content="Start bonding" Style="{StaticResource WideSafe}" Click="BondToggle_Click"/>
               <TextBlock x:Name="BondBusy" Text="" Foreground="{DynamicResource AccentText}" Margin="0,10,0,0" TextWrapping="Wrap"/>
               <TextBlock Text="HOW IT WORKS" Style="{StaticResource SectionLabel}" Margin="0,18,0,6"/>

@@ -131,6 +131,7 @@ public sealed class AppSettings
     public bool BondRestartSteam { get; set; } = true;
     public bool BondAutoBalance { get; set; } = true;
     public bool BondKeepGames { get; set; } = true;
+    public bool BondEveryApp { get; set; }
     // Adapters whose interface metric the Routes page changed, so it can put them back on automatic.
     public List<string> MainLinkAdapters { get; set; } = [];
     public string MainLink { get; set; } = "";

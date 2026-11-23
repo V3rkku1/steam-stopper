@@ -226,6 +226,7 @@ public partial class MainWindow : Window
         BondRestartBox.IsChecked = _settings.BondRestartSteam;
         BondAutoBox.IsChecked = BondLink.AutoBalance = _settings.BondAutoBalance;
         BondGamesBox.IsChecked = _bonder.KeepGamesOnOneLink = _settings.BondKeepGames;
+        BondEveryAppBox.IsChecked = _settings.BondEveryApp;
         ApplyWatcherSettings();
         _suppress = false;
         ActionBox.SelectionChanged += WatchSettings_Changed;
@@ -1200,6 +1201,7 @@ public partial class MainWindow : Window
         BondButton.Style = (Style)FindResource(running ? "WideDanger" : "WideSafe");
         BondButton.IsEnabled = !_bondWorking;
         BondPortBox.IsEnabled = !running;
+        BondEveryAppBox.IsEnabled = !running;
         if (!running)
         {
             BondChip.Text = "";
@@ -1237,6 +1239,7 @@ public partial class MainWindow : Window
     {
         _settings.BondAutoBalance = BondLink.AutoBalance = BondAutoBox.IsChecked == true;
         _settings.BondKeepGames = _bonder.KeepGamesOnOneLink = BondGamesBox.IsChecked == true;
+        _settings.BondEveryApp = BondEveryAppBox.IsChecked == true;
         _settings.Save();
     }
 
@@ -1274,7 +1277,8 @@ public partial class MainWindow : Window
         if (_bondWorking) return;
         // From the tray the Bond page may never have been opened, so the link list is still empty.
         if (!_bonder.Running && _bondRows.Count == 0) RefreshBondUi();
-        var restart = BondRestartBox.IsChecked == true && _steamRoot is not null;
+        // Every-app mode leaves the Windows proxy alone, so Steam needs no restart.
+        var restart = BondRestartBox.IsChecked == true && _steamRoot is not null && !_settings.BondEveryApp;
         var root = _steamRoot;
         _bondWorking = true;
         PaintBond();
@@ -1293,6 +1297,18 @@ public partial class MainWindow : Window
                 return;
             }
 
+            if (_settings.BondEveryApp)
+            {
+                BondBusy.Text = "Starting bonding for every app (downloads net-merge the first time)…";
+                StatusText.Text = await _bonder.StartEveryApp(_bondRows);
+                if (_bonder.Running)
+                {
+                    Watchdog.Ensure();
+                    SaveBondLinks();
+                    _settings.Save();
+                }
+                return;
+            }
             if (_routeRules.Any(r => r.Proxy is not null && r.App.UsesSystemProxy))
             {
                 StatusText.Text = "Steam is pinned to one link on Routes. Put it back on the main connection first.";
