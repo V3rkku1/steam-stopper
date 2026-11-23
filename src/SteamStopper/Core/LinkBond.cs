@@ -24,6 +24,7 @@ public sealed class BondLink : INotifyPropertyChanged
     internal long FailUntilTicks;
     // Best recent speed, falling slowly, as the link's capacity for auto-balance.
     private double _peak;
+    private bool _idle;
     private int _misses;
     // Weight times measured capacity: what Bond and Fetch share connections by.
     internal double Share = 1;
@@ -76,7 +77,11 @@ public sealed class BondLink : INotifyPropertyChanged
         // Smoothed so a second without a finished chunk doesn't show the link as idle ("—").
         var now = seconds > 0 ? Math.Max(0, bytes - _lastBytes) / seconds : 0;
         _bps = seconds <= 0 ? 0 : _bps > 0 ? _bps * 0.6 + now * 0.4 : now;
-        _peak = seconds <= 0 ? 0 : Math.Max(_peak * Math.Pow(0.995, seconds), _bps);
+        // Capacity: grows within seconds, falls over half a minute, and holds while the link is idle,
+        // so one burst or one quiet second doesn't flip which link is preferred (as in net-merge).
+        _idle = _bps < MeasuredBps || _bps < 0.05 * _peak;
+        if (seconds <= 0) _peak = 0;
+        else if (!_idle) _peak = _peak == 0 ? _bps : _peak + (_bps - _peak) * (1 - Math.Exp(-seconds / (_bps > _peak ? 2 : 30)));
         _lastBytes = bytes;
         _bytesShown = bytes;
         _activeShown = Volatile.Read(ref ActiveCount);
@@ -85,15 +90,47 @@ public sealed class BondLink : INotifyPropertyChanged
         OnChanged(nameof(TotalText));
     }
 
+    private const double MeasuredBps = 50_000;
+
     /// <summary>Recompute each link's share: its weight, times its speed against the fastest link when auto-balance is on.</summary>
     public static void Rebalance(IEnumerable<BondLink> links)
     {
-        var list = links.ToList();
+        var list = links.Where(l => l.Selected && !l.Down).ToList();
         var fastest = list.Count == 0 ? 0 : list.Max(l => l._peak);
-        foreach (var link in list)
-            // Until links have carried real traffic (64 KB/s), or with auto off, only the weight counts.
-            // A floor of a fifth keeps a slow link in use, so its speed keeps being measured.
-            link.Share = link.Weight * (AutoBalance && fastest > 65536 ? Math.Clamp(link._peak / fastest, 0.2, 1) : 1);
+        // An idle link's low estimate creeps back up (never past half the fastest), so it gets tried again.
+        foreach (var link in list.Where(l => l._idle && l._peak > 0))
+            link._peak = Math.Min(link._peak * 1.03, Math.Max(link._peak, 0.5 * fastest));
+        // Until every link has carried real traffic, or with auto off, only the weight counts.
+        var measured = list.Count > 1 && list.All(l => l._peak >= MeasuredBps);
+        foreach (var link in links)
+            link.Share = link.Weight * (AutoBalance && measured ? Math.Clamp(link._peak / fastest, 0.05, 1) : 1);
+    }
+
+    /// <summary>
+    /// Send this socket out of this link: bind its address, and also force the adapter with IP_UNICAST_IF,
+    /// since binding alone isn't enough where Windows uses the weak host model (Mobile Hotspot and connection
+    /// sharing turn it on). Idea from net-merge.
+    /// </summary>
+    internal void Pin(Socket socket)
+    {
+        socket.Bind(new IPEndPoint(Address, 0));
+        // IPv4 wants the interface index in network byte order; 31 = IP_UNICAST_IF, which .NET doesn't name.
+        try { if (Index > 0) socket.SetSocketOption(SocketOptionLevel.IP, (SocketOptionName)31, IPAddress.HostToNetworkOrder(Index)); }
+        catch (SocketException) { } // the bind still picks the link in the usual strong host model
+    }
+
+    /// <summary>
+    /// Did this fail because the link itself is broken? Only then is the link sidelined; a slow or refusing
+    /// server would fail on every link, and blaming each link in turn left none to use.
+    /// </summary>
+    internal static bool IsLinkFault(SocketError error)
+        => error is SocketError.NetworkDown or SocketError.NetworkUnreachable or SocketError.AddressNotAvailable;
+
+    internal static bool IsLinkFault(Exception? ex)
+    {
+        for (; ex is not null; ex = ex.InnerException)
+            if (ex is SocketException socket) return IsLinkFault(socket.SocketErrorCode);
+        return false;
     }
 
     /// <summary>Record a health probe: two misses in a row take the link out of use until it answers again.</summary>
@@ -434,7 +471,7 @@ public sealed class LinkBonder
             // Local or IPv6-only target: let Windows route it normally.
             var target = addresses.FirstOrDefault();
             if (target is null) return (null, null);
-            var plain = await TryConnect(target, port, null, cancel);
+            var (plain, _) = await TryConnect(target, port, null, cancel);
             return (plain, null);
         }
 
@@ -449,14 +486,17 @@ public sealed class LinkBonder
             if (literal is null && link.DnsServers.FirstOrDefault() is { } dns)
                 try { target = (await LinkDns.Resolve(host, dns, link.Address, cancel)).FirstOrDefault() ?? v4; }
                 catch when (!cancel.IsCancellationRequested) { } // that DNS didn't answer: use Windows' answer
-            var socket = await TryConnect(target, port, link.Address, cancel);
+            var (socket, error) = await TryConnect(target, port, link, cancel);
             if (socket is not null)
             {
                 socket.NoDelay = true;
                 return (socket, link);
             }
             Interlocked.Decrement(ref link.ActiveCount);
-            Interlocked.Exchange(ref link.FailUntilTicks, DateTime.UtcNow.Add(FailPenalty).Ticks);
+            if (BondLink.IsLinkFault(error))
+                Interlocked.Exchange(ref link.FailUntilTicks, DateTime.UtcNow.Add(FailPenalty).Ticks);
+            // The server itself said no; every other link would hear the same.
+            if (error == SocketError.ConnectionRefused) break;
         }
         return (null, null);
     }
@@ -483,23 +523,26 @@ public sealed class LinkBonder
             .ToList();
     }
 
-    private static async Task<Socket?> TryConnect(IPAddress target, int port, IPAddress? source, CancellationToken cancel)
+    private static async Task<(Socket?, SocketError)> TryConnect(IPAddress target, int port, BondLink? link, CancellationToken cancel)
     {
         var socket = new Socket(target.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         try
         {
-            // Windows sends from the adapter that owns the bound source address (strong host model),
-            // so binding is all it takes to push this connection out a specific link.
-            if (source is not null) socket.Bind(new IPEndPoint(source, 0));
+            link?.Pin(socket);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
             timeout.CancelAfter(ConnectTimeout);
             await socket.ConnectAsync(new IPEndPoint(target, port), timeout.Token);
-            return socket;
+            return (socket, SocketError.Success);
+        }
+        catch (SocketException ex)
+        {
+            socket.Dispose();
+            return (null, ex.SocketErrorCode);
         }
         catch
         {
             socket.Dispose();
-            return null;
+            return (null, SocketError.TimedOut);
         }
     }
 

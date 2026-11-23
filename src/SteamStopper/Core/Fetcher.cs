@@ -449,7 +449,8 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
             }
             catch (Exception ex) when (ex is not FatalFetchException && !cancel.IsCancellationRequested)
             {
-                if (link is not null) Interlocked.Exchange(ref link.FailUntilTicks, DateTime.UtcNow.Add(FailPenalty).Ticks);
+                // A server error or stall isn't the link's fault; a link that really died fails its health probe.
+                if (link is not null && BondLink.IsLinkFault(ex)) Interlocked.Exchange(ref link.FailUntilTicks, DateTime.UtcNow.Add(FailPenalty).Ticks);
                 job.NoteError(Describe(ex));
                 if (++failures >= MaxFailures) throw;
                 if (!job.Ranged)
@@ -599,12 +600,12 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
         lock (_clients)
         {
             if (!_clients.TryGetValue(key, out var client))
-                _clients[key] = client = Create(link?.Address);
+                _clients[key] = client = Create(link);
             return client;
         }
     }
 
-    private static HttpClient Create(IPAddress? source)
+    private static HttpClient Create(BondLink? link)
     {
         var handler = new SocketsHttpHandler
         {
@@ -615,7 +616,7 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
             PooledConnectionIdleTimeout = TimeSpan.FromSeconds(30),
             MaxConnectionsPerServer = 64
         };
-        if (source is not null)
+        if (link is not null)
         {
             handler.ConnectCallback = async (context, cancel) =>
             {
@@ -633,8 +634,7 @@ public sealed class Fetcher(Func<IReadOnlyList<BondLink>> links)
                 var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
                 try
                 {
-                    // Windows sends from the adapter that owns the bound source address (strong host model).
-                    socket.Bind(new IPEndPoint(source, 0));
+                    link.Pin(socket);
                     await socket.ConnectAsync(targets, context.DnsEndPoint.Port, cancel);
                     return new NetworkStream(socket, ownsSocket: true);
                 }
