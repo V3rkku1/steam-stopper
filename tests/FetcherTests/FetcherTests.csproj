@@ -24,5 +24,6 @@
     <Compile Include="../../src/SteamStopper/Core/DownloadDoctor.cs" />
     <Compile Include="../../src/SteamStopper/Core/CssTheme.cs" />
     <Compile Include="../../src/SteamStopper/Core/NetTools.cs" />
+    <Compile Include="../../src/SteamStopper/Core/NetMerge.cs" />
   </ItemGroup>
 </Project>
