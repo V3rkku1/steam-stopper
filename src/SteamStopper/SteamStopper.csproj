@@ -31,7 +31,7 @@
     <Resource Include="Assets\app.ico" />
     <Resource Include="Assets\apps\*.png" />
     <Resource Include="Assets\intro-*.png" />
-    <!-- Shown by WPF the moment the process starts, before the window is built; closes itself when it appears. -->
-    <SplashScreen Include="Assets\splash.png" />
+    <!-- Shown from App.OnStartup, not as a SplashScreen item: that one also showed for the watchdog and updater copies, and stayed up while they waited. -->
+    <Resource Include="Assets\splash.png" />
   </ItemGroup>
 </Project>
