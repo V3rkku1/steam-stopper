@@ -27,6 +27,8 @@ Steam Multitool is a local Windows utility for managing your Steam client: cut o
 
 It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s own files and uses Windows Firewall, processes, DNS, routing, proxy, and power settings on this PC.
 
+**Contents:** [Get started](#get-started) · [Features](#features) · [Link bonding](#link-bonding) · [Fetch](#fetch-download-manager) · [Routes](#per-app-routes) · [Games and emulators](#games-and-emulators) · [Requirements](#requirements) · [Build](#build-from-source)
+
 ## What's new in 2.5.20
 
 - **Bond every app** (optional): a virtual network adapter from net-merge bonds every app, TCP and UDP, not only Steam and browsers. The Bond page lists its downsides before you turn it on.
@@ -34,131 +36,7 @@ It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s ow
 - **Steadier bonding**: a slow or refusing server no longer knocks out a link, speed estimates don't jump on one burst, and connections stay on their adapter even with Mobile Hotspot on.
 - **Fetch** asks each link's own DNS, so every link downloads from a server near its provider.
 
-## What's new in 2.5.19
-
-- **Routes for Steam**: pin Steam's downloads and store to one connection; games stay on the main one.
-- **Updates and DLC** get a badge and sort under their game; Play starts the game they belong to.
-- **Saves import** from files, folders or zips.
-- **Bonding survives a link dropping**, and stops cleanly when every link is offline.
-
-## What's new in 2.5.18
-
-- **PS4 updates**: Play on an update .pkg installs it beside its game for shadPS4.
-
-## What's new in 2.5.17
-
-- **PS4 .pkg extraction** now uses shadPS4Plus's PKG extractor, and packages cut into pieces (part 1, part 2…) are joined first.
-
-## What's new in 2.5.16
-
-- **PS4 .pkg games** are extracted with Orbis when you press Play, then run in shadPS4; shadPS4 opens again from Emulators.
-- **Switch**: split .nsp/.xci for FAT32 SD cards, and convert .nsz/.xcz back to .nsp/.xci with nsz.
-
-## What's new in 2.5.15
-
-- **Fetch retries failed downloads by itself**, up to 10 times in a row with growing waits.
-
-## What's new in 2.5.14
-
-- **Console mode**: a fullscreen game row for keyboard or controller (F11).
-- **Steam, Epic and Heroic games** appear in the Games library and start in their launcher.
-
-## What's new in 2.5.13
-
-- **PS5 unpacking**: choose the unpack folder, see speed and time left, stop an unpack, and pick up one still running after the app closed.
-
-## What's new in 2.5.12
-
-- **PS5 images**: .ffpfs, .ffpfsc and .ffpkg games appear in Games, and Play unpacks them for KytyPS5 with PS5 Dump Forge.
-
-## What's new in 2.5.11
-
-- **New look**: near-black theme with a blue accent, flat cards, a simpler sidebar and plain text tabs.
-- **Switch 2 covers** from Nintendo's eShop, and a lighter download watcher.
-
-## What's new in 2.5.10
-
-- **Covers you can pick**: Change cover searches every box art source and shows what it found; Find missing covers goes through every game without one. PS3 covers now come from GameTDB too.
-- **Games tab**: rename games, `.pkg` games get their real name, games installed in RPCS3, shadPS4 and Vita3K appear by themselves, RetroArch can start games, and PS2/Dreamcast `.chd` files sort by folder.
-
-## What's new in 2.5.9
-
-- **More game files in Games**: PS3, PS4 and Vita `.pkg`, Vita `.vpk`, PS3 and PS4 game folders (titled and with their own icon), plus `.nro`, `.cxi`, `.wad`, `.gcm` and `.fds`. RPCS3, shadPS4 and Vita3K can now start games.
-
-## What's new in 2.5.8
-
-- **Faster Fetch**: no more crawl at 99% (idle connections help finish the last pieces), and Auto connections reach full speed sooner.
-
-## What's new in 2.5.7
-
-- **Faster bonding**: links share connections by their measured speed, a dead link drops out within seconds, each link uses its own DNS to reach its nearest server, and games and voice chat stay on the quickest link.
-- **Fetch Auto connections**: adds connections while the download keeps getting faster.
-- **Download doctor** checks Windows network tuning and Wi-Fi power saving, with one-click fixes.
-- **Games** appear by themselves when you drop them into your games folder; every pop-up now matches your theme.
-
-## What's new in 2.5.6
-
-- **Tidier menu**: six groups (Home, Steam, Games, Fetch, Network, Tools); a group's pages are tabs at the top of the window.
-- **Fetch**: continue a broken or expired download from a new link without losing progress; fixed resume after pause and connection speeds that blinked out.
-- **Achievement banners**: new RetroAchievements unlocks pop up in the corner while you play.
-
-## What's new in 2.5.5
-
-Steam Stopper is now **Steam Multitool**, with a new icon, a splash screen and a faster start.
-
-- **Home**: your games, downloads, Steam and updates at a glance, with a Continue playing shelf.
-- **Settings** (gear in the corner): themes (Steam Multitool, Steam, Liquid Glass, From my game, or your own CSS file), menu on the left or on top, drag menu items to reorder, start page, close button.
-- **Network**: live download and upload per app, with Block.
-- **Download doctor**: finds out whether your line, Steam or distance makes Steam downloads slow.
-- **Fetch**: shut down or sleep when all downloads finish, speed limit, right-click menu, time left.
-- **Games**: RetroAchievements on each game's page, save backups for emulators and PC ports, game boost.
-- **PC ports**: Zelda64Recomp, Ship of Harkinian, 2Ship2Harkinian and Starship join Hookshot and Dusklight.
-- Smooth page transitions, a start-up animation and dark tooltips and menus everywhere.
-
-## What's new in 2.5.4
-
-- **Switch and Wii U box art**: covers now download automatically for Switch and Wii U games too, matched by title.
-- **PC ports**: a new PC ports tab on the Emulators page installs Hookshot (Ocarina of Time) and Dusklight (Twilight Princess). Both build the game from your own copy.
-- **Check for updates on the Emulators tab** checks your emulators and ports right away.
-
-## What's new in 2.5.3
-
-- **Stop button**: while a game runs, Play turns into a blue Stop button like Steam's. It closes the emulator so it can save, and force-closes it if it hangs.
-- **Automatic box art for more games**: covers are matched by game title, so files don't need the exact No-Intro name. Xbox 360, NES, Game Boy and Game Boy Color games get art too.
-- **Check for updates** in the sidebar and tray checks the app and your emulators right away; **What's new** shows the release notes in the app.
-
-## What's new in 2.5.2
-
-- **Emulator installs fixed**: Lichii, Eglantine, Ryujinx and Azahar download the right Windows build again; every emulator's download is now checked against its real release page on each build.
-- **Install from a zip**: if a download can't be fetched, pick the .zip you downloaded yourself. Emulators unzipped by hand into `%LOCALAPPDATA%\SteamStopper\Emulators\<name>` are picked up too.
-
-## What's new in 2.5.1
-
-- **PS5**: KytyPS5 on the Emulators tab, and PS5 game folders and `.zar` dumps in the Games tab.
-- **Switch 2**: Eglantine joins Lichii, and `.nup` game archives open in either.
-- **Emulators update themselves** when a new build comes out (while closed), with a **PGO builds** switch for faster builds.
-- **Add to Steam**: one button puts your games in Steam as non-Steam games, with box art.
-
-## What's new in 2.5
-
-- **Games**: a Steam-style library for your own game files. Pick a game on the left, press the big green Play button on the right, and it opens in the right emulator. Box art, last played and play time included.
-- **Emulators**: pick a console from the tiles and install its emulator in one click. Downloads go through Fetch, so bonding speeds them up, and installed emulators get a Play button.
-- **Better updater**: asks before updating, checks the download, and puts the old version back if anything goes wrong. Portable copies update too.
-- **Safer bonding**: if Steam Multitool crashes or is closed from Task Manager while bonding or routes are on, your internet is put back automatically.
-- **Fetch**: turn bonding on and pick connections right on the page; downloads from GitHub no longer fail when their link expires.
-
-## What's new in 2.4
-
-- **Fetch**: a download manager. Paste links and each file downloads in pieces over all your bonded connections at once, with pause, queue and resume after a restart.
-- **Bond**: when every link failed recently, bonding now retries the one that failed longest ago instead of getting stuck on a dead one.
-
-## What's new in 2.3
-
-- **System tray** (2.3.1): the X button can minimize to the tray, and the tray icon's right-click menu has Steam blocking, bonding and quit.
-
-- **Bond**: download Steam games over two internet connections at once, for example Ethernet plus your phone.
-- **Routes**: choose which connection each app uses, like Valorant on Ethernet and Discord on your phone.
-- New app icon.
+Older versions: [changelog](CHANGELOG.md) · [all releases](https://github.com/V3rkku1/steam-stopper/releases)
 
 ## Get started
 
@@ -189,13 +67,13 @@ No install. Includes the .NET runtime, so it runs on a clean Windows PC. It offe
 | **Library** | Browse installed games and sizes, back up config, clear Steam caches. |
 | **DNS** | Switch providers, ping for the fastest, restore automatic DNS. |
 | **Routes** | Pick which internet each app uses: keep games like Valorant on Ethernet and send Discord, browsers or Spotify over your phone. |
-| **Bond** | Combine two internet connections (for example Ethernet plus your phone's USB tethering or hotspot) so Steam downloads use both at once. |
+| **Bond** | Combine two internet connections (for example Ethernet plus your phone) so Steam downloads use both at once. Optionally bond every app. |
 | **Fetch** | Download manager: paste links and each file downloads in pieces over all your bonded connections at once. Pause, resume after a restart, queue several files. |
 | **Clean** | Remove temp files, caches, Recycle Bin, and leftover Steam junk. |
 | **Organize** | Sort a messy Downloads folder into Installers, Archives, Documents, Images and more. One-click undo. |
 | **Apps** | Install or remove 56 common apps (Discord, Brave, OBS, 7-Zip, and more), then clear the folders they leave behind in AppData and Program Files. |
-| **Games** | A Steam-style library of your own game files: the list on the left is grouped by console, the right shows box art, a big **Play** button, last played and play time. Add folders (or drop files), and each game opens in the matching emulator from the Emulators tab. Switch 2 `.nup` archives open in Lichii or Eglantine, and PS5 game folders and `.zar` dumps in KytyPS5. Box art comes from libretro-thumbnails when the file is named like the official release; you can set your own. |
-| **Emulators** | Install console emulators by system: PlayStation 1 to 4, PSP and Vita, Switch, DS and 3DS, Wii U, Wii and GameCube, Xbox and Xbox 360, retro consoles, and all-in-one apps like RetroArch. Switch 2 has the experimental Lichii and Eglantine. PS5 has KytyPS5, an experimental emulator in active development. Most emulators install as portable builds, downloaded through Fetch (so bonding speeds them up) into `%LOCALAPPDATA%\SteamStopper\Emulators`; the rest use winget. Installed emulators get a **Play** button, and new builds (like a new Lichii) install by themselves while the emulator is closed; switch Auto-update off to press **Update** yourself. **PGO builds** (on by default) takes an emulator's profile-guided build, like Eglantine's, when it publishes one. If a download can't be fetched, Install offers to use a .zip you downloaded yourself; an emulator unzipped by hand into `%LOCALAPPDATA%\SteamStopper\Emulators\<name>` is picked up too. Games, BIOS, keys and firmware are not included. |
+| **Games** | A Steam-style library of your own game files, grouped by console, with box art and a **Play** button that opens the right emulator. [More](#games-and-emulators) |
+| **Emulators** | Install console emulators from PlayStation 1 to 5, Switch and Switch 2, Xbox, Nintendo handhelds and retro consoles, kept up to date. [More](#games-and-emulators) |
 
 **System tray**: pressing **X** asks whether to minimize to the tray or quit (tick *Remember my choice* to stop asking). Right-click the tray icon to block or allow Steam's internet, turn bonding on or off, or quit.
 
@@ -210,11 +88,22 @@ The **Bond** page lets Steam download over two or more internet connections at o
 3. Tick the connections to combine. Give a faster one a higher **weight** so it gets more of the traffic.
 4. Press **Start bonding**. Steam restarts and its downloads are spread across the links. The per-link speed columns show it working.
 
-How it works: Steam Multitool runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and the proxy sends each new connection out a different link, so the speeds add up. A single connection still runs over one link, so one big HTTPS file in a browser will not get faster. If a link drops, new connections move to the others. Each Steam download request picks its link afresh, and the connection to the server is kept open for that link's next request, so chunks don't wait on a new connection each time.
+**How it works:** Steam Multitool runs a small proxy on `127.0.0.1` and points the Windows proxy setting at it. Steam downloads a game over many parallel connections, and each Steam request goes out the link with the most room, so the speeds add up. Connections to Steam's servers are kept open per link and reused. Each link asks its own DNS, so it downloads from a server near its provider. Games and voice chat stay on the quickest link. A link that stops answering is skipped within seconds.
 
-**Bond every app** (option on the Bond page) uses [net-merge](https://github.com/net-merge/net-merge) (MIT) instead of the proxy: a Wintun virtual network adapter that spreads every app's connections, TCP and UDP, over the ticked links. It is downloaded the first time you turn it on and stopped when bonding stops or the app closes. In this mode games are spread too, and each link doesn't use its own DNS.
+One single connection still runs over one link, so one big HTTPS file in a browser won't get faster; use [Fetch](#fetch-download-manager) for that.
 
 Stopping bonding or closing the app puts your old proxy setting back. If the app crashes, it is restored the next time Steam Multitool starts. Mobile data counts against your phone plan, so watch the totals.
+
+### Bond every app (optional)
+
+The proxy only reaches Steam and browsers. Switch on **Bond every app** to bond everything, TCP and UDP. This mode uses [net-merge](https://github.com/net-merge/net-merge) (MIT), which adds a Wintun virtual network adapter. It is downloaded from GitHub the first time, and stopped when bonding stops or the app closes.
+
+Downsides, also shown on the Bond page before it turns on:
+
+- Games and voice chat are spread over the links too, so they can lag or drop when a link is slow.
+- Sites and game servers may see you coming from two addresses at once; some log you out or ask for a captcha.
+- Links no longer ask their own DNS.
+- It adds a virtual adapter and routes. Some VPNs, anti-cheat and firewall software may not like that.
 
 ## Fetch (download manager)
 
@@ -224,7 +113,7 @@ The **Fetch** page downloads any file, not just Steam games, over all your inter
 2. Pick the folder, the **connections per file** (8 is a good start) and how many **files at once**.
 3. Press **Download**. Each row shows which links are carrying it and how fast.
 
-How it works: the file is split into pieces that download in parallel, and each piece's connection is pinned to one link, so a single big file uses all of them. When a link finishes its piece, it takes over half of the biggest piece still running, so faster links end up doing more. A dropped link is skipped for 20 seconds and its piece moves to another one.
+How it works: the file is split into pieces that download in parallel, and each piece's connection is pinned to one link, so a single big file uses all of them. When a link finishes its piece, it takes over half of the biggest piece still running, so faster links end up doing more. A link that fails is skipped for 20 seconds and its piece moves to another one.
 
 Progress is kept in `name.part.json` next to the unfinished `name.part`, so **Pause**, closing the app or losing the internet doesn't lose anything. If the server doesn't allow resuming, the file downloads over one connection and starts over after a failure. Servers that limit connections per user may refuse many connections; lower the count if a download keeps failing.
 
@@ -241,10 +130,23 @@ Steam has no proxy switch, so routing it points the Windows proxy setting at its
 
 Closing Steam Multitool or pressing **Reset all** restarts routed apps on the main connection. If the routed link drops, that app goes offline until you switch it back.
 
+## Games and emulators
+
+**Games** is a library of your own game files. The list on the left is grouped by console; the right shows box art, a big **Play** button, last played and play time. Add folders (or drop files), and each game opens in the matching emulator from the Emulators tab. Updates and DLC get a badge and sort under their game. Switch 2 `.nup` archives open in Lichii or Eglantine, and PS5 game folders and `.zar` dumps in KytyPS5. Box art comes from libretro-thumbnails when the file is named like the official release; you can set your own.
+
+**Emulators** installs console emulators by system: PlayStation 1 to 4, PSP and Vita, Switch, DS and 3DS, Wii U, Wii and GameCube, Xbox and Xbox 360, retro consoles, and all-in-one apps like RetroArch. Switch 2 has the experimental Lichii and Eglantine; PS5 has KytyPS5, an experimental emulator in active development.
+
+- Most emulators install as portable builds, downloaded through Fetch (so bonding speeds them up) into `%LOCALAPPDATA%\SteamStopper\Emulators`; the rest use winget.
+- New builds install by themselves while the emulator is closed. Switch Auto-update off to press **Update** yourself.
+- **PGO builds** (on by default) takes an emulator's profile-guided build when it publishes one.
+- If a download can't be fetched, Install offers to use a .zip you downloaded yourself. An emulator unzipped by hand into `%LOCALAPPDATA%\SteamStopper\Emulators\<name>` is picked up too.
+
+Games, BIOS, keys and firmware are not included.
+
 ## Requirements
 
 - Windows 10 or 11 (64-bit)
-- Administrator for firewall and DNS
+- Administrator (firewall, DNS and routes need it)
 - .NET 8 Desktop Runtime for the MSI install (installed automatically if missing)
 
 ## Build from source
@@ -280,15 +182,12 @@ Output in `dist\`:
 
 Releases are built by GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)) on a Windows runner.
 
-1. Bump the version in `src/SteamStopper/SteamStopper.csproj` and `pack.bat`, and update [`.github/release-notes.md`](.github/release-notes.md).
-2. Commit, then push a tag with that version:
+1. Bump the version in `src/SteamStopper/SteamStopper.csproj`, `installer/SteamStopper.wixproj`, `pack.bat` and the fallback in `src/SteamStopper/Core/Updater.cs`.
+2. Write [`.github/release-notes.md`](.github/release-notes.md): a one-line summary first (the app's update banner shows it), then sections. The app's **What's new** shows everything above `## Downloads`, as plain text.
+3. Add a short "What's new" to this README and move the previous one to [`CHANGELOG.md`](CHANGELOG.md).
+4. Commit, then push a tag (`git tag v2.5.20` and `git push origin v2.5.20`), or start **Release** from the **Actions** tab with **Run workflow**.
 
-   ```bat
-   git tag v2.3.0
-   git push origin v2.3.0
-   ```
-
-The workflow builds the MSI, the portable zip and the auto-update zip, and publishes them as a GitHub release. Running copies offer it within a few hours, or right away on their next launch. You can also start it from the **Actions** tab with **Run workflow**.
+The workflow builds the MSI, the portable zip and the auto-update zip, and publishes them as a GitHub release. Running copies offer it within a few hours, or right away on their next launch.
 
 ## License
 
