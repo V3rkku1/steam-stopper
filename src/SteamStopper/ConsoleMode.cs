@@ -41,6 +41,16 @@ public sealed class ConsoleMode : Window
         Loaded += async (_, _) => await Start();
         _tick.Tick += async (_, _) => await SendState();
         Closed += (_, _) => { _tick.Stop(); _web.Dispose(); Owner?.Activate(); };
+        foreach (var (game, id) in _games.Select((g, i) => (g, i)))
+        {
+            System.ComponentModel.PropertyChangedEventHandler changed = (_, e) =>
+            {
+                if (e.PropertyName == nameof(Rom.Cover) && _tick.IsEnabled)
+                    Dispatcher.InvokeAsync(() => _web.CoreWebView2?.ExecuteScriptAsync($"setCover({id},{JsonSerializer.Serialize(CoverUrl(game))})"));
+            };
+            game.PropertyChanged += changed;
+            Closed += (_, _) => game.PropertyChanged -= changed;
+        }
     }
 
     private async Task Start()
@@ -79,10 +89,12 @@ public sealed class ConsoleMode : Window
     private object Describe(Rom game, int id) => new
     {
         id, title = game.Title, console = game.ConsoleName, color = game.Color,
-        cover = game.Cover is { } c && File.Exists(c) ? new Uri(c).AbsoluteUri : "",
+        cover = CoverUrl(game),
         played = game.LastPlayed is null ? "Never played" : "Played " + game.LastPlayedText.ToLowerInvariant(),
         time = game.PlayTimeText, size = game.SizeText, path = game.IsLink ? "" : game.Path
     };
+
+    private static string CoverUrl(Rom game) => game.Cover is { } c && File.Exists(c) ? new Uri(c).AbsoluteUri : "";
 
     private int[] Running() => Enumerable.Range(0, _games.Count).Where(i => _busy(_games[i])).ToArray();
 

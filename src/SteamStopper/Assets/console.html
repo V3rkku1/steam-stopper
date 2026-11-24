@@ -137,6 +137,8 @@ function init(data){
   if(!ALL.length)return;
   buildRow();selectGame();draw();
 }
+// Covers can still be downloading when console mode opens; the app sends each one as it lands.
+function setCover(id,url){const x=ALL.find(y=>y.id===id);if(!x)return;x.cover=url;buildRow();if(g()===x)setBg(art(x));buildLower();draw()}
 function setState(s){state=s;$('status').textContent=s.status;
   items('row').forEach((t,k)=>t.classList.toggle('run',running(games()[k])));
   if(g())$('play').textContent=running(g())?'Stop':'Play';
