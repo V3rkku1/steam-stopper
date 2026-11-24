@@ -101,7 +101,7 @@ body.none main{visibility:hidden}
     <h3 id="moreHead"></h3><div class="strip" id="same"></div>
   </section>
 </main>
-<div id="hints"><span><b>A</b>Select</span><span><b>B</b>Back</span><span><b>☰</b>Control center</span></div>
+<div id="hints"><span><b>A</b>Select</span><span><b>B</b>Back</span><span><b>☰</b>Control center (P)</span></div>
 <div id="empty"><h2>No games yet</h2><p>Add a games folder on the Games tab, then come back.</p><p>B or Esc to leave</p></div>
 
 <dialog id="info"><h2></h2><p></p><p style="margin-top:18px;font-size:13px">A or Esc to close</p></dialog>
@@ -138,7 +138,9 @@ function init(data){
   buildRow();selectGame();draw();
 }
 // Covers can still be downloading when console mode opens; the app sends each one as it lands.
-function setCover(id,url){const x=ALL.find(y=>y.id===id);if(!x)return;x.cover=url;buildRow();if(g()===x)setBg(art(x));buildLower();draw()}
+function setCover(id,url){const x=ALL.find(y=>y.id===id);if(!x)return;x.cover=url;
+  const t=items('row')[games().indexOf(x)];if(t){t.style.backgroundImage=art(x);t.classList.toggle('cov',!!url)}
+  if(g()===x){setBg(art(x));buildLower();draw()}}
 function setState(s){state=s;$('status').textContent=s.status;
   items('row').forEach((t,k)=>t.classList.toggle('run',running(games()[k])));
   if(g())$('play').textContent=running(g())?'Stop':'Play';
@@ -171,6 +173,7 @@ function draw(){
   const sel=tiles[idx[1]];sel.after($('title'));$('title').textContent=g().title;
   $('row').scrollTo({left:Math.max(0,tiles[Math.max(0,idx[1]-1)].offsetLeft-tiles[0].offsetLeft),behavior:'smooth'});
   const s=SECS[sec],it=items(s);idx[sec]=clamp(idx[sec],it.length);it[idx[sec]]?.classList.add('f');
+  if(sec===0)it[idx[0]]?.scrollIntoView({block:'nearest',inline:'nearest'}); // many console tabs overflow
   if(sec>2){const st=$(s),c=it[idx[sec]];st.scrollTo({left:c.offsetLeft-st.firstElementChild.offsetLeft,behavior:'smooth'})}
   $('main').scrollTo({top:sec>2?$(s).offsetTop-140:0,behavior:'smooth'});
   $('bg').classList.toggle('blur',sec>2);
@@ -235,6 +238,7 @@ addEventListener('mousemove',()=>document.body.classList.remove('pad'));
 addEventListener('click',e=>{const t=e.target.closest('.tile,.tab,.ic,#play,#more,.card.game,#qs div,dialog');if(!t)return;
   if(t.id==='info'||t.id==='launch')return handle('Escape');
   if(t.closest('#qs')){ccSec=1;ccIdx[1]=items('qs').indexOf(t);return ccEnter()}
+  if(t.id==='cc'&&e.target===t)return $('cc').close(); // backdrop
   if(t.tagName==='DIALOG')return;
   if(t.classList.contains('tile')){const k=items('row').indexOf(t);if(sec===1&&k===idx[1])return play();sec=1;idx[1]=k;selectGame();tick();return draw()}
   const s=t.closest('#top')?0:t.closest('#act')?2:4;sec=s;idx[s]=items(SECS[s]).indexOf(t);draw();enter()});

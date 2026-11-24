@@ -79,7 +79,7 @@ public sealed class ConsoleMode : Window
             };
             core.Navigate(new Uri(page).AbsoluteUri);
         }
-        catch (Exception ex) when (ex is WebView2RuntimeNotFoundException or COMException or IOException)
+        catch (Exception ex)
         {
             Dialog.Show(Owner, $"Console mode needs the Microsoft Edge WebView2 Runtime, which comes with Windows 10 and 11.\n\nGet it from microsoft.com/edge/webview2, then try again.\n\n{ex.Message}");
             Close();
