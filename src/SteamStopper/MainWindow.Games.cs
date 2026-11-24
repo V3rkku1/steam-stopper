@@ -154,7 +154,13 @@ public partial class MainWindow
                 return;
             }
             StatusText.Text = "Opening ES-DE…";
-            try { await EsDe.Launch(exe); StatusText.Text = "ES-DE opened with the PS5 Menu theme."; }
+            RefreshGamesUi(); // loads the library, its covers and the installed emulators
+            // Same games and launch commands as Add to Steam: add-ons and .pkg/.vpk installers left out.
+            var games = _library!.Games.Where(g => g.Exists && g.Kind.Length == 0 && g.Tile is not null && !RomLibrary.InstallOnly(g.Path))
+                .Select(g => g.IsLink ? new EsGame(g.Console, g.Title, g.Path, "", g.Cover)
+                    : LaunchFor(g) is { } l ? new EsGame(g.Console, g.Title, l.Exe, l.Args, g.Cover) : null)
+                .OfType<EsGame>().ToList();
+            try { await EsDe.Launch(exe, games); StatusText.Text = $"ES-DE opened with {games.Count} game(s) and the PS5 Menu theme."; }
             catch (Exception ex) { StatusText.Text = $"Couldn't open ES-DE: {ex.Message}"; }
             return;
         }
