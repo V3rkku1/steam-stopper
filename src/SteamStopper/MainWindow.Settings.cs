@@ -57,7 +57,6 @@ public partial class MainWindow
 
         InitCheevos();
         BoostBox.IsChecked = _settings.GameBoost;
-        EsDeBox.IsChecked = _settings.ConsoleEsDe;
         BoostAppsBox.Text = string.Join(Environment.NewLine, _settings.GameBoostApps);
         PaintUnpackFolder();
         SettingsAbout.Text = $"Steam Multitool {Core.Updater.Version}  ·  Steam folder: {_steamRoot ?? "not found"}";
@@ -199,12 +198,6 @@ public partial class MainWindow
     private void Boost_Click(object sender, RoutedEventArgs e)
     {
         _settings.GameBoost = BoostBox.IsChecked == true;
-        _settings.Save();
-    }
-
-    private void EsDe_Click(object sender, RoutedEventArgs e)
-    {
-        _settings.ConsoleEsDe = EsDeBox.IsChecked == true;
         _settings.Save();
     }
 

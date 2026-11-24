@@ -856,44 +856,5 @@ if (OperatingSystem.IsWindows())
     Check($"link dns: live lookup through a chosen server ({string.Join(", ", live.Select(a => a.ToString()))})", live.Length > 0);
 }
 
-Check("es-de: theme picked in an empty settings file", EsDe.SelectTheme("").Contains("<string name=\"Theme\" value=\"ps5-menu-es-de\" />"));
-Check("es-de: existing Theme replaced, rest kept", EsDe.SelectTheme("<?xml version=\"1.0\"?>\n<bool name=\"A\" value=\"true\" />\n<string name=\"Theme\" value=\"slate-es-de\" />\n")
-    == "<?xml version=\"1.0\"?>\n<bool name=\"A\" value=\"true\" />\n<string name=\"Theme\" value=\"ps5-menu-es-de\" />\n");
-Check("es-de: old ThemeSet name kept", EsDe.SelectTheme("<string name=\"ThemeSet\" value=\"x\" />") == "<string name=\"ThemeSet\" value=\"ps5-menu-es-de\" />");
-Check("es-de: other Theme* settings untouched", EsDe.SelectTheme("<string name=\"ThemeVariant\" value=\"v\" />\n").Contains("ThemeVariant\" value=\"v\""));
-
-{
-    var esRoot = Path.Combine(Path.GetTempPath(), "esde-test-" + Guid.NewGuid().ToString("N"));
-    var esData = Path.Combine(esRoot, "ES-DE");
-    var esRoms = Path.Combine(esRoot, "roms");
-    Directory.CreateDirectory(Path.Combine(esData, "custom_systems"));
-    File.WriteAllText(Path.Combine(esData, "custom_systems", "es_systems.xml"),
-        "<?xml version=\"1.0\"?><systemList><system><name>mine</name><path>x</path></system><system><name>sm-old</name></system></systemList>");
-    var esCover = Path.Combine(esRoot, "c.png"); File.WriteAllBytes(esCover, [1, 2, 3]);
-    var exe = Path.Combine(esRoot, "emu dir", "duck.exe");
-    var esGames = new[]
-    {
-        new EsGame("PS1", "Crash: Bandicoot", exe, "\"C:\\g\\crash 100%.chd\"", esCover),
-        new EsGame("PS1", "Crash: Bandicoot", exe, "b", null),
-        new EsGame("STEAM", "Portal", "steam://rungameid/400", "", null),
-        new EsGame("UNKNOWN", "Skip", exe, "", null)
-    };
-    var esCount = EsDe.Sync(esData, esRoms, esGames);
-    Check("es-de sync: known consoles written", esCount == 3);
-    var psx = Path.Combine(esRoms, "sm-psx");
-    Check("es-de sync: invalid chars replaced, duplicate numbered", File.Exists(Path.Combine(psx, "Crash_ Bandicoot.bat")) && File.Exists(Path.Combine(psx, "Crash_ Bandicoot (2).bat")));
-    var bat = File.ReadAllText(Path.Combine(psx, "Crash_ Bandicoot.bat"));
-    Check("es-de sync: bat starts emulator, % doubled", bat.Contains($"@cd /d \"{Path.GetDirectoryName(exe)}\"") && bat.Contains($"@\"{exe}\" \"C:\\g\\crash 100%%.chd\""));
-    Check("es-de sync: link opened with start", File.ReadAllText(Path.Combine(esRoms, "sm-steam", "Portal.bat")).Contains("@start \"\" \"steam://rungameid/400\""));
-    Check("es-de sync: cover copied", File.Exists(Path.Combine(esData, "downloaded_media", "sm-psx", "covers", "Crash_ Bandicoot.png")));
-    var sys = System.Xml.Linq.XDocument.Load(Path.Combine(esData, "custom_systems", "es_systems.xml")).Root!.Elements("system").ToList();
-    Check("es-de sync: user system kept, stale ours removed", sys.Any(e => (string?)e.Element("name") == "mine") && sys.All(e => (string?)e.Element("name") != "sm-old"));
-    var psxSys = sys.FirstOrDefault(e => (string?)e.Element("name") == "sm-psx");
-    Check("es-de sync: system points at the roms folder", psxSys is not null && (string?)psxSys.Element("path") == psx && (string?)psxSys.Element("theme") == "psx" && (string?)psxSys.Element("fullname") == "PlayStation");
-    EsDe.Sync(esData, esRoms, [esGames[2]]);
-    Check("es-de sync: removed games disappear", !Directory.Exists(psx) && System.Xml.Linq.XDocument.Load(Path.Combine(esData, "custom_systems", "es_systems.xml")).Root!.Elements("system").Count() == 2);
-    Directory.Delete(esRoot, true);
-}
-
 Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");
 return fails;

@@ -227,16 +227,6 @@
             </StackPanel>
           </Border>
           <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
-            <DockPanel>
-              <ToggleButton x:Name="EsDeBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="EsDe_Click"/>
-              <StackPanel Margin="0,0,12,0">
-                <TextBlock Text="CONSOLE MODE: ES-DE" Style="{StaticResource SectionLabel}" Margin="0,0,0,4"/>
-                <TextBlock Text="Console mode (F11) opens ES-DE fullscreen with the PS5 Menu theme by InitialDin (CC BY-NC-SA), downloaded into ES-DE the first time. Install ES-DE from Emulators first."
-                           Foreground="{DynamicResource Faint}" FontSize="12" TextWrapping="Wrap"/>
-              </StackPanel>
-            </DockPanel>
-          </Border>
-          <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
             <StackPanel>
               <DockPanel>
                 <ToggleButton x:Name="BoostBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="Boost_Click"/>

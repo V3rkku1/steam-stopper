@@ -144,26 +144,8 @@ public partial class MainWindow
         if (GameDetail.DataContext is Rom rom) await Play(rom);
     }
 
-    private async void ConsoleMode_Click(object sender, RoutedEventArgs e)
+    private void ConsoleMode_Click(object sender, RoutedEventArgs e)
     {
-        if (_settings.ConsoleEsDe)
-        {
-            if (AppHub.Snapshot(AppHub.Emulators).FirstOrDefault(a => a.Name == "ES-DE")?.LaunchPath is not { } exe)
-            {
-                StatusText.Text = "ES-DE isn't installed. Install it from Emulators, or turn off ES-DE console mode in Settings.";
-                return;
-            }
-            StatusText.Text = "Opening ES-DE…";
-            RefreshGamesUi(); // loads the library, its covers and the installed emulators
-            // Same games and launch commands as Add to Steam: add-ons and .pkg/.vpk installers left out.
-            var games = _library!.Games.Where(g => g.Exists && g.Kind.Length == 0 && g.Tile is not null && !RomLibrary.InstallOnly(g.Path))
-                .Select(g => g.IsLink ? new EsGame(g.Console, g.Title, g.Path, "", g.Cover)
-                    : LaunchFor(g) is { } l ? new EsGame(g.Console, g.Title, l.Exe, l.Args, g.Cover) : null)
-                .OfType<EsGame>().ToList();
-            try { await EsDe.Launch(exe, games); StatusText.Text = $"ES-DE opened with {games.Count} game(s) and the PS5 Menu theme."; }
-            catch (Exception ex) { StatusText.Text = $"Couldn't open ES-DE: {ex.Message}"; }
-            return;
-        }
         if (OwnedWindows.OfType<ConsoleMode>().FirstOrDefault() is { } open) { open.Activate(); return; }
         RefreshGamesUi(); // loads the library, its covers and the installed emulators
         ConsoleMode.Open(this, _library!.Games, Play, rom => _playing.ContainsKey(rom) || _unpackRom == rom, () => StatusText.Text);
