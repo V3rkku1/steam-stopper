@@ -17,9 +17,9 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
     <PublishReadyToRun>true</PublishReadyToRun>
-    <Version>2.5.20</Version>
-    <FileVersion>2.5.20</FileVersion>
-    <AssemblyVersion>2.5.20</AssemblyVersion>
+    <Version>2.5.21</Version>
+    <FileVersion>2.5.21</FileVersion>
+    <AssemblyVersion>2.5.21</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />
@@ -27,11 +27,14 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="System.Management" Version="8.0.0" />
+    <!-- Console mode page (Assets/console.html). Uses the Edge WebView2 Runtime that ships with Windows 10 and 11. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
     <Content Include="FeedUrl.txt" CopyToOutputDirectory="PreserveNewest" />
     <Resource Include="Assets\app.ico" />
     <Resource Include="Assets\apps\*.png" />
     <Resource Include="Assets\intro-*.png" />
-    <!-- Shown by WPF the moment the process starts, before the window is built; closes itself when it appears. -->
-    <SplashScreen Include="Assets\splash.png" />
+    <!-- Shown from App.OnStartup, not as a SplashScreen item: that one also showed for the watchdog and updater copies, and stayed up while they waited. -->
+    <Resource Include="Assets\splash.png" />
+    <Resource Include="Assets\console.html" />
   </ItemGroup>
 </Project>

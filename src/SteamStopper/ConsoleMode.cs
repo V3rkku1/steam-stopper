@@ -1,40 +1,27 @@
-using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using System.Windows.Threading;
+using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.Wpf;
 using SteamStopper.Core;
 
 namespace SteamStopper;
 
 /// <summary>
-/// Fullscreen couch view of the Games library: one row of square tiles, played with arrow keys or an Xbox-style
-/// controller (XInput, no extra library). Drawn in code like <see cref="Dialog"/>; playing goes through the Games tab.
+/// Fullscreen couch view of the Games library: Assets/console.html in WebView2, played with keys, mouse or a controller
+/// (the page reads the browser Gamepad API). The page asks to play or exit; playing goes through the Games tab.
 /// </summary>
 public sealed class ConsoleMode : Window
 {
-    private const double TileSize = 300, TileGap = 22, Edge = 72;
-
     private readonly List<Rom> _games;
     private readonly Func<Rom, Task> _play;
     private readonly Func<Rom, bool> _busy;
     private readonly Func<string> _status;
-    private readonly List<Border> _tiles = [];
-    private readonly StackPanel _row = new() { Orientation = Orientation.Horizontal, Margin = new Thickness(Edge, 24, Edge, 24) };
-    private readonly ScrollViewer _scroll;
-    private readonly TextBlock _title = new() { FontSize = 30, FontWeight = FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis };
-    private readonly TextBlock _detail = new() { FontSize = 15, Margin = new Thickness(0, 6, 0, 0) };
-    private readonly TextBlock _clock = new() { FontSize = 22, FontWeight = FontWeights.SemiBold };
-    private readonly TextBlock _statusLine = new() { FontSize = 14, Margin = new Thickness(Edge, 0, Edge, 0), TextTrimming = TextTrimming.CharacterEllipsis };
-    private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromMilliseconds(500) };
-    private readonly DispatcherTimer _pad = new() { Interval = TimeSpan.FromMilliseconds(16) };
-    private int _index;
+    private readonly WebView2 _web = new() { DefaultBackgroundColor = System.Drawing.Color.Black };
+    private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromSeconds(1) };
+    private string _sent = "";
 
     public static void Open(Window owner, IEnumerable<Rom> games, Func<Rom, Task> play, Func<Rom, bool> busy, Func<string> status) =>
         new ConsoleMode(owner, games, play, busy, status).Show();
@@ -47,61 +34,92 @@ public sealed class ConsoleMode : Window
         Title = "Console mode";
         WindowStyle = WindowStyle.None;
         ResizeMode = ResizeMode.NoResize;
-        SourceInitialized += (_, _) => FillScreen();
         ShowInTaskbar = false;
-        Background = Res("Bg");
-        Foreground = Res("Text");
-        FontFamily = (FontFamily)FindResource("TextFont");
-        _clock.Foreground = _title.Foreground = Res("Text");
-        _detail.Foreground = _statusLine.Foreground = Res("Muted");
-
-        var top = new DockPanel { Margin = new Thickness(Edge, 40, Edge, 0) };
-        DockPanel.SetDock(_clock, Dock.Right);
-        top.Children.Add(_clock);
-        top.Children.Add(new TextBlock { Text = "Steam Multitool", FontSize = 15, Foreground = Res("Faint"), VerticalAlignment = VerticalAlignment.Center });
-
-        var heading = new StackPanel { Margin = new Thickness(Edge, 0, Edge, 0) };
-        heading.Children.Add(_title);
-        heading.Children.Add(_detail);
-
-        _scroll = new ScrollViewer
+        Background = System.Windows.Media.Brushes.Black;
+        SourceInitialized += (_, _) => FillScreen();
+        Content = _web;
+        Loaded += async (_, _) => await Start();
+        _tick.Tick += async (_, _) => await SendState();
+        Closed += (_, _) => { _tick.Stop(); _web.Dispose(); Owner?.Activate(); };
+        foreach (var (game, id) in _games.Select((g, i) => (g, i)))
         {
-            Content = _row, HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            Focusable = false, CanContentScroll = false
-        };
-        foreach (var game in _games) _row.Children.Add(Tile(game));
-
-        var middle = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        middle.Children.Add(heading);
-        middle.Children.Add(_scroll);
-        middle.Children.Add(_statusLine);
-        if (_games.Count == 0)
-        {
-            _title.Text = "No games yet";
-            _detail.Text = "Add a games folder on the Games tab, then come back.";
+            System.ComponentModel.PropertyChangedEventHandler changed = (_, e) =>
+            {
+                if (e.PropertyName == nameof(Rom.Cover) && _tick.IsEnabled)
+                    Dispatcher.InvokeAsync(() => _web.CoreWebView2?.ExecuteScriptAsync($"setCover({id},{JsonSerializer.Serialize(CoverUrl(game))})"));
+            };
+            game.PropertyChanged += changed;
+            Closed += (_, _) => game.PropertyChanged -= changed;
         }
-
-        var hints = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(Edge, 18, Edge, 26) };
-        if (_games.Count > 0) hints.Children.Add(Hint("A", "Play"));
-        hints.Children.Add(Hint("B", "Back"));
-        var bottom = new Border { BorderBrush = Res("Line"), BorderThickness = new Thickness(0, 1, 0, 0), Child = hints, Margin = new Thickness(Edge / 2, 0, Edge / 2, 0) };
-
-        var layout = new DockPanel();
-        DockPanel.SetDock(top, Dock.Top);
-        DockPanel.SetDock(bottom, Dock.Bottom);
-        layout.Children.Add(top);
-        layout.Children.Add(bottom);
-        layout.Children.Add(middle);
-        Content = layout;
-
-        KeyDown += OnKey;
-        _tick.Tick += (_, _) => Refresh();
-        _pad.Tick += (_, _) => PollPad();
-        Loaded += (_, _) => { Select(0); Refresh(); _tick.Start(); _pad.Start(); };
-        Closed += (_, _) => { _tick.Stop(); _pad.Stop(); Owner?.Activate(); };
     }
 
-    private Brush Res(string key) => (Brush)FindResource(key);
+    private async Task Start()
+    {
+        try
+        {
+            // Program Files isn't writable, so WebView2 keeps its profile with our other data.
+            var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SteamStopper");
+            var env = await CoreWebView2Environment.CreateAsync(null, Path.Combine(data, "WebView2"));
+            await _web.EnsureCoreWebView2Async(env);
+            // Served from a file, not NavigateToString, so the page may show covers from file:/// paths.
+            var page = Path.Combine(data, "console.html");
+            using (var res = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/console.html")).Stream)
+            using (var file = File.Create(page))
+                res.CopyTo(file);
+            var core = _web.CoreWebView2;
+            core.Settings.AreDevToolsEnabled = false;
+            core.Settings.AreDefaultContextMenusEnabled = false;
+            core.Settings.IsZoomControlEnabled = false;
+            core.WebMessageReceived += OnMessage;
+            core.NavigationCompleted += async (_, _) =>
+            {
+                await core.ExecuteScriptAsync($"init({JsonSerializer.Serialize(new { games = _games.Select((g, i) => Describe(g, i)), status = _status(), running = Running() })})");
+                _tick.Start();
+                _web.Focus();
+            };
+            core.Navigate(new Uri(page).AbsoluteUri);
+        }
+        catch (Exception ex)
+        {
+            Dialog.Show(Owner, $"Console mode needs the Microsoft Edge WebView2 Runtime, which comes with Windows 10 and 11.\n\nGet it from microsoft.com/edge/webview2, then try again.\n\n{ex.Message}");
+            Close();
+        }
+    }
+
+    private object Describe(Rom game, int id) => new
+    {
+        id, title = game.Title, console = game.ConsoleName, color = game.Color,
+        cover = CoverUrl(game),
+        played = game.LastPlayed is null ? "Never played" : "Played " + game.LastPlayedText.ToLowerInvariant(),
+        time = game.PlayTimeText, size = game.SizeText, path = game.IsLink ? "" : game.Path
+    };
+
+    private static string CoverUrl(Rom game) => game.Cover is { } c && File.Exists(c) ? new Uri(c).AbsoluteUri : "";
+
+    private int[] Running() => Enumerable.Range(0, _games.Count).Where(i => _busy(_games[i])).ToArray();
+
+    private async Task SendState()
+    {
+        var json = JsonSerializer.Serialize(new { status = _status(), running = Running() });
+        if (json == _sent || _web.CoreWebView2 is null) return;
+        _sent = json;
+        await _web.CoreWebView2.ExecuteScriptAsync($"setState({json})");
+    }
+
+    private async void OnMessage(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+    {
+        using var msg = JsonDocument.Parse(e.WebMessageAsJson);
+        var type = msg.RootElement.GetProperty("type").GetString();
+        if (type == "exit") { Close(); return; }
+        // The page is ours, but the id still comes from script: check it.
+        if (type == "play" && msg.RootElement.TryGetProperty("id", out var id) && id.TryGetInt32(out var i) && i >= 0 && i < _games.Count)
+        {
+            var play = _play(_games[i]);
+            await SendState();
+            await play;
+            await SendState();
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct Rect32 { public int Left, Top, Right, Bottom; }
@@ -126,167 +144,5 @@ public sealed class ConsoleMode : Window
         var topLeft = toDip.Transform(new Point(info.Monitor.Left, info.Monitor.Top));
         var bottomRight = toDip.Transform(new Point(info.Monitor.Right, info.Monitor.Bottom));
         (Left, Top, Width, Height) = (topLeft.X, topLeft.Y, bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
-    }
-
-    private Border Tile(Rom game)
-    {
-        var art = new Border { CornerRadius = new CornerRadius(12), Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(game.Color)) };
-        var initials = new TextBlock
-        {
-            Text = game.Initials, FontSize = 64, FontWeight = FontWeights.Black, Foreground = Brushes.White,
-            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center
-        };
-        var badge = new Border
-        {
-            Background = Res("Accent"), CornerRadius = new CornerRadius(6), Padding = new Thickness(10, 4, 10, 4), Margin = new Thickness(12),
-            HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top, Visibility = Visibility.Collapsed,
-            Child = new TextBlock { Text = "Running", Foreground = Brushes.White, FontSize = 13, FontWeight = FontWeights.SemiBold }
-        };
-        var face = new Grid { Children = { art, initials, badge } };
-        void Paint()
-        {
-            if (game.Cover is not { } path || !File.Exists(path)) return;
-            try
-            {
-                var image = new BitmapImage();
-                image.BeginInit();
-                image.CacheOption = BitmapCacheOption.OnLoad;
-                image.DecodePixelWidth = 600;
-                image.UriSource = new Uri(path);
-                image.EndInit();
-                art.Background = new ImageBrush(image) { Stretch = Stretch.UniformToFill };
-                initials.Visibility = Visibility.Collapsed;
-            }
-            catch { } // a broken image keeps the console colour
-        }
-        Paint();
-        // Covers can still be downloading when console mode opens.
-        PropertyChangedEventHandler changed = (_, e) => { if (e.PropertyName == nameof(Rom.Cover)) Dispatcher.Invoke(Paint); };
-        game.PropertyChanged += changed;
-        Closed += (_, _) => game.PropertyChanged -= changed;
-
-        var tile = new Border
-        {
-            Width = TileSize, Height = TileSize, Margin = new Thickness(0, 0, TileGap, 0), Padding = new Thickness(4),
-            CornerRadius = new CornerRadius(16), BorderThickness = new Thickness(4), BorderBrush = Brushes.Transparent,
-            RenderTransformOrigin = new Point(0.5, 0.5), RenderTransform = new ScaleTransform(1, 1), Child = face, Tag = badge, Cursor = Cursors.Hand
-        };
-        tile.MouseLeftButtonUp += async (_, _) =>
-        {
-            var at = _tiles.IndexOf(tile);
-            if (at == _index) await PlaySelected();
-            else Select(at);
-        };
-        _tiles.Add(tile);
-        return tile;
-    }
-
-    private UIElement Hint(string button, string label)
-    {
-        var circle = new Grid { Width = 28, Height = 28, Margin = new Thickness(0, 0, 8, 0) };
-        circle.Children.Add(new Ellipse { Fill = Res("Text") });
-        circle.Children.Add(new TextBlock { Text = button, Foreground = Res("Bg"), FontWeight = FontWeights.Bold, FontSize = 14, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(28, 0, 0, 0) };
-        row.Children.Add(circle);
-        row.Children.Add(new TextBlock { Text = label, FontSize = 16, VerticalAlignment = VerticalAlignment.Center, Foreground = Res("Text") });
-        return row;
-    }
-
-    private void Select(int index)
-    {
-        if (_games.Count == 0) return;
-        _index = Math.Clamp(index, 0, _games.Count - 1);
-        for (var i = 0; i < _tiles.Count; i++)
-        {
-            var on = i == _index;
-            _tiles[i].BorderBrush = on ? Res("Accent") : Brushes.Transparent;
-            var grow = new DoubleAnimation(on ? 1.06 : 1, TimeSpan.FromMilliseconds(140)) { EasingFunction = new CubicEase() };
-            var scale = (ScaleTransform)_tiles[i].RenderTransform;
-            scale.BeginAnimation(ScaleTransform.ScaleXProperty, grow);
-            scale.BeginAnimation(ScaleTransform.ScaleYProperty, grow);
-        }
-        var game = _games[_index];
-        _title.Text = game.Title;
-        _detail.Text = $"{game.ConsoleName}  ·  {(game.LastPlayed is null ? "Never played" : $"Played {game.LastPlayedText.ToLowerInvariant()}  ·  {game.PlayTimeText}")}";
-        // Keep the selected tile in view with one tile of the next showing.
-        var left = Edge + _index * (TileSize + TileGap);
-        var view = _scroll.ViewportWidth > 0 ? _scroll.ViewportWidth : ActualWidth;
-        if (left - TileSize < _scroll.HorizontalOffset) _scroll.ScrollToHorizontalOffset(Math.Max(0, left - Edge - TileSize));
-        else if (left + 2 * TileSize + TileGap > _scroll.HorizontalOffset + view) _scroll.ScrollToHorizontalOffset(left + 2 * TileSize + TileGap - view);
-    }
-
-    private void Refresh()
-    {
-        _clock.Text = DateTime.Now.ToString("t");
-        _statusLine.Text = _status();
-        for (var i = 0; i < _tiles.Count; i++) ((Border)_tiles[i].Tag).Visibility = _busy(_games[i]) ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private async Task PlaySelected()
-    {
-        if (_games.Count == 0) return;
-        var game = _games[_index];
-        var play = _play(game);
-        Refresh();
-        await play;
-        Refresh();
-    }
-
-    private async void OnKey(object sender, KeyEventArgs e)
-    {
-        switch (e.Key)
-        {
-            case Key.Left: Select(_index - 1); break;
-            case Key.Right: Select(_index + 1); break;
-            case Key.Home: Select(0); break;
-            case Key.End: Select(_games.Count - 1); break;
-            case Key.Enter or Key.Space: e.Handled = true; await PlaySelected(); return;
-            case Key.Escape or Key.Back or Key.F11: Close(); break;
-            default: return;
-        }
-        e.Handled = true;
-    }
-
-    // XInput, polled only while this window is in front so a game's own controls don't move the row.
-    [StructLayout(LayoutKind.Sequential)]
-    private struct PadState { public uint Packet; public ushort Buttons; public byte LeftTrigger, RightTrigger; public short LX, LY, RX, RY; }
-
-    [DllImport("xinput1_4.dll", EntryPoint = "XInputGetState")]
-    private static extern int XInputGetState(int user, out PadState state);
-
-    private const ushort PadLeft = 0x0004, PadRight = 0x0008, ButtonA = 0x1000, ButtonB = 0x2000;
-    private ushort _held;
-    private DateTime _repeatAt;
-    private bool _noPad;
-
-    private async void PollPad()
-    {
-        if (_noPad || !IsActive) return;
-        ushort buttons = 0;
-        try
-        {
-            for (var user = 0; user < 4; user++)
-                if (XInputGetState(user, out var state) == 0)
-                {
-                    buttons = state.Buttons;
-                    // The left stick counts as the d-pad.
-                    if (state.LX < -16000) buttons |= PadLeft;
-                    if (state.LX > 16000) buttons |= PadRight;
-                    break;
-                }
-        }
-        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) { _noPad = true; return; }
-
-        var pressed = (ushort)(buttons & ~_held);
-        var move = buttons & (PadLeft | PadRight);
-        // Holding a direction repeats after a short wait, like a keyboard.
-        if ((pressed & (PadLeft | PadRight)) != 0) _repeatAt = DateTime.UtcNow.AddMilliseconds(380);
-        else if (move != 0 && DateTime.UtcNow >= _repeatAt) { pressed |= (ushort)move; _repeatAt = DateTime.UtcNow.AddMilliseconds(110); }
-        _held = buttons;
-
-        if ((pressed & PadLeft) != 0) Select(_index - 1);
-        if ((pressed & PadRight) != 0) Select(_index + 1);
-        if ((pressed & ButtonB) != 0) Close();
-        else if ((pressed & ButtonA) != 0) await PlaySelected();
     }
 }

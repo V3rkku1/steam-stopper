@@ -1,6 +1,13 @@
 # Changelog
 
-Older release notes. The newest is in the [README](README.md#whats-new-in-2520) and on the [releases page](https://github.com/V3rkku1/steam-stopper/releases).
+Older release notes. The newest is in the [README](README.md#whats-new-in-2521) and on the [releases page](https://github.com/V3rkku1/steam-stopper/releases).
+
+## 2.5.20
+
+- **Bond every app** (optional): a virtual network adapter from net-merge bonds every app, TCP and UDP, not only Steam and browsers. The Bond page lists its downsides before you turn it on.
+- **Faster bonding**: Steam's download connections are kept open and reused instead of reconnecting for every chunk.
+- **Steadier bonding**: a slow or refusing server no longer knocks out a link, speed estimates don't jump on one burst, and connections stay on their adapter even with Mobile Hotspot on.
+- **Fetch** asks each link's own DNS, so every link downloads from a server near its provider.
 
 ## 2.5.19
 

@@ -29,12 +29,10 @@ It is **not** a Steam emulator, crack, or DRM bypass. It only reads Steam’s ow
 
 **Contents:** [Get started](#get-started) · [Features](#features) · [Link bonding](#link-bonding) · [Fetch](#fetch-download-manager) · [Routes](#per-app-routes) · [Games and emulators](#games-and-emulators) · [Requirements](#requirements) · [Build](#build-from-source)
 
-## What's new in 2.5.20
+## What's new in 2.5.21
 
-- **Bond every app** (optional): a virtual network adapter from net-merge bonds every app, TCP and UDP, not only Steam and browsers. The Bond page lists its downsides before you turn it on.
-- **Faster bonding**: Steam's download connections are kept open and reused instead of reconnecting for every chunk.
-- **Steadier bonding**: a slow or refusing server no longer knocks out a link, speed estimates don't jump on one burst, and connections stay on their adapter even with Mobile Hotspot on.
-- **Fetch** asks each link's own DNS, so every link downloads from a server near its provider.
+- **New console mode** (F11 or the controller icon in the title bar): a fullscreen home screen with your box art as the background, a tab per console, details and more games from the same console, and a control center. Works with a controller, the keyboard or the mouse.
+- Needs the Microsoft Edge WebView2 Runtime, which comes with Windows 10 and 11.
 
 Older versions: [changelog](CHANGELOG.md) · [all releases](https://github.com/V3rkku1/steam-stopper/releases)
 
@@ -185,7 +183,7 @@ Releases are built by GitHub Actions ([`.github/workflows/release.yml`](.github/
 1. Bump the version in `src/SteamStopper/SteamStopper.csproj`, `installer/SteamStopper.wixproj`, `pack.bat` and the fallback in `src/SteamStopper/Core/Updater.cs`.
 2. Write [`.github/release-notes.md`](.github/release-notes.md): a one-line summary first (the app's update banner shows it), then sections. The app's **What's new** shows everything above `## Downloads`, as plain text.
 3. Add a short "What's new" to this README and move the previous one to [`CHANGELOG.md`](CHANGELOG.md).
-4. Commit, then push a tag (`git tag v2.5.20` and `git push origin v2.5.20`), or start **Release** from the **Actions** tab with **Run workflow**.
+4. Commit, then push a tag (`git tag v2.5.21` and `git push origin v2.5.21`), or start **Release** from the **Actions** tab with **Run workflow**.
 
 The workflow builds the MSI, the portable zip and the auto-update zip, and publishes them as a GitHub release. Running copies offer it within a few hours, or right away on their next launch.
 

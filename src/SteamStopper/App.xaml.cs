@@ -36,6 +36,8 @@ public partial class App : Application
             args.Handled = true;
             Dialog.Show(args.Exception.Message, "Steam Multitool", MessageBoxButton.OK, MessageBoxImage.Warning);
         };
+        // Closes itself once the window is up.
+        new SplashScreen("Assets/splash.png").Show(autoClose: true);
         base.OnStartup(e);
         Theme.Apply(AppSettings.Load().Theme);
         // Created here rather than through StartupUri: the helper modes above must exit without ever building

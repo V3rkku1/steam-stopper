@@ -50,6 +50,63 @@ jobs:
           Stop-Process -Id $p.Id -Force
           Get-Process SteamStopper -ErrorAction SilentlyContinue | Stop-Process -Force
 
+      # Console mode (WebView2 page) on real Windows: a seeded library, F11, a few keys, screenshots to the run's artifacts.
+      - name: Console mode screenshots
+        continue-on-error: true
+        shell: powershell
+        run: |
+          Add-Type -AssemblyName System.Drawing, System.Windows.Forms
+          $games = Join-Path $env:RUNNER_TEMP 'games'
+          New-Item -ItemType Directory -Force $games, "$env:APPDATA\SteamStopper", shots | Out-Null
+          $list = @(('Mountain Racer','.iso','PS2','#1D3A8A'), ('Star Pilots','.nsp','SWITCH','#E60012'), ('Castle Quest','.z64','N64','#2E8B57'),
+                    ('Neon Rally','.iso','PS2','#7A2E8B'), ('Frost Peak','.chd','PS1','#6B7A90'), ('Dungeon Deep','.z64','N64','#8B5A2E'))
+          $roms = foreach ($g in $list) {
+            $file = Join-Path $games ($g[0] + $g[1]); Set-Content $file 'x'
+            $bmp = New-Object System.Drawing.Bitmap 300, 300; $gr = [System.Drawing.Graphics]::FromImage($bmp)
+            $gr.Clear([System.Drawing.ColorTranslator]::FromHtml($g[3]))
+            $gr.FillEllipse((New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(60, 255, 255, 255))), 60, 40, 180, 180)
+            $gr.DrawString($g[0], (New-Object System.Drawing.Font 'Segoe UI', 24, ([System.Drawing.FontStyle]::Bold)), [System.Drawing.Brushes]::White, 14, 240)
+            $cover = "$file.png"; $bmp.Save($cover); $gr.Dispose(); $bmp.Dispose()
+            @{ Path = $file; Title = $g[0]; Console = $g[2]; CustomCover = $cover; Kind = '' }
+          }
+          @{ Folders = @(); Games = @($roms); HiddenLinks = @() } | ConvertTo-Json -Depth 4 | Set-Content "$env:APPDATA\SteamStopper\games.json"
+          $p = Start-Process dist/app/SteamStopper.exe -PassThru
+          Start-Sleep 25
+          $shell = New-Object -ComObject WScript.Shell
+          function Shot($name) {
+            Start-Sleep 3
+            $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            $bmp.Save("shots/$name.png"); $bmp.Dispose()
+          }
+          # SendKeys needs the app focused; AppActivate alone doesn't take it from the runner's console, a click on the title bar does.
+          Add-Type -Namespace W -Name U -MemberDefinition @'
+          [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+          [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+          [DllImport("user32.dll")] public static extern void mouse_event(int f, int x, int y, int d, int e);
+          public struct RECT { public int L, T, R, B; }
+          '@
+          $p.Refresh(); $r = New-Object W.U+RECT; $null = [W.U]::GetWindowRect($p.MainWindowHandle, [ref]$r)
+          $null = $shell.AppActivate($p.Id)
+          $null = [W.U]::SetCursorPos([int](($r.L + $r.R) / 2), $r.T + 14); [W.U]::mouse_event(2, 0, 0, 0, 0); [W.U]::mouse_event(4, 0, 0, 0, 0)
+          Start-Sleep 2
+          Shot '0-app'
+          [System.Windows.Forms.SendKeys]::SendWait('{F11}'); Start-Sleep 8
+          Shot '1-console'
+          [System.Windows.Forms.SendKeys]::SendWait('{RIGHT}{RIGHT}'); Shot '2-moved'
+          [System.Windows.Forms.SendKeys]::SendWait('{DOWN}{DOWN}{DOWN}'); Shot '3-details'
+          [System.Windows.Forms.SendKeys]::SendWait('{UP}{UP}{UP}p'); Shot '4-control-center'
+          Stop-Process -Id $p.Id -Force
+          Get-Process SteamStopper, msedgewebview2 -ErrorAction SilentlyContinue | Stop-Process -Force
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: console-mode-screenshots
+          path: shots/
+          if-no-files-found: ignore
+
       # The new build installs itself over an "old" folder: files replaced, user files kept, no backup left.
       - name: Updater install step
         shell: pwsh
