@@ -148,6 +148,8 @@ public sealed class AppSettings
     public List<string> BlockedApps { get; set; } = [];
     // Game boost: close these background apps while a game from the Games tab runs.
     public bool GameBoost { get; set; }
+    // Console mode (F11) opens ES-DE with the PS5 Menu theme instead of the built-in view.
+    public bool ConsoleEsDe { get; set; }
     // RetroAchievements login; the Web API key is DPAPI-encrypted for this Windows user.
     public string RaUser { get; set; } = "";
     public string RaKeyProtected { get; set; } = "";

@@ -856,5 +856,11 @@ if (OperatingSystem.IsWindows())
     Check($"link dns: live lookup through a chosen server ({string.Join(", ", live.Select(a => a.ToString()))})", live.Length > 0);
 }
 
+Check("es-de: theme picked in an empty settings file", EsDe.SelectTheme("").Contains("<string name=\"Theme\" value=\"ps5-menu-es-de\" />"));
+Check("es-de: existing Theme replaced, rest kept", EsDe.SelectTheme("<?xml version=\"1.0\"?>\n<bool name=\"A\" value=\"true\" />\n<string name=\"Theme\" value=\"slate-es-de\" />\n")
+    == "<?xml version=\"1.0\"?>\n<bool name=\"A\" value=\"true\" />\n<string name=\"Theme\" value=\"ps5-menu-es-de\" />\n");
+Check("es-de: old ThemeSet name kept", EsDe.SelectTheme("<string name=\"ThemeSet\" value=\"x\" />") == "<string name=\"ThemeSet\" value=\"ps5-menu-es-de\" />");
+Check("es-de: other Theme* settings untouched", EsDe.SelectTheme("<string name=\"ThemeVariant\" value=\"v\" />\n").Contains("ThemeVariant\" value=\"v\""));
+
 Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");
 return fails;
